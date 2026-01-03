@@ -1,0 +1,50 @@
+/* Progress Section */
+.progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.progress-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.95rem;
+    transition: all 0.3s;
+}
+
+.step-icon {
+    font-weight: 700;
+    width: 20px;
+    text-align: center;
+}
+
+.step-pending {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.step-active {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.step-active .step-icon {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+.step-done {
+    color: var(--success-color);
+    font-weight: 500;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -4,150 +4,523 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CV Adapter</title>
+    <title>ATS CV Tailor</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* Simple additions for the status log */
-        #status-container {
-            display: none;
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .log-entry {
-            margin: 5px 0;
-            font-size: 0.9rem;
-            color: #e0e0e0;
-        }
-
-        .log-entry:last-child {
-            font-weight: bold;
-            color: #fff;
-        }
-
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 10px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
+    <!-- Load Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>CV Adapter</h1>
-            <p>the end of your problems, kind of</p>
-        </header>
 
-        <main>
-            <form id="job-form" class="glass-form">
-                <div class="form-group">
-                    <label for="job_description">Job Description</label>
-                    <textarea name="job_description" id="job_description" rows="10"
-                        placeholder="Paste the job description here..." required></textarea>
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="logo">
+            <span class="logo-icon">CV</span>
+            ATS CV Tailor
+        </div>
+        <div class="nav-menu">
+            <span class="nav-item active" onclick="showSection('dashboard')">Dashboard</span>
+            <span class="nav-item" onclick="showSection('history')">History</span>
+        </div>
+        <div class="user-menu" id="nav-user-area">
+            <!-- Populated by JS -->
+            <button class="btn-upgrade" onclick="showAuthModal('register')">Get Started</button>
+        </div>
+    </nav>
+
+    <!-- Main Layout -->
+    <div class="app-layout">
+
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-menu">
+                <a href="#" class="menu-link active" onclick="showSection('dashboard')">
+                    <span class="menu-icon">⚡</span> Tailor to Job
+                </a>
+                <a href="#" class="menu-link" onclick="showSection('history')">
+                    <span class="menu-icon">🕘</span> History
+                </a>
+                <a href="#" class="menu-link">
+                    <span class="menu-icon">⚙️</span> Settings
+                </a>
+            </div>
+
+            <div class="credits-box hidden" id="credits-box">
+                <div class="credits-title">Credits remaining</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="credits-fill" style="width: 100%"></div>
+                </div>
+                <div class="credits-text" id="credits-text">Loading...</div>
+                <div style="margin-top:8px; font-size:0.7rem; color:var(--text-accent); cursor:pointer;"
+                    onclick="alert('Upgrade to Pro for unlimited!')">Upgrade to Pro</div>
+            </div>
+
+            <div class="credits-box" id="guest-box">
+                <div class="credits-title">Guest Mode</div>
+                <div class="credits-text">1 Free Generation</div>
+                <button class="btn-primary-lg" style="margin-top:8px; font-size:0.8rem; padding:8px;"
+                    onclick="showAuthModal('register')">Sign Up Free</button>
+            </div>
+        </aside>
+
+        <!-- Main Workflow Area -->
+        <main class="workflow-area" id="main-dashboard">
+            <div class="workflow-header">
+                <h1 class="workflow-title">Tailor your CV to a Job</h1>
+                <p class="workflow-subtitle">Upload your resume, paste the job post, and generate your application kit.
+                </p>
+            </div>
+
+            <!-- STEP 1: Upload CV -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Upload CV</div>
                 </div>
 
-                <div class="form-group">
-                    <label for="email">Email Address (Optional)</label>
-                    <input type="email" name="email" id="email" placeholder="Enter your email to receive the PDF">
+                <div class="upload-zone" onclick="document.getElementById('cv_upload').click()">
+                    <div class="upload-icon">☁️</div>
+                    <p><strong>Click to upload PDF</strong> or text will be used if saved.</p>
+                    <input type="file" id="cv_upload" hidden accept=".pdf">
+                </div>
+                <p id="file-name"
+                    style="text-align:center; margin-top:10px; font-weight:600; color:var(--primary-color);"></p>
+            </div>
+
+            <!-- STEP 2: Job Description -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Job Description</div>
+                </div>
+                <textarea id="job_description" class="job-input"
+                    placeholder="Paste the complete job description here..."></textarea>
+            </div>
+
+            <!-- STEP 3: Generate -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-title">Settings</div>
                 </div>
 
-                <button type="submit" id="submit-btn" class="btn-primary">Adapt & Send</button>
-            </form>
+                <div style="margin-bottom: 24px;">
+                    <label style="font-weight: 600; margin-right: 12px;">Language:</label>
+                    <label style="margin-right: 16px;">
+                        <input type="radio" name="language" value="en" checked> 🇬🇧 English
+                    </label>
+                    <label>
+                        <input type="radio" name="language" value="fr"> 🇫🇷 French
+                    </label>
+                </div>
 
-            <div id="status-container">
-                <h3><span class="loader"></span> Processing...</h3>
-                <div id="logs"></div>
+                <button id="btn-generate" class="btn-primary-lg" onclick="startGeneration()">
+                    ✨ Generate Application Kit
+                </button>
+
+                <!-- PROGRESS SECTION -->
+                <div id="progress-section" class="hidden"
+                    style="margin-top:24px; border-top:1px solid var(--border-color); padding-top:24px;">
+                    <h3 style="font-size:1rem; margin-bottom:16px;">Generation Progress</h3>
+                    <div id="progress-steps" class="progress-steps"></div>
+                </div>
+            </div>
+
+            <!-- RESULTS SECTION (Hidden initially) -->
+            <div id="results-area" class="hidden">
+                <div class="step-card" style="border-color: var(--success-color); background:#f0fdf4;">
+                    <h3>Analysis Complete!</h3>
+
+                    <!-- REAL Match Meter -->
+                    <div id="match-meter" class="match-meter">
+                        <div class="meter-label">
+                            <span>ATS Match Score</span>
+                            <span id="score-display">0%</span>
+                        </div>
+                        <div class="meter-bg">
+                            <div class="meter-fill" id="score-bar" style="width:0%;"></div>
+                        </div>
+                        <div id="keywords-list" style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+                        <p id="cv-tips" style="margin-top:12px; font-size:0.9rem; color:var(--text-secondary);"></p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- HISTORY VIEW -->
+        <main class="workflow-area hidden" id="main-history">
+            <div class="workflow-header">
+                <h1 class="workflow-title">Application History</h1>
+            </div>
+            <div id="history-list">
+                <!-- Populated by JS -->
+                <p>Loading history...</p>
             </div>
         </main>
+
+        <!-- Right Panel: Output Preview -->
+        <aside class="preview-panel">
+            <div class="panel-tabs">
+                <div class="panel-tab active" onclick="switchPreview('cv')">ATS CV</div>
+                <div class="panel-tab" onclick="switchPreview('cl')">Cover Letter</div>
+                <div class="panel-tab" onclick="switchPreview('msg')">Message</div>
+            </div>
+
+            <div class="preview-content">
+                <!-- Docs Preview -->
+                <div id="preview-cv" class="doc-container">
+                    <div class="doc-preview">
+                        <p style="padding:20px; text-align:center; color:#999;">Preview will appear here after
+                            generation.</p>
+                    </div>
+                    <button id="dl-cv" class="btn-primary-lg" disabled>Download CV</button>
+                </div>
+
+                <div id="preview-cl" class="doc-container hidden">
+                    <div class="doc-preview">
+                        <p style="padding:20px; text-align:center; color:#999;">Cover Letter preview...</p>
+                    </div>
+                    <button id="dl-cl" class="btn-primary-lg" disabled>Download CL</button>
+                </div>
+
+                <div id="preview-msg" class="doc-container hidden">
+                    <textarea id="msg-content" class="job-input" style="height:300px;" readonly></textarea>
+                    <button class="btn-outline" onclick="copyMessage()">Copy Message</button>
+                </div>
+            </div>
+        </aside>
+
     </div>
 
+    <!-- Login/Register Modal -->
+    <dialog id="auth-modal"
+        style="padding:0; border:none; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); width:400px;">
+        <div style="padding:24px;">
+            <h2 id="auth-title" style="margin-bottom:16px;">Get Started</h2>
+
+            <form id="auth-form">
+                <input type="email" id="auth_email" placeholder="Email" class="job-input"
+                    style="min-height:auto; margin-bottom:12px;" required>
+                <input type="password" id="auth_password" placeholder="Password" class="job-input"
+                    style="min-height:auto; margin-bottom:16px;" required>
+
+                <button type="submit" class="btn-primary-lg">Continue</button>
+            </form>
+
+            <p style="margin-top:16px; text-align:center; font-size:0.9rem;">
+                <span id="auth-switch-text">New here?</span>
+                <a href="#" onclick="toggleAuthMode()" style="color:var(--primary-color); font-weight:600;">Switch
+                    Mode</a>
+            </p>
+
+            <button onclick="document.getElementById('auth-modal').close()"
+                style="position:absolute; top:12px; right:12px; background:none; border:none; cursor:pointer;">✕</button>
+        </div>
+    </dialog>
+
     <script>
-        document.getElementById('job-form').addEventListener('submit', async function (e) {
+        let isLoginMode = true;
+        let currentUser = null;
+
+        const PROGRESS_STEPS = [
+            "Analyzing Job Description & CV",
+            "Tailoring CV Content",
+            "Writing Cover Letter & Message",
+            "Compiling PDF Documents",
+            "Finalizing Application Kit"
+        ];
+
+        // --- AUTH LOGIC ---
+        function showAuthModal(mode = 'login') {
+            isLoginMode = mode === 'login';
+            updateAuthUI();
+            document.getElementById('auth-modal').showModal();
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            updateAuthUI();
+        }
+
+        function updateAuthUI() {
+            const title = document.getElementById('auth-title');
+            const switchText = document.getElementById('auth-switch-text');
+            if (isLoginMode) {
+                title.innerText = "Login to your Account";
+                switchText.innerText = "No account?";
+            } else {
+                title.innerText = "Create Free Account";
+                switchText.innerText = "Have an account?";
+            }
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            const form = e.target;
-            const btn = document.getElementById('submit-btn');
-            const statusContainer = document.getElementById('status-container');
-            const logsDiv = document.getElementById('logs');
-
-            // Reset UI
-            btn.disabled = true;
-            btn.innerText = "Starting...";
-            statusContainer.style.display = 'block';
-            logsDiv.innerHTML = '';
-
-            const formData = new FormData(form);
+            const email = document.getElementById('auth_email').value;
+            const password = document.getElementById('auth_password').value;
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
 
             try {
-                // Start Job
-                const response = await fetch('/start_job', {
+                const res = await fetch(endpoint, {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
                 });
+                const data = await res.json();
 
-                if (!response.ok) throw new Error("Failed to start job");
+                if (res.ok) {
+                    document.getElementById('auth-modal').close();
+                    checkUser(); // Refresh state
+                    if (!isLoginMode) alert("Registration successful! You have 10 free credits.");
+                } else {
+                    alert(data.error || "Authentication failed");
+                }
+            } catch (e) { console.error(e); }
+        });
 
-                const data = await response.json();
-                const jobId = data.job_id;
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            location.reload();
+        }
 
-                // Poll Status
-                const pollInterval = setInterval(async () => {
-                    const statusRes = await fetch(`/job_status/${jobId}`);
-                    const statusData = await statusRes.json();
+        // --- USER STATE ---
+        async function checkUser() {
+            try {
+                const res = await fetch('/api/user_status');
+                const data = await res.json();
+                currentUser = data;
 
-                    // Update Logs
-                    logsDiv.innerHTML = statusData.logs.map(log => `<div class="log-entry">➤ ${log}</div>`).join('');
+                const navArea = document.getElementById('nav-user-area');
+                const guestBox = document.getElementById('guest-box');
+                const creditsBox = document.getElementById('credits-box');
 
-                    if (statusData.status === 'completed') {
-                        clearInterval(pollInterval);
-                        btn.innerText = "Done!";
-                        btn.disabled = false;
+                if (data.logged_in) {
+                    navArea.innerHTML = `
+                        <div class="avatar" style="background:var(--primary-color); color:white;">${data.email.substring(0, 2).toUpperCase()}</div>
+                        <button class="btn-outline" style="padding:4px 12px; font-size:0.8rem;" onclick="logout()">Logout</button>
+                    `;
 
-                        // Auto-download CV
-                        window.location.href = `/download/${statusData.result.cv_pdf}`;
+                    guestBox.classList.add('hidden');
+                    creditsBox.classList.remove('hidden');
 
-                        // Add download link for Cover Letter if needed, or just show success
-                        const successMsg = document.createElement('div');
-                        successMsg.innerHTML = `<div class="log-entry" style="color: #4caf50;">✅ Success! Downloading CV...</div>`;
-                        logsDiv.appendChild(successMsg);
+                    // Update Credits
+                    const pct = (data.credits / 99) * 100;
+                    document.getElementById('credits-fill').style.width = pct + '%';
+                    document.getElementById('credits-text').innerText = `${data.credits} / 99 free credits`;
 
-                    } else if (statusData.status === 'failed') {
-                        clearInterval(pollInterval);
-                        btn.innerText = "Retry";
-                        btn.disabled = false;
-                        alert("Job Failed. Check logs.");
-                    }
-                }, 1000);
+                    loadHistory();
+                } else {
+                    navArea.innerHTML = `<button class="btn-upgrade" onclick="showAuthModal('register')">Get Started</button>`;
+                    guestBox.classList.remove('hidden');
+                    creditsBox.classList.add('hidden');
+                }
+            } catch (e) { console.error(e); }
+        }
 
-            } catch (err) {
-                console.error(err);
-                alert("An error occurred: " + err.message);
-                btn.disabled = false;
-                btn.innerText = "Adapt & Send";
+        // --- DASHBOARD LOGIC ---
+
+        document.getElementById('cv_upload').addEventListener('change', function () {
+            if (this.files[0]) {
+                document.getElementById('file-name').innerText = "Selected: " + this.files[0].name;
             }
         });
+
+        async function startGeneration() {
+            const btn = document.getElementById('btn-generate');
+            const jobDesc = document.getElementById('job_description').value;
+
+            if (!jobDesc) return alert("Please paste a job description.");
+
+            btn.innerHTML = "Working on it... ⚙️";
+            btn.disabled = true;
+
+            document.getElementById('progress-section').classList.remove('hidden');
+            renderProgress(0);
+
+            const formData = new FormData();
+            formData.append('job_description', jobDesc);
+
+            // Language Selection
+            const lang = document.querySelector('input[name="language"]:checked').value;
+            formData.append('language', lang);
+
+            const fileInput = document.getElementById('cv_upload');
+            if (fileInput.files[0]) formData.append('cv_file', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/start_job', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    // Handle Errors (Limits)
+                    if (res.status === 403) {
+                        alert(data.error);
+                        if (data.error.includes("Guest")) showAuthModal('register');
+                    } else {
+                        alert("Error: " + data.error);
+                    }
+                    throw new Error(data.error);
+                }
+
+                pollStatus(data.job_id);
+            } catch (e) {
+                console.error(e);
+                btn.innerHTML = "✨ Generate Application Kit";
+                btn.disabled = false;
+            }
+        }
+
+        function pollStatus(jobId) {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/job_status/${jobId}`);
+                const data = await res.json();
+
+                if (data.current_step !== undefined) renderProgress(data.current_step);
+
+                if (data.status === 'completed') {
+                    clearInterval(interval);
+                    showResults(data);
+                } else if (data.status === 'failed') {
+                    clearInterval(interval);
+                    alert("Generation Failed");
+                    document.getElementById('btn-generate').innerHTML = "✨ Generate Application Kit";
+                    document.getElementById('btn-generate').disabled = false;
+                }
+            }, 1000);
+        }
+
+        function renderProgress(currentStep) {
+            const container = document.getElementById('progress-steps');
+            container.innerHTML = "";
+
+            PROGRESS_STEPS.forEach((step, index) => {
+                let statusClass = 'step-pending';
+                let icon = '○';
+
+                if (index < currentStep) {
+                    statusClass = 'step-done';
+                    icon = '✓';
+                } else if (index === currentStep) {
+                    statusClass = 'step-active';
+                    icon = '⟳';
+                }
+
+                container.innerHTML += `
+                    <div class="progress-step ${statusClass}">
+                        <span class="step-icon">${icon}</span>
+                        <span class="step-text">${step}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function showResults(data) {
+            const result = data.result;
+            document.getElementById('btn-generate').innerHTML = "✨ Generate Application Kit";
+            document.getElementById('btn-generate').disabled = false;
+
+            // 1. Show Analysis
+            document.getElementById('results-area').classList.remove('hidden');
+            const analysis = result.analysis || {};
+
+            document.getElementById('score-display').innerText = (analysis.ats_score || 0) + "%";
+            document.getElementById('score-bar').style.width = (analysis.ats_score || 0) + "%";
+            document.getElementById('cv-tips').innerText = analysis.cv_improvements || "CV Optimized.";
+
+            const kwList = document.getElementById('keywords-list');
+            kwList.innerHTML = "";
+            (analysis.missing_keywords || []).forEach(kw => {
+                kwList.innerHTML += `<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-size:0.8rem;">⚠️ ${kw}</span>`;
+            });
+
+            // 2. Enable Downloads
+            document.getElementById('dl-cv').disabled = false;
+            document.getElementById('dl-cv').onclick = () => window.open(`/download/${result.cv_pdf}`);
+
+            // Preview CV
+            const cvPreview = document.getElementById('preview-cv').querySelector('.doc-preview');
+            // Use Google Docs viewer or native if available. Native iframe is best for modern browsers.
+            cvPreview.innerHTML = `<iframe src="/view/${result.cv_pdf}#toolbar=0&navpanes=0&scrollbar=0" width="100%" height="100%" style="border:none;"></iframe>`;
+            cvPreview.classList.add('has-file');
+
+            document.getElementById('dl-cl').disabled = false;
+            document.getElementById('dl-cl').onclick = () => window.open(`/download/${result.cl_pdf}`);
+
+            // Preview CL
+            const clPreview = document.getElementById('preview-cl').querySelector('.doc-preview');
+            clPreview.innerHTML = `<iframe src="/view/${result.cl_pdf}#toolbar=0&navpanes=0&scrollbar=0" width="100%" height="100%" style="border:none;"></iframe>`;
+            clPreview.classList.add('has-file');
+
+            document.getElementById('msg-content').value = data.message_text;
+
+            // Refresh user credits
+            checkUser();
+        }
+
+        // --- HISTORY ---
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history');
+                if (!res.ok) return; // Guest
+                const items = await res.json();
+
+                const list = document.getElementById('history-list');
+                list.innerHTML = "";
+
+                items.forEach(item => {
+                    list.innerHTML += `
+                    <div class="step-card" style="padding:16px; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:700;">${item.company}</div>
+                                <div style="font-size:0.9rem; color:var(--text-secondary);">${item.job}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="color:var(--success-color); font-weight:700;">${item.score}% ATS</div>
+                                <div style="font-size:0.8rem;">${item.date}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+
+                if (items.length === 0) list.innerHTML = "<p style='color:var(--text-secondary); text-align:center;'>No history yet.</p>";
+
+            } catch (e) { }
+        }
+
+        // --- NAVIGATION ---
+        function showSection(section) {
+            document.getElementById('main-dashboard').classList.add('hidden');
+            document.getElementById('main-history').classList.add('hidden');
+
+            if (section === 'dashboard') document.getElementById('main-dashboard').classList.remove('hidden');
+            if (section === 'history') {
+                if (!currentUser || !currentUser.logged_in) {
+                    alert("Please register to view history.");
+                    return showSection('dashboard'); // Revert
+                }
+                document.getElementById('main-history').classList.remove('hidden');
+            }
+        }
+
+        function switchPreview(type) {
+            ['cv', 'cl', 'msg'].forEach(t => document.getElementById(`preview-${t}`).classList.add('hidden'));
+            document.getElementById(`preview-${type}`).classList.remove('hidden');
+
+            document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function copyMessage() {
+            const copyText = document.getElementById("msg-content");
+            copyText.select();
+            document.execCommand("copy");
+            alert("Copied!");
+        }
+
+        // Init
+        checkUser();
+
     </script>
 </body>
 

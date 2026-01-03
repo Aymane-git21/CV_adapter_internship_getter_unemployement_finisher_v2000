@@ -1,5 +1,5 @@
-% We use 'article' for standard A4 page.
-\documentclass[10pt, a4paper]{article}
+% We use 'standalone' to crop the page to the content height.
+\documentclass[10pt, border=1.2cm]{standalone}
 
 % --- Language & Encoding ---
 \usepackage[utf8]{inputenc}
@@ -19,7 +19,7 @@
 \usetikzlibrary{calc, shadows, positioning}
 
 % --- Layout Utilities ---
-\usepackage[left=1.2cm,right=1.2cm,top=1.2cm,bottom=1.2cm]{geometry}
+\usepackage{geometry}
 \usepackage{parskip} 
 \usepackage{setspace}
 \usepackage{hyperref}
@@ -132,13 +132,11 @@
 % Redefine subject to avoid double "Objet :" since app.py sends it
 \renewcommand{\subject}[1]{
     {
-        \centering
         \color{primary}\bfseries 
         \begin{tikzpicture}[baseline={([yshift=-.6ex]current bounding box.center)}]
             \fill[accent] (0,0) circle (2.5pt);
         \end{tikzpicture}
         \ #1
-        \par
     }
     \vspace{0.5cm}
 }
@@ -177,13 +175,28 @@
 %                      DOCUMENT CONTENT
 % ============================================================
 \begin{document}
-%\centering
-%\noindent
-%\begin{minipage}{18.6cm}
+\centering
+\noindent
+\begin{minipage}{18.6cm}
 
 \makeextraheader
 
-% <BODY_CONTENT>
+\recipientblock
+    {Nom de l'Entreprise}
+    {À l'attention du Responsable Recrutement}
+    {Adresse de l'entreprise}
 
-%\end{minipage}
+
+\subject{\textbf{Objet :} Candidature Test Simulé}
+
+\opening{Madame, Monsieur,}
+
+Ceci est un test pour vérifier que le contenu généré par l'app (qui utilise opening et closing) s'affiche correctement et qu'il n'y a plus de duplication.
+
+\lipsum[1-2]
+
+\closing{Cordialement,}
+
+
+\end{minipage}
 \end{document}

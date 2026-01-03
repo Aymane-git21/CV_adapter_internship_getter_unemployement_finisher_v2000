@@ -1,20 +1,20 @@
 import os
 import subprocess
-import smtplib
 import concurrent.futures
 import uuid
 import threading
 import time
 import json
 import re
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.mime.text import MIMEText
-from email import encoders
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, session
 import google.generativeai as genai
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from pypdf import PdfReader
 
 load_dotenv()
 
@@ -22,8 +22,145 @@ app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Change this in production
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
+# Force new DB file to resolve schema issues
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cv_tailor_v2.db' 
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
+
+# Database Setup
+db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+# User Model
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128))
+    cv_text = db.Column(db.Text, nullable=True) 
+    
+    # SaaS Fields
+    plan_type = db.Column(db.String(20), default='free') # 'free', 'pro'
+    credits_used = db.Column(db.Integer, default=0)
+    last_reset = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+# Application History Model
+class Application(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    job_title = db.Column(db.String(150))
+    company = db.Column(db.String(150))
+    ats_score = db.Column(db.Integer, default=0)
+    missing_keywords = db.Column(db.Text) # JSON string
+    cv_path = db.Column(db.String(200))
+    cl_path = db.Column(db.String(200))
+    message_content = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Feedback Model
+class Feedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    email = db.Column(db.String(120))
+    message = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Create DB
+with app.app_context():
+    db.create_all()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# --- ROUTES ---
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already exists'}), 400
+        
+    new_user = User(email=email)
+    new_user.set_password(password)
+    db.session.add(new_user)
+    db.session.commit()
+    login_user(new_user)
+    return jsonify({'message': 'Registered successfully', 'has_cv': False})
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    user = User.query.filter_by(email=data.get('email')).first()
+    if user and user.check_password(data.get('password')):
+        login_user(user)
+        return jsonify({'message': 'Login successful', 'has_cv': bool(user.cv_text)})
+    return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    logout_user()
+    return jsonify({'message': 'Logged out'})
+
+@app.route('/api/user_status')
+def user_status():
+    if current_user.is_authenticated:
+        # Check credit reset
+        if current_user.plan_type == 'free' and (datetime.utcnow() - current_user.last_reset).days >= 1:
+            current_user.credits_used = 0
+            current_user.last_reset = datetime.utcnow()
+            db.session.commit()
+            
+        return jsonify({
+            'logged_in': True, 
+            'email': current_user.email,
+            'has_cv': bool(current_user.cv_text),
+            'credits': 99 - current_user.credits_used,
+            'plan': current_user.plan_type
+        })
+    return jsonify({'logged_in': False})
+
+@app.route('/api/history')
+@login_required
+def get_history():
+    apps = Application.query.filter_by(user_id=current_user.id).order_by(Application.timestamp.desc()).all()
+    history_data = []
+    for app in apps:
+        history_data.append({
+            'id': app.id,
+            'job': app.job_title or "Job Application",
+            'company': app.company or "Unknown",
+            'score': app.ats_score,
+            'date': app.timestamp.strftime('%Y-%m-%d')
+        })
+    return jsonify(history_data)
+
+@app.route('/api/contact', methods=['POST'])
+def contact():
+    data = request.json
+    feedback = Feedback(
+        name=data.get('name'), 
+        email=data.get('email'), 
+        message=data.get('message')
+    )
+    db.session.add(feedback)
+    db.session.commit()
+    return jsonify({'message': 'Message received!'})
 
 # Gemini Configuration
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -35,63 +172,83 @@ JOBS = {}
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
 
 def clean_markdown(text):
-    """Removes markdown code block formatting and artifacts."""
     if text.startswith("```latex"): text = text[8:]
     elif text.startswith("```json"): text = text[7:]
     elif text.startswith("```"): text = text[3:]
     if text.endswith("```"): text = text[:-3]
-    
-    # Remove markdown bolding artifacts
     text = text.replace("**", "")
-    
-    # Remove potential markdown headers that break LaTeX (# is special in LaTeX)
-    lines = text.split('\n')
-    cleaned_lines = []
-    for line in lines:
-        if line.strip().startswith('# '):
-            continue # Skip markdown headers
-        cleaned_lines.append(line)
-    
-    return '\n'.join(cleaned_lines).strip()
+    return text.strip()
 
-def extract_job_metadata(job_description):
-    """
-    Extracts Company Name and Job Title for dynamic naming.
-    """
-    if not GEMINI_API_KEY: return {"company": "Company", "title": "Job"}
-    
+def extract_json(text):
+    """Extracts JSON object from a string that might contain other text."""
     try:
-        model = genai.GenerativeModel('models/gemini-2.0-flash')
-        prompt = f"""
-        Extract the 'Company Name' and 'Job Title' from this job description.
-        Return a JSON object with keys 'company' and 'title'.
-        Sanitize the values to be safe for filenames (alphanumeric, underscores, hyphens only, no spaces).
-        Example: {{"company": "Google", "title": "Software_Engineer"}}
+        # Try parsing directly
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Look for { ... } structure
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except:
+                pass
+    return None
+
+def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
+    try:
+        JOBS[job_id]['status'] = 'processing'
+        JOBS[job_id]['current_step'] = 0
+        JOBS[job_id]['logs'].append("Analyzing Job Description & CV...")
+
+        model = genai.GenerativeModel('gemini-2.0-flash')
         
-        Job Description:
-        {job_description[:2000]}
+        # 1. ANALYZE & SCORE (JSON Output)
+        analysis_prompt = f"""
+        Act as an expert ATS (Applicant Tracking System) scanner.
+        Compare the following CV against the Job Description.
+        
+        JOB DESCRIPTION:
+        {job_description}
+
+        CV CONTENT:
+        {cv_text}
+
+        Return a ONLY a JSON object with this exact structure:
+        {{
+            "job_title": "extracted job title",
+            "company": "extracted company name",
+            "ats_score": 85,
+            "missing_keywords": ["keyword1", "keyword2", "keyword3"],
+            "cv_improvements": "Short summary of what to change in the CV content to target this job."
+        }}
         """
-        response = model.generate_content(prompt)
-        text = clean_markdown(response.text)
-        data = json.loads(text)
-        return data
-    except Exception as e:
-        print(f"Metadata extraction failed: {e}")
-        return {"company": "Company", "title": "Job"}
+        
+        analysis_response = model.generate_content(analysis_prompt)
+        analysis_data = extract_json(analysis_response.text)
+        
+        if not analysis_data:
+            # Fallback if AI fails to give JSON
+            analysis_data = {
+                "job_title": "Job Application", "company": "Unknown", 
+                "ats_score": 70, "missing_keywords": [], "cv_improvements": ""
+            }
 
-def adapt_cv_with_gemini(tex_content, job_description, master_cv_content):
-    if not GEMINI_API_KEY: raise ValueError("Gemini API Key is missing.")
-    # Reverting to 3-pro-preview as requested
-    model = genai.GenerativeModel('models/gemini-3-pro-preview')
+        JOBS[job_id]['logs'].append(f"ATS Score: {analysis_data['ats_score']}%")
+        JOBS[job_id]['current_step'] = 1
+        
+        # 2. GENERATE LATEX CV
+        # Read the Master Template
+        try:
+            with open('CV.tex', 'r', encoding='utf-8') as f:
+                cv_template = f.read()
+            with open('CoverLetter.tex', 'r', encoding='utf-8') as f:
+                cl_template = f.read()
+        except FileNotFoundError:
+            cv_template = "Error: CV.tex not found."
+            cl_template = "Error: CoverLetter.tex not found."
+            JOBS[job_id]['logs'].append("Error: Templates not found.")
 
-    # Identifies the preamble to ensure we preserve the 'standalone' class packaging
-    if "\\begin{document}" in tex_content:
-        preamble = tex_content.split("\\begin{document}")[0]
-    else:
-        # Fallback if the template is malformed
-        preamble = "\\documentclass[10pt, varwidth=18.6cm, border=1.2cm]{standalone}\n"
-
-    prompt = f"""
+        cv_prompt = f"""
     You are an expert CV tailor.
     I have a Master CV (Markdown) containing all my experiences, and a Job Description.
     I also have a LaTeX CV template.
@@ -102,255 +259,237 @@ def adapt_cv_with_gemini(tex_content, job_description, master_cv_content):
     1. **Strict Structure**: You MUST use the exact LaTeX commands and structure defined in the template (e.g., use the defined \\entry and \\project commands).
     2. **Content**: Select the most relevant projects/experiences. Rewrite the 'Profile' and 'Title'.
     3. **No Markdown**: Do NOT use markdown formatting (no **, no # headers). Use LaTeX commands (\\textbf{{...}}).
-    4. **Language**: French.
+    4. **Language**: Write strictly in {language.upper()}.
     5. **Reference**: Do strictly follow the template's custom commands.
     6. **ONE PAGE ONLY**: Keep it concise.
     7. **Output Format**: generate ONLY the LaTeX content for the body. Do NOT include \\documentclass, preamble, \\begin{{document}} or \\end{{document}}.
 
     Master CV (Source of Truth):
-    {master_cv_content}
+    {cv_text}
 
     Job Description:
     {job_description}
 
     LaTeX CV Template (Structure to follow):
-    {tex_content}
+    {cv_template}
     
     Return ONLY the content that goes INSIDE \\begin{{document}} ... \\end{{document}}.
     """
-    response = model.generate_content(prompt)
-    body_content = clean_markdown(response.text)
-    
-    # Extra safety: remove document tags if the AI ignored instructions
-    body_content = body_content.replace("\\begin{document}", "").replace("\\end{document}", "")
-    
-    return f"{preamble}\\begin{{document}}\n{body_content}\n\\end{{document}}"
-
-def generate_cover_letter(job_description, master_cv_content, cl_tex_content):
-    if not GEMINI_API_KEY: raise ValueError("Gemini API Key is missing.")
-    model = genai.GenerativeModel('models/gemini-3-pro-preview')
-    prompt = f"""
-    You are an expert career coach.
-    Write a compelling CACHE_LETTER_BODY for the following Job Description, based on the candidate's Master CV.
-    
-    You are NOT generating the full LaTeX file. You are only generating the content that goes inside the body of the letter.
-
-    GUIDELINES:
-    1. **Format**: The text will be injected into a LaTeX `letter` environment.
-       - The template ALREADY defines the sender/recipient block.
-       - You must provide: Subject, Opening, Body, Closing.
-       
-    2. **Structure to Generate**:
-       - `\\subject{{\\textbf{{Objet :}} ...}}` 
-       - `\\opening{{Madame, Monsieur,}}` (or specific Name if known)
-       - **BODY PARAGRAPHS**: 3-4 paragraphs.
-       - `\\closing{{Je vous prie d’agréer...}}` 
-       - Do NOT include `\\end{{letter}}` or `\\begin{{letter}}`.
-       - Do NOT include `\\signature{{...}}` (handled by template).
-       
-    3. **Styling Constraints (STRICT)**:
-       - **NO BOLD TEXT in the body paragraphs**.
-       - **NO LONG HYPHENS** (use standard hyphens).
-       - **No Markdown**: Pure LaTeX.
-       
-    4. **Content**: Professional, enthusiastic, tailored to the job.
-    5. **Language**: French.
-    6. **No Placeholders**: Do not include bracketed text `[...]`.
-    
-    Master CV:
-    {master_cv_content}
-    
-    Job Description:
-    {job_description}
-    
-    Return ONLY the valid LaTeX code commands (subject, opening, body, closing).
-    """
-    response = model.generate_content(prompt)
-    body_content = clean_markdown(response.text)
-    
-    # Inject into template
-    if "% <BODY_CONTENT>" in cl_tex_content:
-        final_latex = cl_tex_content.replace("% <BODY_CONTENT>", body_content)
-    else:
-        # Fallback: Insert before \end{document}
-        final_latex = cl_tex_content.replace("\\end{document}", f"\n{body_content}\n\\end{{document}}")
+        cv_response = model.generate_content(cv_prompt)
+        cv_body = clean_markdown(cv_response.text)
         
-    return final_latex
-
-def generate_short_message(job_description, master_cv_content):
-    if not GEMINI_API_KEY: raise ValueError("Gemini API Key is missing.")
-    model = genai.GenerativeModel('models/gemini-3-pro-preview')
-    prompt = f"""
-    Write a short, professional email body (or LinkedIn message) to apply for this internship.
-    
-    GUIDELINES:
-    1. **Length**: STRICTLY LESS THAN 1000 CHARACTERS.
-    2. **Language**: French.
-    3. **No Markdown**: Pure text.
-
-    Master CV:
-    {master_cv_content}
-
-    Job Description:
-    {job_description}
-
-    Return ONLY the text of the message.
-    """
-    response = model.generate_content(prompt)
-    return response.text.strip()
-
-def compile_latex(tex_path, output_dir):
-    pdflatex_path = r'C:\Users\ayman\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe'
-    pdf_filename = os.path.splitext(os.path.basename(tex_path))[0] + ".pdf"
-    expected_pdf_path = os.path.join(output_dir, pdf_filename)
-
-    try:
-        result = subprocess.run([pdflatex_path, '-interaction=nonstopmode', '-output-directory', output_dir, tex_path], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if os.path.exists(expected_pdf_path):
-            return expected_pdf_path
+        # Reconstruct the full CV
+        if "\\begin{document}" in cv_template:
+            preamble = cv_template.split("\\begin{document}")[0]
+            cv_latex = f"{preamble}\\begin{{document}}\n{cv_body}\n\\end{{document}}"
         else:
-            raise RuntimeError(f"LaTeX compilation failed. Return code: {result.returncode}")
-    except Exception as e:
-        raise RuntimeError(f"LaTeX compilation error: {str(e)}")
+            cv_latex = cv_body # Fallback
 
-def send_email(cv_pdf_path, cover_letter_pdf_path, email_body, recipient_email):
-    sender_email = os.getenv('GMAIL_USER')
-    sender_password = os.getenv('GMAIL_PASSWORD').replace(" ", "")
+        JOBS[job_id]['current_step'] = 2
 
-    if not sender_email or not sender_password: return
-
-    msg = MIMEMultipart()
-    msg['From'] = sender_email
-    msg['To'] = recipient_email
-    msg['Subject'] = "Candidature - Stage"
-
-    msg.attach(MIMEText(email_body, 'plain'))
-
-    for path in [cv_pdf_path, cover_letter_pdf_path]:
-        if path and os.path.exists(path):
-            try:
-                with open(path, "rb") as attachment:
-                    part = MIMEBase("application", "octet-stream")
-                    part.set_payload(attachment.read())
-                encoders.encode_base64(part)
-                part.add_header("Content-Disposition", f"attachment; filename= {os.path.basename(path)}")
-                msg.attach(part)
-            except Exception as e:
-                print(f"Failed to attach {path}: {e}")
-
-    try:
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, recipient_email, msg.as_string())
-        server.quit()
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-
-def process_application(job_id, job_description, recipient_email, tex_content, cl_tex_content, master_cv_content):
-    JOBS[job_id]['status'] = 'processing'
-    JOBS[job_id]['logs'].append("Starting analysis...")
+        # 3. GENERATE COVER LETTER
+        cl_prompt = f"""
+    You are an expert career coach.
+    Write a professional Cover Letter body for the attached Job Description.
     
-    try:
-        # 1. Start all tasks in parallel
-        future_meta = executor.submit(extract_job_metadata, job_description)
-        future_cv_text = executor.submit(adapt_cv_with_gemini, tex_content, job_description, master_cv_content)
-        future_cl_text = executor.submit(generate_cover_letter, job_description, master_cv_content, cl_tex_content)
-        future_msg = executor.submit(generate_short_message, job_description, master_cv_content)
-
-
-        # 2. Extract Metadata (Fastest)
-        meta = future_meta.result()
-        company = meta.get('company', 'Company')
-        title = meta.get('title', 'Job')
-        JOBS[job_id]['logs'].append(f"Identified Job: {title} at {company}")
+    JOB DESCRIPTION:
+    {job_description}
+    
+    CANDIDATE CV:
+    {cv_text}
+    
+    TEMPLATE CONTEXT:
+    {cl_template}
+    
+    INSTRUCTIONS:
+    1. **Format**: Use the exact commands from the template (e.g., \\opening, \\closing).
+    2. **Content**: Write 3 paragraphs explaining why the candidate is a fit.
+    3. **Style**: Professional and enthusiastic. Write strictly in {language.upper()}.
+    4. **Output**: Return ONLY the body content (from \\opening to \\closing). Do NOT include \\documentclass or \\begin{{document}}.
+    """
+        cl_response = model.generate_content(cl_prompt)
+        cl_body = clean_markdown(cl_response.text)
         
-        cv_filename = "CV_AymaneMERBOUH.tex"
-        cl_filename = "CoverLetter_AymaneMERBOUH.tex"
+        # Inject into CL Template
+        if "% <BODY_CONTENT>" in cl_template:
+            cl_latex = cl_template.replace("% <BODY_CONTENT>", cl_body)
+        elif "\\begin{document}" in cl_template:
+             # Heuristic injection
+             part1 = cl_template.split("\\begin{document}")[0] + "\\begin{document}\n"
+             if "\\makeextraheader" in cl_template:
+                 part1 += "\\makeextraheader\n"
+             cl_latex = f"{part1}\n{cl_body}\n\\end{{document}}"
+        else:
+            cl_latex = cl_body
+        
+        # 4. GENERATE OUTREACH MESSAGE
+        lang_name = "French" if language == 'fr' else "English"
+        msg_prompt = f"""
+        Act as the candidate described in the CV.
+        Write a short, engaging LinkedIn outreach message (<1000 chars) to a recruiter for this Job.
+        
+        CONTEXT:
+        - My CV: {cv_text}
+        - Job Description: {job_description}
 
-        # 3. Process CV
-        JOBS[job_id]['logs'].append("Adapting CV...")
-        cv_text = future_cv_text.result()
-        cv_path = os.path.join(app.config['UPLOAD_FOLDER'], cv_filename)
-        with open(cv_path, 'w', encoding='utf-8') as f: f.write(cv_text)
+        INSTRUCTIONS:
+        1. **Language**: Write strictly in {lang_name}.
+        2. **No Placeholders**: You MUST fill in the names/skills/company.
+           - Candidate Name: Extract from CV (if not found, use "The Candidate").
+           - Recruiter Name: "Hiring Team" (unless specific name found in JD).
+           - Company: Extract from JD.
+           - Skills: select real skills from CV relevant to JD.
+        3. **Tone**: Professional, brief, and not robotic.
         
-        JOBS[job_id]['logs'].append("Compiling CV...")
-        cv_pdf_path = compile_latex(cv_path, app.config['OUTPUT_FOLDER'])
-        JOBS[job_id]['logs'].append("CV Ready.")
+        Return ONLY the message text (Subject + Body).
+        """
+        msg_response = model.generate_content(msg_prompt)
+        msg_content = clean_markdown(msg_response.text)
 
-        # 4. Process Cover Letter
-        JOBS[job_id]['logs'].append("Writing Cover Letter...")
-        cl_text = future_cl_text.result()
-        cl_path = os.path.join(app.config['UPLOAD_FOLDER'], cl_filename)
-        with open(cl_path, 'w', encoding='utf-8') as f: f.write(cl_text)
+        # 5. COMPILE LATEX
+        JOBS[job_id]['current_step'] = 3
+        JOBS[job_id]['logs'].append("Compiling PDF Documents...")
         
-        JOBS[job_id]['logs'].append("Compiling Cover Letter...")
-        cl_pdf_path = compile_latex(cl_path, app.config['OUTPUT_FOLDER'])
-        JOBS[job_id]['logs'].append("Cover Letter Ready.")
+        output_dir = app.config['OUTPUT_FOLDER']
+        cv_filename = f"CV_{job_id}.tex"
+        cl_filename = f"CL_{job_id}.tex"
+        
+        with open(os.path.join(output_dir, cv_filename), 'w', encoding='utf-8') as f: f.write(cv_latex)
+        with open(os.path.join(output_dir, cl_filename), 'w', encoding='utf-8') as f: f.write(cl_latex)
 
-        # 5. Process Message & Email
-        JOBS[job_id]['logs'].append("Drafting Email...")
-        msg_text = future_msg.result()
+        # Compilation Command (with fallback)
+        pdflatex_path = r'C:\Users\ayman\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe'
+        cmd = pdflatex_path if os.path.exists(pdflatex_path) else 'pdflatex'
+
+        try:
+            # Capture output for debugging
+            result_cv = subprocess.run([cmd, '-interaction=nonstopmode', '-output-directory', output_dir, os.path.join(output_dir, cv_filename)], 
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+            
+            if result_cv.returncode != 0:
+                print(f"CV Compilation Failed:\nSTDOUT: {result_cv.stdout}\nSTDERR: {result_cv.stderr}")
+                JOBS[job_id]['logs'].append(f"CV Compilation Error (Code {result_cv.returncode})")
+
+            result_cl = subprocess.run([cmd, '-interaction=nonstopmode', '-output-directory', output_dir, os.path.join(output_dir, cl_filename)], 
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+                                     
+            if result_cl.returncode != 0:
+                 print(f"CL Compilation Failed:\nSTDOUT: {result_cl.stdout}\nSTDERR: {result_cl.stderr}")
+                 JOBS[job_id]['logs'].append(f"CL Compilation Error (Code {result_cl.returncode})")
+
+        except Exception as e:
+            JOBS[job_id]['logs'].append(f"PDF Execution Error: {e}")
+            print(f"Compilation Exec Failed: {e}")
+
+        cv_pdf = f"CV_{job_id}.pdf"
+        cl_pdf = f"CL_{job_id}.pdf"
         
-        if recipient_email:
-            JOBS[job_id]['logs'].append(f"Sending email to {recipient_email}...")
-            send_email(cv_pdf_path, cl_pdf_path, msg_text, recipient_email)
-            JOBS[job_id]['logs'].append("Email Sent!")
+        # Check if files actually exist
+        if not os.path.exists(os.path.join(output_dir, cv_pdf)):
+             JOBS[job_id]['logs'].append("CRITICAL: CV PDF was not created.")
         
-        JOBS[job_id]['result'] = {
-            'cv_pdf': os.path.basename(cv_pdf_path),
-            'cl_pdf': os.path.basename(cl_pdf_path)
-        }
+        if not os.path.exists(os.path.join(output_dir, cl_pdf)):
+             JOBS[job_id]['logs'].append("CRITICAL: CL PDF was not created.")
+
+        # 6. SAVE TO DB (If Registered)
+        if user_id:
+            with app.app_context():
+                user = User.query.get(user_id)
+                if user and user.plan_type == 'free':
+                    user.credits_used += 1
+                
+                new_app = Application(
+                    user_id=user_id,
+                    job_title=analysis_data.get('job_title', 'Job Application'),
+                    company=analysis_data.get('company', 'Unknown'),
+                    ats_score=analysis_data.get('ats_score', 0),
+                    missing_keywords=json.dumps(analysis_data.get('missing_keywords', [])),
+                    cv_path=cv_pdf,
+                    cl_path=cl_pdf,
+                    message_content=msg_content
+                )
+                db.session.add(new_app)
+                db.session.commit()
+
+        JOBS[job_id]['current_step'] = 4
         JOBS[job_id]['status'] = 'completed'
-        JOBS[job_id]['logs'].append("All Done!")
+        JOBS[job_id]['result'] = {
+            'cv_pdf': cv_pdf,
+            'cl_pdf': cl_pdf,
+            'analysis': analysis_data
+        }
+        JOBS[job_id]['message_text'] = msg_content # Keys match frontend
+        JOBS[job_id]['logs'].append("Done!")
 
     except Exception as e:
         JOBS[job_id]['status'] = 'failed'
         JOBS[job_id]['logs'].append(f"Error: {str(e)}")
-        print(f"Job {job_id} failed: {e}")
-
-@app.route('/')
-def index():
-    return render_template('index.html')
+        print(f"Job failed: {e}")
 
 @app.route('/start_job', methods=['POST'])
 def start_job():
-    job_description = request.form.get('job_description')
-    recipient_email = request.form.get('email')
-    
-    if not job_description:
-        return jsonify({'error': 'No job description provided'}), 400
+    # Guest Limit Check
+    if not current_user.is_authenticated:
+        if session.get('guest_usage', 0) >= 1:
+            return jsonify({'error': 'Guest verification limit reached. Please register for free.'}), 403
+        session['guest_usage'] = session.get('guest_usage', 0) + 1
+    else:
+        # User Limit Check
+        if current_user.plan_type == 'free' and current_user.credits_used >= 99:
+             return jsonify({'error': 'Daily limit reached (99/99). Upgrade to Pro for unlimited.'}), 403
 
-    # Read static files
-    try:
-        with open(os.path.abspath('CV.tex'), 'r', encoding='utf-8') as f:
-            tex_content = f.read()
+    job_description = request.form.get('job_description')
+    cv_text = ""
+    
+    # Handle CV Input (File or Database or Text)
+    if 'cv_file' in request.files:
+        file = request.files['cv_file']
+        if file.filename != '':
+            filename = secure_filename(file.filename)
+            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(path)
+            reader = PdfReader(path)
+            for page in reader.pages:
+                cv_text += page.extract_text()
             
-        with open(os.path.abspath('CoverLetter.tex'), 'r', encoding='utf-8') as f:
-            cl_tex_content = f.read()
-        
-        master_cv_path = os.path.abspath('master_cv.md')
-        if os.path.exists(master_cv_path):
-            with open(master_cv_path, 'r', encoding='utf-8') as f:
-                master_cv_content = f.read()
-        else:
-            master_cv_content = "No master CV found."
-    except Exception as e:
-        return jsonify({'error': f"File error: {e}"}), 500
+            # Save to profile if logged in
+            if current_user.is_authenticated:
+                current_user.cv_text = cv_text
+                db.session.commit()
+
+    elif 'cv_text' in request.form and request.form['cv_text']:
+        cv_text = request.form['cv_text']
+        if current_user.is_authenticated:
+            current_user.cv_text = cv_text
+            db.session.commit()
+
+    elif current_user.is_authenticated and current_user.cv_text:
+        cv_text = current_user.cv_text
+    
+    else:
+        return jsonify({'error': 'No CV provided'}), 400
 
     job_id = str(uuid.uuid4())
-    JOBS[job_id] = {'status': 'queued', 'logs': [], 'result': None}
+    JOBS[job_id] = {'status': 'queued', 'logs': [], 'result': None, 'current_step': 0}
     
-    # Start background thread
-    thread = threading.Thread(target=process_application, args=(job_id, job_description, recipient_email, tex_content, cl_tex_content, master_cv_content))
-    thread.start()
+    user_id = current_user.id if current_user.is_authenticated else None
+    
+    language = request.form.get('language', 'en')
+    
+    executor.submit(process_job, job_id, job_description, cv_text, user_id, language)
     
     return jsonify({'job_id': job_id})
 
 @app.route('/job_status/<job_id>')
 def job_status(job_id):
     job = JOBS.get(job_id)
-    if not job: return jsonify({'error': 'Job not found'}), 404
+    if not job:
+        return jsonify({'status': 'unknown'}), 404
     return jsonify(job)
+
+@app.route('/view/<filename>')
+def view_file(filename):
+    return send_file(os.path.join(app.config['OUTPUT_FOLDER'], filename), as_attachment=False)
 
 @app.route('/download/<filename>')
 def download_file(filename):

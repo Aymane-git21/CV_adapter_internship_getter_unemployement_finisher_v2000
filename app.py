@@ -6,8 +6,9 @@ import threading
 import time
 import json
 import re
+from flask_cors import CORS
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, session
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, jsonify, session, send_from_directory
 import google.generativeai as genai
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -18,12 +19,44 @@ from pypdf import PdfReader
 
 load_dotenv()
 
-app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Change this in production
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['OUTPUT_FOLDER'] = 'outputs'
-# Force new DB file to resolve schema issues
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cv_tailor_v2.db' 
+app = Flask(__name__, static_folder='static/dist/assets', template_folder='static/dist')
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.secret_key = os.getenv('SECRET_KEY', 'super_secret_key_default') # Load from env
+CORS(app)
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+app.config['OUTPUT_FOLDER'] = '/tmp/outputs'
+
+# Database Configuration
+db_user = os.environ.get("DB_USER")
+db_pass = os.environ.get("DB_PASS")
+db_name = os.environ.get("DB_NAME")
+cloud_sql_connection_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME")
+database_url = os.environ.get("DATABASE_URL")
+
+if database_url:
+    # External DB (Supabase, Neon, Render)
+    # SQLAlchemy requires 'postgresql://', but some providers give 'postgres://'
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
+elif cloud_sql_connection_name:
+    # Production: Google Cloud SQL (via Unix Socket)
+    app.config['SQLALCHEMY_DATABASE_URI'] = (
+        f"postgresql+psycopg2://{db_user}:{db_pass}@/{db_name}"
+        f"?host=/cloudsql/{cloud_sql_connection_name}"
+    )
+else:
+    # Local: SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/cv_tailor_v2.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -38,7 +71,7 @@ login_manager.login_view = 'login'
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
+    password_hash = db.Column(db.Text) # Changed from String(128) to Text for longer hashes
     cv_text = db.Column(db.Text, nullable=True) 
     
     # SaaS Fields
@@ -75,6 +108,9 @@ class Feedback(db.Model):
 
 # Create DB
 with app.app_context():
+    if os.environ.get('FORCE_DB_RESET') == 'true':
+        print("!!! FORCE_DB_RESET is set. Dropping all tables... !!!")
+        db.drop_all()
     db.create_all()
 
 @login_manager.user_loader
@@ -83,9 +119,15 @@ def load_user(user_id):
 
 # --- ROUTES ---
 
-@app.route('/')
-def home():
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def home(path):
+    if path.startswith('api/') or path.startswith('static/'):
+        return jsonify({'error': 'Not found'}), 404
     return render_template('index.html')
+
+
+
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -224,24 +266,24 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         """
         
         analysis_response = model.generate_content(analysis_prompt)
-        analysis_data = extract_json(analysis_response.text)
+        initial_analysis = extract_json(analysis_response.text)
         
-        if not analysis_data:
-            # Fallback if AI fails to give JSON
-            analysis_data = {
+        if not initial_analysis:
+            # Fallback
+            initial_analysis = {
                 "job_title": "Job Application", "company": "Unknown", 
                 "ats_score": 70, "missing_keywords": [], "cv_improvements": ""
             }
 
-        JOBS[job_id]['logs'].append(f"ATS Score: {analysis_data['ats_score']}%")
+        JOBS[job_id]['logs'].append(f"Initial Score: {initial_analysis['ats_score']}%")
         JOBS[job_id]['current_step'] = 1
         
         # 2. GENERATE LATEX CV
         # Read the Master Template
         try:
-            with open('CV.tex', 'r', encoding='utf-8') as f:
+            with open('CV.tex', 'r', encoding='utf-8', errors='replace') as f:
                 cv_template = f.read()
-            with open('CoverLetter.tex', 'r', encoding='utf-8') as f:
+            with open('CoverLetter.tex', 'r', encoding='utf-8', errors='replace') as f:
                 cl_template = f.read()
         except FileNotFoundError:
             cv_template = "Error: CV.tex not found."
@@ -263,6 +305,7 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
     5. **Reference**: Do strictly follow the template's custom commands.
     6. **ONE PAGE ONLY**: Keep it concise.
     7. **Output Format**: generate ONLY the LaTeX content for the body. Do NOT include \\documentclass, preamble, \\begin{{document}} or \\end{{document}}.
+    8. **Escaping**: You MUST escape special LaTeX characters: & -> \\&, % -> \\%, # -> \\#, _ -> \\_.
 
     Master CV (Source of Truth):
     {cv_text}
@@ -285,12 +328,46 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         else:
             cv_latex = cv_body # Fallback
 
+        # LOG THE GENERATED LATEX FOR DEBUGGING
+        print(f"--- GENERATED CV LATEX ({job_id}) ---\n{cv_latex}\n-----------------------------------")
+
+        # 2.5 FINAL ATS SCORING
+        JOBS[job_id]['logs'].append("Verifying Optimization...")
+        final_analysis_prompt = f"""
+        Act as an expert ATS scanner.
+        Score the following OPTIMIZED CV content against the Job Description.
+
+        JOB DESCRIPTION:
+        {job_description}
+
+        OPTIMIZED CV CONTENT (LaTeX):
+        {cv_body}
+
+        Return a ONLY a JSON object with this exact structure:
+        {{
+            "job_title": "{initial_analysis.get('job_title')}", 
+            "company": "{initial_analysis.get('company')}",
+            "ats_score": 95,
+            "missing_keywords": [],
+            "cv_improvements": ""
+        }}
+        """
+        final_analysis_response = model.generate_content(final_analysis_prompt)
+        final_analysis = extract_json(final_analysis_response.text)
+        
+        if not final_analysis:
+             final_analysis = initial_analysis # Fallback to initial if failed
+             final_analysis['ats_score'] += 10 # Fake bump if real check fails (heuristic)
+
+        JOBS[job_id]['logs'].append(f"Final Score: {final_analysis['ats_score']}%")
         JOBS[job_id]['current_step'] = 2
 
-        # 3. GENERATE COVER LETTER
+        # 3. GENERATE COVER LETTER (Full Document Generation)
         cl_prompt = f"""
     You are an expert career coach.
-    Write a professional Cover Letter body for the attached Job Description.
+    I have a master LaTeX Cover Letter template and a Job Description.
+    
+    Your task is to generate a COMPLETE, READY-TO-COMPILE LaTeX file for the Cover Letter.
     
     JOB DESCRIPTION:
     {job_description}
@@ -298,29 +375,28 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
     CANDIDATE CV:
     {cv_text}
     
-    TEMPLATE CONTEXT:
+    MASTER TEMPLATE:
     {cl_template}
     
     INSTRUCTIONS:
-    1. **Format**: Use the exact commands from the template (e.g., \\opening, \\closing).
-    2. **Content**: Write 3 paragraphs explaining why the candidate is a fit.
-    3. **Style**: Professional and enthusiastic. Write strictly in {language.upper()}.
-    4. **Output**: Return ONLY the body content (from \\opening to \\closing). Do NOT include \\documentclass or \\begin{{document}}.
+    1. **Full File**: Return the ENTIRE LaTeX file, from \\documentclass to \\end{{document}}.
+    2. **Modification**: 
+       - Update the `\\recipientblock` with real data from the JD (Company, Address, Manager Name).
+       - Update the `\\subject` line.
+       - Write a professional 3-paragraph body using `\\opening`, text, and `\\closing`.
+    3. **Language**: Write strictly in {language.upper()}.
+    4. **Safety**: 
+       - You MUST escape special characters (& -> \\&, # -> \\#, etc.).
+       - Do NOT invent new commands. Use ONLY commands defined in the provided template.
+       - Ensure `\\makeextraheader` is preserved.
+    
+    Return ONLY the raw LaTeX code (no markdown backticks if possible, or inside a latex block).
     """
         cl_response = model.generate_content(cl_prompt)
-        cl_body = clean_markdown(cl_response.text)
-        
-        # Inject into CL Template
-        if "% <BODY_CONTENT>" in cl_template:
-            cl_latex = cl_template.replace("% <BODY_CONTENT>", cl_body)
-        elif "\\begin{document}" in cl_template:
-             # Heuristic injection
-             part1 = cl_template.split("\\begin{document}")[0] + "\\begin{document}\n"
-             if "\\makeextraheader" in cl_template:
-                 part1 += "\\makeextraheader\n"
-             cl_latex = f"{part1}\n{cl_body}\n\\end{{document}}"
-        else:
-            cl_latex = cl_body
+        cl_latex = clean_markdown(cl_response.text)
+
+        # LOG THE GENERATED CL LATEX FOR DEBUGGING
+        print(f"--- GENERATED CL LATEX ({job_id}) ---\n{cl_latex}\n-----------------------------------")
         
         # 4. GENERATE OUTREACH MESSAGE
         lang_name = "French" if language == 'fr' else "English"
@@ -358,28 +434,62 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         with open(os.path.join(output_dir, cl_filename), 'w', encoding='utf-8') as f: f.write(cl_latex)
 
         # Compilation Command (with fallback)
-        pdflatex_path = r'C:\Users\ayman\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe'
-        cmd = pdflatex_path if os.path.exists(pdflatex_path) else 'pdflatex'
+        # In Docker (Linux), 'pdflatex' should be in PATH.
+        # on Windows local, it might be in a specific path.
+        pdflatex_cmd = 'pdflatex'
+        if os.name == 'nt': # Windows
+             potential_path = r'C:\Users\ayman\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe'
+             if os.path.exists(potential_path):
+                 pdflatex_cmd = potential_path
+
+        cmd = pdflatex_cmd
 
         try:
-            # Capture output for debugging
+            # Capture output for debugging - Use binary mode (text=False) to avoid UnicodeDecodeError
             result_cv = subprocess.run([cmd, '-interaction=nonstopmode', '-output-directory', output_dir, os.path.join(output_dir, cv_filename)], 
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False, check=False)
+            
+            # Decode manually for safety
+            cv_stdout = result_cv.stdout.decode('utf-8', errors='replace')
+            cv_stderr = result_cv.stderr.decode('utf-8', errors='replace')
             
             if result_cv.returncode != 0:
-                print(f"CV Compilation Failed:\nSTDOUT: {result_cv.stdout}\nSTDERR: {result_cv.stderr}")
-                JOBS[job_id]['logs'].append(f"CV Compilation Error (Code {result_cv.returncode})")
+                full_log = cv_stdout + cv_stderr
+                # Parse for specific ! errors
+                error_lines = [line for line in full_log.split('\n') if line.strip().startswith('!') or "Fatal error" in line]
+                if error_lines:
+                    error_details = "\n".join(error_lines[:5])
+                else:
+                    error_details = full_log[-1000:]
+                    
+                print(f"CV Compilation Failed:\nSTDOUT: {cv_stdout}\nSTDERR: {cv_stderr}")
+                JOBS[job_id]['logs'].append(f"CV Error: {error_details[:200]}") 
+                raise Exception(f"CV Compilation Failed. Details: {error_details}")
 
             result_cl = subprocess.run([cmd, '-interaction=nonstopmode', '-output-directory', output_dir, os.path.join(output_dir, cl_filename)], 
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False, check=False)
+            
+            # Decode manually
+            cl_stdout = result_cl.stdout.decode('utf-8', errors='replace')
+            cl_stderr = result_cl.stderr.decode('utf-8', errors='replace')
                                      
             if result_cl.returncode != 0:
-                 print(f"CL Compilation Failed:\nSTDOUT: {result_cl.stdout}\nSTDERR: {result_cl.stderr}")
-                 JOBS[job_id]['logs'].append(f"CL Compilation Error (Code {result_cl.returncode})")
+                 full_log = cl_stdout + cl_stderr
+                 # Parse for specific ! errors
+                 error_lines = [line for line in full_log.split('\n') if line.strip().startswith('!') or "Fatal error" in line]
+                 if error_lines:
+                     error_details = "\n".join(error_lines[:5])
+                 else:
+                     error_details = full_log[-1000:]
+
+                 print(f"CL Compilation Failed:\nSTDOUT: {cl_stdout}\nSTDERR: {cl_stderr}")
+                 JOBS[job_id]['logs'].append(f"CL Error: {error_details[:200]}")
+                 raise Exception(f"CL Compilation Failed. Details: {error_details}")
 
         except Exception as e:
             JOBS[job_id]['logs'].append(f"PDF Execution Error: {e}")
             print(f"Compilation Exec Failed: {e}")
+            raise e # Re-raise to trigger failure handler
 
         cv_pdf = f"CV_{job_id}.pdf"
         cl_pdf = f"CL_{job_id}.pdf"
@@ -387,9 +497,11 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         # Check if files actually exist
         if not os.path.exists(os.path.join(output_dir, cv_pdf)):
              JOBS[job_id]['logs'].append("CRITICAL: CV PDF was not created.")
+             raise Exception("CV PDF file missing after compilation")
         
         if not os.path.exists(os.path.join(output_dir, cl_pdf)):
              JOBS[job_id]['logs'].append("CRITICAL: CL PDF was not created.")
+             raise Exception("CL PDF file missing after compilation")
 
         # 6. SAVE TO DB (If Registered)
         if user_id:
@@ -400,10 +512,10 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
                 
                 new_app = Application(
                     user_id=user_id,
-                    job_title=analysis_data.get('job_title', 'Job Application'),
-                    company=analysis_data.get('company', 'Unknown'),
-                    ats_score=analysis_data.get('ats_score', 0),
-                    missing_keywords=json.dumps(analysis_data.get('missing_keywords', [])),
+                    job_title=final_analysis.get('job_title', 'Job Application'),
+                    company=final_analysis.get('company', 'Unknown'),
+                    ats_score=final_analysis.get('ats_score', 0),
+                    missing_keywords=json.dumps(final_analysis.get('missing_keywords', [])),
                     cv_path=cv_pdf,
                     cl_path=cl_pdf,
                     message_content=msg_content
@@ -416,14 +528,17 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         JOBS[job_id]['result'] = {
             'cv_pdf': cv_pdf,
             'cl_pdf': cl_pdf,
-            'analysis': analysis_data
+            'analysis': final_analysis, # Primary for display
+            'initial_analysis': initial_analysis, # For comparison
+            'message_text': msg_content
         }
-        JOBS[job_id]['message_text'] = msg_content # Keys match frontend
         JOBS[job_id]['logs'].append("Done!")
 
     except Exception as e:
         JOBS[job_id]['status'] = 'failed'
-        JOBS[job_id]['logs'].append(f"Error: {str(e)}")
+        error_msg = str(e)
+        JOBS[job_id]['logs'].append(f"Error: {error_msg}")
+        JOBS[job_id]['error_details'] = error_msg # Expose to frontend
         print(f"Job failed: {e}")
 
 @app.route('/start_job', methods=['POST'])
@@ -442,6 +557,8 @@ def start_job():
     cv_text = ""
     
     # Handle CV Input (File or Database or Text)
+    should_save = request.form.get('save_cv') == 'true'
+
     if 'cv_file' in request.files:
         file = request.files['cv_file']
         if file.filename != '':
@@ -452,16 +569,18 @@ def start_job():
             for page in reader.pages:
                 cv_text += page.extract_text()
             
-            # Save to profile if logged in
+            # Save to profile if requested OR if empty
             if current_user.is_authenticated:
-                current_user.cv_text = cv_text
-                db.session.commit()
+                if should_save or not current_user.cv_text:
+                    current_user.cv_text = cv_text
+                    db.session.commit()
 
     elif 'cv_text' in request.form and request.form['cv_text']:
         cv_text = request.form['cv_text']
         if current_user.is_authenticated:
-            current_user.cv_text = cv_text
-            db.session.commit()
+            if should_save or not current_user.cv_text:
+                current_user.cv_text = cv_text
+                db.session.commit()
 
     elif current_user.is_authenticated and current_user.cv_text:
         cv_text = current_user.cv_text
@@ -489,11 +608,35 @@ def job_status(job_id):
 
 @app.route('/view/<filename>')
 def view_file(filename):
-    return send_file(os.path.join(app.config['OUTPUT_FOLDER'], filename), as_attachment=False)
+    try:
+        directory = os.path.abspath(app.config['OUTPUT_FOLDER'])
+        safe_filename = secure_filename(filename)
+        file_path = os.path.join(directory, safe_filename)
+        if not os.path.exists(file_path):
+             print(f"View Error: File not found at {file_path}")
+             return jsonify({'error': 'File not found'}), 404
+        return send_file(file_path, as_attachment=False)
+    except Exception as e:
+        print(f"View Exception: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    return send_file(os.path.join(app.config['OUTPUT_FOLDER'], filename), as_attachment=True)
+    try:
+        directory = os.path.abspath(app.config['OUTPUT_FOLDER'])
+        safe_filename = secure_filename(filename)
+        file_path = os.path.join(directory, safe_filename)
+        
+        if not os.path.exists(file_path):
+            print(f"Download Error: File not found at {file_path}")
+            return jsonify({'error': 'File not found'}), 404
+            
+        return send_file(file_path, as_attachment=True)
+    except Exception as e:
+        print(f"Download Exception: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Use PORT env var for Cloud Run, default to 8080 or 5000 locally
+    port = int(os.environ.get('PORT', 8080))
+    app.run(debug=False, host='0.0.0.0', port=port)

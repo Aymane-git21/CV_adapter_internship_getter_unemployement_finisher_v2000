@@ -7,3 +7,6 @@ flask-sqlalchemy
 flask-login
 pypdf
 werkzeug
+gunicorn
+flask_cors
+psycopg2-binary

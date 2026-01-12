@@ -1,0 +1,12 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+venv/
+__pycache__/
+uploads/
+outputs/
+static/dist/
+*.pyc
+.env
+README.md

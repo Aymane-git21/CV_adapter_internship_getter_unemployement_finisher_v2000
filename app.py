@@ -22,7 +22,24 @@ load_dotenv()
 app = Flask(__name__, static_folder='static/dist/assets', template_folder='static/dist')
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 app.secret_key = os.getenv('SECRET_KEY', 'super_secret_key_default') # Load from env
-CORS(app)
+# CORS Configuration
+allowed_origins_env = os.environ.get('ALLOWED_ORIGINS')
+if allowed_origins_env:
+    origins_list = [origin.strip() for origin in allowed_origins_env.split(',')]
+else:
+    # Default trusted origins
+    origins_list = [
+        "http://localhost:3000",      # React Local
+        "http://localhost:5173",      # Vite Local
+        "http://localhost:8080",      # Flask Local
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8080",
+        "https://cvglowup.com",       # Production
+        "https://www.cvglowup.com"
+    ]
+
+CORS(app, resources={r"/api/*": {"origins": origins_list}}, supports_credentials=True)
 
 @app.after_request
 def add_header(response):
@@ -41,8 +58,7 @@ cloud_sql_connection_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME")
 database_url = os.environ.get("DATABASE_URL")
 
 if database_url:
-    # External DB (Supabase, Neon, Render)
-    # SQLAlchemy requires 'postgresql://', but some providers give 'postgres://'
+    # External DB (Neon)
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url

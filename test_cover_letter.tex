@@ -1,0 +1,109 @@
+\documentclass[11pt,a4paper]{letter}
+
+% ---------- Language & typography ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+%\usepackage[french]{babel}
+\usepackage{lmodern}
+%\usepackage{microtype}
+
+% ---------- Layout ----------
+\usepackage[left=2.2cm,right=2.2cm,top=2.2cm,bottom=2.2cm]{geometry}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+% ---------- Links & formatting ----------
+%\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=*, itemsep=0.2em, topsep=0.2em}
+
+% ---------- Signature ----------
+\usepackage{graphicx}
+
+% ---------- Helper commands ----------
+\newcommand{\Field}[1]{\textbf{#1}}
+\newcommand{\Placeholder}[1]{\textit{#1}}
+
+% ============================================================
+%                      YOUR INFORMATION
+% ============================================================
+\newcommand{\YourName}{\Placeholder{Prénom NOM}}
+\newcommand{\YourTitle}{\Placeholder{Intitulé / Spécialité (ex. Étudiant(e) en ...)}}
+\newcommand{\YourPhone}{\Placeholder{+33 X XX XX XX XX}}
+\newcommand{\YourEmail}{\Placeholder{email@exemple.com}}
+\newcommand{\YourLinkedIn}{\Placeholder{linkedin.com/in/votreprofil}}
+\newcommand{\YourCity}{\Placeholder{Ville, Pays}}
+\newcommand{\YourAddress}{\Placeholder{Adresse (optionnel)}}
+
+% ============================================================
+%                    RECIPIENT INFORMATION
+% ============================================================
+\newcommand{\RecipientName}{\Placeholder{Madame/Monsieur}}
+\newcommand{\CompanyName}{\Placeholder{Nom de l'entreprise}}
+\newcommand{\CompanyAddress}{\Placeholder{Adresse de l'entreprise}}
+\newcommand{\CompanyCity}{\Placeholder{Code postal, Ville}}
+
+% ============================================================
+%                      LETTER DETAILS
+% ============================================================
+\newcommand{\LetterDate}{\Placeholder{14 décembre 2025}}
+\newcommand{\JobTitle}{\Placeholder{Intitulé du poste}}
+\newcommand{\JobRef}{\Placeholder{Référence (optionnelle)}}
+\newcommand{\Source}{\Placeholder{votre annonce du ... / votre site / LinkedIn}}
+\newcommand{\StartDate}{\Placeholder{date de début}}
+\newcommand{\Availability}{\Placeholder{ex. Lun–Jeu 9h–18h, Ven 9h–12h}}
+\newcommand{\LocationPref}{\Placeholder{Ville / Télétravail / Hybride (optionnel)}}
+
+% ============================================================
+%                      CONTENT HELPERS
+% ============================================================
+\newcommand{\USP}{\Placeholder{ce qui vous rend unique (résultat, projet marquant, spécialité)}}
+\newcommand{\SkillOne}{\Placeholder{Compétence technique 1}}
+\newcommand{\SkillTwo}{\Placeholder{Compétence technique 2}}
+\newcommand{\SkillThree}{\Placeholder{Compétence technique 3}}
+\newcommand{\SoftOne}{\Placeholder{Qualité 1 (ex. rigoureux)}}
+\newcommand{\SoftTwo}{\Placeholder{Qualité 2 (ex. proactif)}}
+\newcommand{\SoftThree}{\Placeholder{Qualité 3 (ex. esprit d'équipe)}}
+\newcommand{\Achievement}{\Placeholder{résultat chiffré / impact concret (ex. +20\% ...)}}
+\newcommand{\Project}{\Placeholder{projet / expérience liée au poste}}
+\newcommand{\Motivation}{\Placeholder{raison précise pour laquelle vous visez cette entreprise/équipe}}
+
+% ============================================================
+%                        DOCUMENT
+% ============================================================
+\newcommand{\subject}[1]{{\bfseries #1}\par\vspace{\baselineskip}}
+
+\date{\LetterDate}
+
+\begin{document}
+
+\begin{letter}{
+\RecipientName\\
+\RecipientRole\\
+\CompanyName\\
+\CompanyAddress\\
+\CompanyCity
+}
+
+% Header manually placed to avoid \address conflicts
+\begin{center}
+{\Large \YourName}\\
+\YourTitle\\
+\YourCity\\
+\protect\href{mailto:\YourEmail}{\YourEmail} \,|\, \YourPhone\\
+\protect\href{https://\YourLinkedIn}{\YourLinkedIn}
+\end{center}
+\vspace{1em}
+\hrule
+
+\subject{Objet : Test compilation}
+\opening{Madame, Monsieur,}
+
+Ceci est un test pour vérifier si la compilation fonctionne correctement avec la classe letter.
+
+\closing{Cordialement,}
+
+\encl{CV, Portfolio (optionnel), Relevé de notes (optionnel)}
+\end{letter}
+
+\end{document}

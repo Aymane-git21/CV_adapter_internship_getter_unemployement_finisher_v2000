@@ -58,15 +58,25 @@ def extract_job_metadata(job_description):
     """
     Extracts Company Name and Job Title for dynamic naming.
     """
-    if not GEMINI_API_KEY: return {"company": "Company", "title": "Job"}
+    if not GEMINI_API_KEY: return {"company": "Company", "title": "Job", "display_company": "Company", "display_title": "Job"}
     
     try:
         model = genai.GenerativeModel('models/gemini-2.0-flash')
         prompt = f"""
         Extract the 'Company Name' and 'Job Title' from this job description.
-        Return a JSON object with keys 'company' and 'title'.
-        Sanitize the values to be safe for filenames (alphanumeric, underscores, hyphens only, no spaces).
-        Example: {{"company": "Google", "title": "Software_Engineer"}}
+        Return a JSON object with keys:
+        - 'company': Sanitize for filename (alphanumeric, underscores, hyphens only).
+        - 'title': Sanitize for filename (alphanumeric, underscores, hyphens only).
+        - 'display_company': The original company name for display.
+        - 'display_title': The original job title for display.
+        
+        Example: 
+        {{
+            "company": "Google", 
+            "title": "Software_Engineer", 
+            "display_company": "Google", 
+            "display_title": "Software Engineer"
+        }}
         
         Job Description:
         {job_description[:2000]}
@@ -77,26 +87,36 @@ def extract_job_metadata(job_description):
         return data
     except Exception as e:
         print(f"Metadata extraction failed: {e}")
-        return {"company": "Company", "title": "Job"}
+        return {"company": "Company", "title": "Job", "display_company": "Company", "display_title": "Job"}
 
-def adapt_cv_with_gemini(tex_content, job_description, master_cv_content):
+def adapt_cv_with_gemini(tex_content, job_description, master_cv_content, language="French"):
     if not GEMINI_API_KEY: raise ValueError("Gemini API Key is missing.")
     # Reverting to 3-pro-preview as requested
     model = genai.GenerativeModel('models/gemini-3-pro-preview')
+
+    # Identifies the preamble to ensure we preserve the 'standalone' class packaging
+    if "\\begin{document}" in tex_content:
+        preamble = tex_content.split("\\begin{document}")[0]
+    else:
+        # Fallback if the template is malformed
+        preamble = "\\documentclass[10pt, varwidth=18.6cm, border=1.2cm]{standalone}\n"
+
     prompt = f"""
     You are an expert CV tailor.
     I have a Master CV (Markdown) containing all my experiences, and a Job Description.
     I also have a LaTeX CV template.
 
-    Your task is to rewrite the content of the LaTeX CV to target the Job Description, using the data from the Master CV.
+    Your task is to rewrite the BODY of the LaTeX CV to target the Job Description, using the data from the Master CV.
     
     GUIDELINES:
-    1. **Strict Structure**: You MUST use the exact LaTeX commands and structure defined in the template (e.g., use the defined \\entry command, do NOT redefine it or use \\tabular manually).
+    1. **Strict Structure**: You MUST use the exact LaTeX commands and structure defined in the template (e.g., use the defined \\entry and \\project commands).
     2. **Content**: Select the most relevant projects/experiences. Rewrite the 'Profile' and 'Title'.
-    3. **No Markdown**: Do NOT use markdown formatting (no **, no # headers). Use LaTeX commands (\\textbf{{...}}).
-    4. **Language**: French.
-    5. **Reference**: Do strictly follow the template's preamble and custom commands.
+    3. **Translation**: Fully translate ALL content, including section headers (e.g., "Education", "Experience") into the target language.
+    4. **No Markdown**: Do NOT use markdown formatting (no **, no # headers). Use LaTeX commands (\\textbf{{...}}).
+    5. **Language**: {language}.
+    5. **Reference**: Do strictly follow the template's custom commands.
     6. **ONE PAGE ONLY**: Keep it concise.
+    7. **Output Format**: generate ONLY the LaTeX content for the body. Do NOT include \\documentclass, preamble, \\begin{{document}} or \\end{{document}}.
 
     Master CV (Source of Truth):
     {master_cv_content}
@@ -107,41 +127,68 @@ def adapt_cv_with_gemini(tex_content, job_description, master_cv_content):
     LaTeX CV Template (Structure to follow):
     {tex_content}
     
-    Return ONLY the full valid LaTeX code.
+    Return ONLY the content that goes INSIDE \\begin{{document}} ... \\end{{document}}.
     """
     response = model.generate_content(prompt)
-    return clean_markdown(response.text)
+    body_content = clean_markdown(response.text)
+    
+    # Extra safety: remove document tags if the AI ignored instructions
+    body_content = body_content.replace("\\begin{document}", "").replace("\\end{document}", "")
+    
+    return f"{preamble}\\begin{{document}}\n{body_content}\n\\end{{document}}"
 
-def generate_cover_letter(job_description, master_cv_content):
+def generate_cover_letter(job_description, master_cv_content, cl_tex_content, language="French"):
     if not GEMINI_API_KEY: raise ValueError("Gemini API Key is missing.")
     model = genai.GenerativeModel('models/gemini-3-pro-preview')
     prompt = f"""
     You are an expert career coach.
-    Write a compelling cover letter for the following Job Description, based on the candidate's Master CV.
+    Write a compelling CACHE_LETTER_BODY for the following Job Description, based on the candidate's Master CV.
+    
+    You are NOT generating the full LaTeX file. You are only generating the content that goes inside the body of the letter.
 
     GUIDELINES:
-    1. **Format**: Standard LaTeX letter format.
-    2. **No Markdown**: Do NOT use markdown bolding (**). Use LaTeX \\textbf{{...}} if needed.
-    3. **Content**: Professional, enthusiastic, tailored.
-    4. **Language**: French.
-    5. **One Page**: Concise.
-    6. **No Placeholders**: Do NOT use placeholders like "[Date]" or "[Nom du Responsable]".
-       - Use `\\today` for the date.
-       - Use "Madame, Monsieur" if the recipient's name is not available.
-       - Do not include bracketed text `[...]` anywhere.
-
+    1. **Format**: The text will be injected into a LaTeX `letter` environment.
+       - The template ALREADY defines the sender/recipient block.
+       - You must provide: Subject, Opening, Body, Closing.
+       
+    2. **Structure to Generate**:
+       - `\\subject{{\\textbf{{Objet :}} ...}}` 
+       - `\\opening{{Madame, Monsieur,}}` (or specific Name if known)
+       - **BODY PARAGRAPHS**: 3-4 paragraphs.
+       - `\\closing{{Je vous prie d’agréer...}}` 
+       - Do NOT include `\\end{{letter}}` or `\\begin{{letter}}`.
+       - Do NOT include `\\signature{{...}}` (handled by template).
+       
+    3. **Styling Constraints (STRICT)**:
+       - **NO BOLD TEXT in the body paragraphs**.
+       - **NO LONG HYPHENS** (use standard hyphens).
+       - **No Markdown**: Pure LaTeX.
+       
+    4. **Content**: Professional, enthusiastic, tailored to the job.
+    5. **Language**: {language}.
+    6. **No Placeholders**: Do not include bracketed text `[...]`.
+    
     Master CV:
     {master_cv_content}
-
+    
     Job Description:
     {job_description}
-
-    Return ONLY the full valid LaTeX code for the cover letter.
+    
+    Return ONLY the valid LaTeX code commands (subject, opening, body, closing).
     """
     response = model.generate_content(prompt)
-    return clean_markdown(response.text)
+    body_content = clean_markdown(response.text)
+    
+    # Inject into template
+    if "% <BODY_CONTENT>" in cl_tex_content:
+        final_latex = cl_tex_content.replace("% <BODY_CONTENT>", body_content)
+    else:
+        # Fallback: Insert before \end{document}
+        final_latex = cl_tex_content.replace("\\end{document}", f"\n{body_content}\n\\end{{document}}")
+        
+    return final_latex
 
-def generate_short_message(job_description, master_cv_content):
+def generate_short_message(job_description, master_cv_content, language="French"):
     if not GEMINI_API_KEY: raise ValueError("Gemini API Key is missing.")
     model = genai.GenerativeModel('models/gemini-3-pro-preview')
     prompt = f"""
@@ -149,7 +196,7 @@ def generate_short_message(job_description, master_cv_content):
     
     GUIDELINES:
     1. **Length**: STRICTLY LESS THAN 1000 CHARACTERS.
-    2. **Language**: French.
+    2. **Language**: {language}.
     3. **No Markdown**: Pure text.
 
     Master CV:
@@ -210,23 +257,39 @@ def send_email(cv_pdf_path, cover_letter_pdf_path, email_body, recipient_email):
     except Exception as e:
         print(f"Failed to send email: {e}")
 
-def process_application(job_id, job_description, recipient_email, tex_content, master_cv_content):
+def process_application(job_id, job_description, recipient_email, tex_content, cl_tex_content, master_cv_content, language="French"):
     JOBS[job_id]['status'] = 'processing'
     JOBS[job_id]['logs'].append("Starting analysis...")
     
     try:
-        # 1. Start all tasks in parallel
-        future_meta = executor.submit(extract_job_metadata, job_description)
-        future_cv_text = executor.submit(adapt_cv_with_gemini, tex_content, job_description, master_cv_content)
-        future_cl_text = executor.submit(generate_cover_letter, job_description, master_cv_content)
-        future_msg = executor.submit(generate_short_message, job_description, master_cv_content)
+        # Handle Language-specific LaTeX settings (Babel)
+        if language == "English":
+            tex_content = tex_content.replace("{french}", "{english}")
+            cl_tex_content = cl_tex_content.replace("{french}", "{english}")
 
-        # 2. Extract Metadata (Fastest)
+        # 1. Start Metadata Extraction first (Blocking for better quality context)
+        # We need the title for the Cover Letter header
+        future_meta = executor.submit(extract_job_metadata, job_description)
         meta = future_meta.result()
+        
         company = meta.get('company', 'Company')
         title = meta.get('title', 'Job')
-        JOBS[job_id]['logs'].append(f"Identified Job: {title} at {company}")
+        display_title = meta.get('display_title', title)
         
+        JOBS[job_id]['logs'].append(f"Identified Job: {title} at {company}")
+
+        # Update Cover Letter Title dynamically
+        cl_tex_adapted = re.sub(
+            r'\\newcommand\{\\YourTitle\}\{.*?\}',
+            f'\\\\newcommand{{\\\\YourTitle}}{{{display_title}}}',
+            cl_tex_content
+        )
+
+        future_cv_text = executor.submit(adapt_cv_with_gemini, tex_content, job_description, master_cv_content, language)
+        # Use the adapted latex content
+        future_cl_text = executor.submit(generate_cover_letter, job_description, master_cv_content, cl_tex_adapted, language)
+        future_msg = executor.submit(generate_short_message, job_description, master_cv_content, language)
+
         cv_filename = "CV_AymaneMERBOUH.tex"
         cl_filename = "CoverLetter_AymaneMERBOUH.tex"
 
@@ -279,6 +342,7 @@ def index():
 def start_job():
     job_description = request.form.get('job_description')
     recipient_email = request.form.get('email')
+    language = request.form.get('language', 'French')
     
     if not job_description:
         return jsonify({'error': 'No job description provided'}), 400
@@ -287,6 +351,9 @@ def start_job():
     try:
         with open(os.path.abspath('CV.tex'), 'r', encoding='utf-8') as f:
             tex_content = f.read()
+            
+        with open(os.path.abspath('CoverLetter.tex'), 'r', encoding='utf-8') as f:
+            cl_tex_content = f.read()
         
         master_cv_path = os.path.abspath('master_cv.md')
         if os.path.exists(master_cv_path):
@@ -301,7 +368,7 @@ def start_job():
     JOBS[job_id] = {'status': 'queued', 'logs': [], 'result': None}
     
     # Start background thread
-    thread = threading.Thread(target=process_application, args=(job_id, job_description, recipient_email, tex_content, master_cv_content))
+    thread = threading.Thread(target=process_application, args=(job_id, job_description, recipient_email, tex_content, cl_tex_content, master_cv_content, language))
     thread.start()
     
     return jsonify({'job_id': job_id})

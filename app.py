@@ -1,4 +1,8 @@
 import os
+os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "true"
+os.environ["GRPC_POLL_STRATEGY"] = "poll"
+os.environ["NO_GCE_CHECK"] = "true"
+os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
 import subprocess
 import concurrent.futures
 import uuid
@@ -223,7 +227,7 @@ def contact():
 # Gemini Configuration
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 
 # Global Job Store and Executor
 JOBS = {}
@@ -256,11 +260,23 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
     try:
         JOBS[job_id]['status'] = 'processing'
         JOBS[job_id]['current_step'] = 0
-        JOBS[job_id]['logs'].append("Analyzing Job Description & CV...")
+        JOBS[job_id]['logs'].append("Reading master templates...")
 
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        
-        # 1. ANALYZE & SCORE (JSON Output)
+        # 1. READ TEMPLATES
+        try:
+            with open('CV.tex', 'r', encoding='utf-8', errors='replace') as f:
+                cv_template = f.read()
+            with open('CoverLetter.tex', 'r', encoding='utf-8', errors='replace') as f:
+                cl_template = f.read()
+        except FileNotFoundError:
+            cv_template = "Error: CV.tex not found."
+            cl_template = "Error: CoverLetter.tex not found."
+            JOBS[job_id]['logs'].append("Warning: Templates not found.")
+
+        # Configure Generative Model (Upgrade to gemini-2.5-flash)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+
+        # 2. CONSTRUCT PROMPTS
         analysis_prompt = f"""
         Act as an expert ATS (Applicant Tracking System) scanner.
         Compare the following CV against the Job Description.
@@ -280,31 +296,6 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
             "cv_improvements": "Short summary of what to change in the CV content to target this job."
         }}
         """
-        
-        analysis_response = model.generate_content(analysis_prompt)
-        initial_analysis = extract_json(analysis_response.text)
-        
-        if not initial_analysis:
-            # Fallback
-            initial_analysis = {
-                "job_title": "Job Application", "company": "Unknown", 
-                "ats_score": 70, "missing_keywords": [], "cv_improvements": ""
-            }
-
-        JOBS[job_id]['logs'].append(f"Initial Score: {initial_analysis['ats_score']}%")
-        JOBS[job_id]['current_step'] = 1
-        
-        # 2. GENERATE LATEX CV
-        # Read the Master Template
-        try:
-            with open('CV.tex', 'r', encoding='utf-8', errors='replace') as f:
-                cv_template = f.read()
-            with open('CoverLetter.tex', 'r', encoding='utf-8', errors='replace') as f:
-                cl_template = f.read()
-        except FileNotFoundError:
-            cv_template = "Error: CV.tex not found."
-            cl_template = "Error: CoverLetter.tex not found."
-            JOBS[job_id]['logs'].append("Error: Templates not found.")
 
         cv_prompt = f"""
     You are an expert CV tailor.
@@ -314,8 +305,13 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
     Your task is to rewrite the BODY of the LaTeX CV to target the Job Description, using the data from the Master CV.
     
     GUIDELINES:
-    1. **Strict Structure**: You MUST use the exact LaTeX commands and structure defined in the template (e.g., use the defined \\entry and \\project commands).
-    2. **Content**: Select the most relevant projects/experiences. Rewrite the 'Profile' and 'Title'.
+    1. **Strict Structure & Commands**: 
+       - You MUST use the custom LaTeX commands defined in the template: `\\entry` and `\\project`.
+       - The `\\entry` command has exactly four arguments: `\\entry{{Job/Degree Title}}{{Dates}}{{Company/University}}{{Location}}`.
+       - **CRITICAL**: Do NOT place bullet points, long text, or `itemize`/`enumerate` environments inside the arguments of `\\entry`. The fourth argument (Location) must be a short string (e.g. "Paris, France" or "Remote").
+       - **CRITICAL**: Any descriptive text or bullet points related to an entry must be placed immediately **after** the `\\entry` command as plain text, NOT inside its arguments.
+       - **CRITICAL**: Do NOT use `\\begin{{itemize}}` or `\\end{{itemize}}` list environments in the CV, as they are not supported in this layout and cause compilation errors. Instead, write descriptions as plain lines separated by `\\\\` or double spaces, or write them out as simple paragraphs, following the template's exact style.
+    2. **Content**: Select the most relevant projects/experiences. Rewrite the 'Profil' and job-specific titles.
     3. **No Markdown**: Do NOT use markdown formatting (no **, no # headers). Use LaTeX commands (\\textbf{{...}}).
     4. **Language**: Write strictly in {language.upper()}.
     5. **Reference**: Do strictly follow the template's custom commands.
@@ -334,51 +330,7 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
     
     Return ONLY the content that goes INSIDE \\begin{{document}} ... \\end{{document}}.
     """
-        cv_response = model.generate_content(cv_prompt)
-        cv_body = clean_markdown(cv_response.text)
-        
-        # Reconstruct the full CV
-        if "\\begin{document}" in cv_template:
-            preamble = cv_template.split("\\begin{document}")[0]
-            cv_latex = f"{preamble}\\begin{{document}}\n{cv_body}\n\\end{{document}}"
-        else:
-            cv_latex = cv_body # Fallback
 
-        # LOG THE GENERATED LATEX FOR DEBUGGING
-        print(f"--- GENERATED CV LATEX ({job_id}) ---\n{cv_latex}\n-----------------------------------")
-
-        # 2.5 FINAL ATS SCORING
-        JOBS[job_id]['logs'].append("Verifying Optimization...")
-        final_analysis_prompt = f"""
-        Act as an expert ATS scanner.
-        Score the following OPTIMIZED CV content against the Job Description.
-
-        JOB DESCRIPTION:
-        {job_description}
-
-        OPTIMIZED CV CONTENT (LaTeX):
-        {cv_body}
-
-        Return a ONLY a JSON object with this exact structure:
-        {{
-            "job_title": "{initial_analysis.get('job_title')}", 
-            "company": "{initial_analysis.get('company')}",
-            "ats_score": 95,
-            "missing_keywords": [],
-            "cv_improvements": ""
-        }}
-        """
-        final_analysis_response = model.generate_content(final_analysis_prompt)
-        final_analysis = extract_json(final_analysis_response.text)
-        
-        if not final_analysis:
-             final_analysis = initial_analysis # Fallback to initial if failed
-             final_analysis['ats_score'] += 10 # Fake bump if real check fails (heuristic)
-
-        JOBS[job_id]['logs'].append(f"Final Score: {final_analysis['ats_score']}%")
-        JOBS[job_id]['current_step'] = 2
-
-        # 3. GENERATE COVER LETTER (Full Document Generation)
         cl_prompt = f"""
     You are an expert career coach.
     I have a master LaTeX Cover Letter template and a Job Description.
@@ -408,13 +360,7 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
     
     Return ONLY the raw LaTeX code (no markdown backticks if possible, or inside a latex block).
     """
-        cl_response = model.generate_content(cl_prompt)
-        cl_latex = clean_markdown(cl_response.text)
 
-        # LOG THE GENERATED CL LATEX FOR DEBUGGING
-        print(f"--- GENERATED CL LATEX ({job_id}) ---\n{cl_latex}\n-----------------------------------")
-        
-        # 4. GENERATE OUTREACH MESSAGE
         lang_name = "French" if language == 'fr' else "English"
         msg_prompt = f"""
         Act as the candidate described in the CV.
@@ -435,91 +381,137 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         
         Return ONLY the message text (Subject + Body).
         """
-        msg_response = model.generate_content(msg_prompt)
-        msg_content = clean_markdown(msg_response.text)
 
-        # 5. COMPILE LATEX
-        JOBS[job_id]['current_step'] = 3
-        JOBS[job_id]['logs'].append("Compiling PDF Documents...")
-        
         output_dir = app.config['OUTPUT_FOLDER']
         cv_filename = f"CV_{job_id}.tex"
         cl_filename = f"CL_{job_id}.tex"
-        
-        with open(os.path.join(output_dir, cv_filename), 'w', encoding='utf-8') as f: f.write(cv_latex)
-        with open(os.path.join(output_dir, cl_filename), 'w', encoding='utf-8') as f: f.write(cl_latex)
 
-        # Compilation Command (with fallback)
-        # In Docker (Linux), 'pdflatex' should be in PATH.
-        # on Windows local, it might be in a specific path.
-        pdflatex_cmd = 'pdflatex'
-        if os.name == 'nt': # Windows
-             potential_path = r'C:\Users\ayman\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe'
-             if os.path.exists(potential_path):
-                 pdflatex_cmd = potential_path
-
-        cmd = pdflatex_cmd
-
-        try:
-            # Capture output for debugging - Use binary mode (text=False) to avoid UnicodeDecodeError
-            result_cv = subprocess.run([cmd, '-interaction=nonstopmode', '-output-directory', output_dir, os.path.join(output_dir, cv_filename)], 
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False, check=False)
+        # Compilation helper function to be run inside the thread pool
+        def compile_latex_file(latex_content, filename):
+            file_path = os.path.join(output_dir, filename)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(latex_content)
             
-            # Decode manually for safety
-            cv_stdout = result_cv.stdout.decode('utf-8', errors='replace')
-            cv_stderr = result_cv.stderr.decode('utf-8', errors='replace')
+            pdflatex_cmd = 'pdflatex'
+            if os.name == 'nt':  # Windows
+                potential_path = r'C:\Users\ayman\AppData\Local\Programs\MiKTeX\miktex\bin\x64\pdflatex.exe'
+                if os.path.exists(potential_path):
+                    pdflatex_cmd = potential_path
             
-            if result_cv.returncode != 0:
-                full_log = cv_stdout + cv_stderr
-                # Parse for specific ! errors
+            result = subprocess.run(
+                [pdflatex_cmd, '-interaction=nonstopmode', '-output-directory', output_dir, file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=False,
+                check=False
+            )
+            
+            stdout_str = result.stdout.decode('utf-8', errors='replace')
+            stderr_str = result.stderr.decode('utf-8', errors='replace')
+            
+            if result.returncode != 0:
+                full_log = stdout_str + stderr_str
                 error_lines = [line for line in full_log.split('\n') if line.strip().startswith('!') or "Fatal error" in line]
-                if error_lines:
-                    error_details = "\n".join(error_lines[:5])
-                else:
-                    error_details = full_log[-1000:]
-                    
-                print(f"CV Compilation Failed:\nSTDOUT: {cv_stdout}\nSTDERR: {cv_stderr}")
-                JOBS[job_id]['logs'].append(f"CV Error: {error_details[:200]}") 
-                raise Exception(f"CV Compilation Failed. Details: {error_details}")
-
-            result_cl = subprocess.run([cmd, '-interaction=nonstopmode', '-output-directory', output_dir, os.path.join(output_dir, cl_filename)], 
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False, check=False)
+                error_details = "\n".join(error_lines[:5]) if error_lines else full_log[-1000:]
+                print(f"Compilation of {filename} failed:\nSTDOUT: {stdout_str}\nSTDERR: {stderr_str}")
+                raise Exception(f"Compilation failed. Details: {error_details}")
             
-            # Decode manually
-            cl_stdout = result_cl.stdout.decode('utf-8', errors='replace')
-            cl_stderr = result_cl.stderr.decode('utf-8', errors='replace')
-                                     
-            if result_cl.returncode != 0:
-                 full_log = cl_stdout + cl_stderr
-                 # Parse for specific ! errors
-                 error_lines = [line for line in full_log.split('\n') if line.strip().startswith('!') or "Fatal error" in line]
-                 if error_lines:
-                     error_details = "\n".join(error_lines[:5])
-                 else:
-                     error_details = full_log[-1000:]
+            pdf_filename = filename.replace('.tex', '.pdf')
+            pdf_path = os.path.join(output_dir, pdf_filename)
+            if not os.path.exists(pdf_path):
+                raise Exception(f"PDF file missing after compilation: {pdf_filename}")
+            
+            return pdf_filename
 
-                 print(f"CL Compilation Failed:\nSTDOUT: {cl_stdout}\nSTDERR: {cl_stderr}")
-                 JOBS[job_id]['logs'].append(f"CL Error: {error_details[:200]}")
-                 raise Exception(f"CL Compilation Failed. Details: {error_details}")
+        JOBS[job_id]['logs'].append("Launching parallel AI adaptation pipeline...")
+        JOBS[job_id]['current_step'] = 1
 
-        except Exception as e:
-            JOBS[job_id]['logs'].append(f"PDF Execution Error: {e}")
-            print(f"Compilation Exec Failed: {e}")
-            raise e # Re-raise to trigger failure handler
+        # 3. RUN CONCURRENT GENERATION TASKS
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as local_executor:
+            # Submit initial tasks
+            future_analysis = local_executor.submit(model.generate_content, analysis_prompt)
+            future_cv = local_executor.submit(model.generate_content, cv_prompt)
+            future_cl = local_executor.submit(model.generate_content, cl_prompt)
+            future_msg = local_executor.submit(model.generate_content, msg_prompt)
 
-        cv_pdf = f"CV_{job_id}.pdf"
-        cl_pdf = f"CL_{job_id}.pdf"
-        
-        # Check if files actually exist
-        if not os.path.exists(os.path.join(output_dir, cv_pdf)):
-             JOBS[job_id]['logs'].append("CRITICAL: CV PDF was not created.")
-             raise Exception("CV PDF file missing after compilation")
-        
-        if not os.path.exists(os.path.join(output_dir, cl_pdf)):
-             JOBS[job_id]['logs'].append("CRITICAL: CL PDF was not created.")
-             raise Exception("CL PDF file missing after compilation")
+            # A. Get initial ATS scan analysis
+            analysis_response = future_analysis.result()
+            initial_analysis = extract_json(analysis_response.text)
+            if not initial_analysis:
+                initial_analysis = {
+                    "job_title": "Job Application", "company": "Unknown", 
+                    "ats_score": 70, "missing_keywords": [], "cv_improvements": ""
+                }
+            JOBS[job_id]['logs'].append(f"Initial ATS Match Score: {initial_analysis.get('ats_score', 0)}%")
+            
+            # B. Get CV text and submit final scoring and compilation immediately
+            cv_response = future_cv.result()
+            cv_body = clean_markdown(cv_response.text)
+            JOBS[job_id]['logs'].append("CV adaptation content generated.")
 
-        # 6. SAVE TO DB (If Registered)
+            # Reconstruct full LaTeX CV
+            if "\\begin{document}" in cv_template:
+                preamble = cv_template.split("\\begin{document}")[0]
+                cv_latex = f"{preamble}\\begin{{document}}\n{cv_body}\n\\end{{document}}"
+            else:
+                cv_latex = cv_body
+
+            # Log the generated CV LaTeX for debugging
+            print(f"--- GENERATED CV LATEX ({job_id}) ---\n{cv_latex}\n-----------------------------------")
+
+            # Submit final ATS scoring and CV compilation
+            final_analysis_prompt = f"""
+            Act as an expert ATS scanner.
+            Score the following OPTIMIZED CV content against the Job Description.
+
+            JOB DESCRIPTION:
+            {job_description}
+
+            OPTIMIZED CV CONTENT (LaTeX):
+            {cv_body}
+
+            Return a ONLY a JSON object with this exact structure:
+            {{
+                "job_title": "{initial_analysis.get('job_title')}", 
+                "company": "{initial_analysis.get('company')}",
+                "ats_score": 95,
+                "missing_keywords": [],
+                "cv_improvements": ""
+            }}
+            """
+            future_final_analysis = local_executor.submit(model.generate_content, final_analysis_prompt)
+            future_cv_compile = local_executor.submit(compile_latex_file, cv_latex, cv_filename)
+
+            # C. Get Cover Letter text and submit compilation immediately
+            cl_response = future_cl.result()
+            cl_latex = clean_markdown(cl_response.text)
+            JOBS[job_id]['logs'].append("Cover Letter content generated.")
+            
+            # Log the generated CL LaTeX for debugging
+            print(f"--- GENERATED CL LATEX ({job_id}) ---\n{cl_latex}\n-----------------------------------")
+            
+            future_cl_compile = local_executor.submit(compile_latex_file, cl_latex, cl_filename)
+
+            # D. Wait for remaining concurrent tasks
+            JOBS[job_id]['logs'].append("Compiling PDF documents in parallel...")
+            JOBS[job_id]['current_step'] = 2
+
+            final_analysis_res = future_final_analysis.result()
+            final_analysis = extract_json(final_analysis_res.text)
+            if not final_analysis:
+                final_analysis = initial_analysis
+                final_analysis['ats_score'] += 10
+            JOBS[job_id]['logs'].append(f"Optimized ATS Match Score: {final_analysis.get('ats_score', 0)}%")
+            JOBS[job_id]['current_step'] = 3
+
+            cv_pdf = future_cv_compile.result()
+            cl_pdf = future_cl_compile.result()
+            JOBS[job_id]['logs'].append("PDF documents compiled successfully.")
+
+            msg_content = clean_markdown(future_msg.result().text)
+            JOBS[job_id]['logs'].append("LinkedIn outreach message generated.")
+
+        # 4. SAVE TO DB (If Registered)
         if user_id:
             with app.app_context():
                 user = User.query.get(user_id)
@@ -544,8 +536,8 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         JOBS[job_id]['result'] = {
             'cv_pdf': cv_pdf,
             'cl_pdf': cl_pdf,
-            'analysis': final_analysis, # Primary for display
-            'initial_analysis': initial_analysis, # For comparison
+            'analysis': final_analysis,
+            'initial_analysis': initial_analysis,
             'message_text': msg_content
         }
         JOBS[job_id]['logs'].append("Done!")
@@ -554,7 +546,7 @@ def process_job(job_id, job_description, cv_text, user_id=None, language='en'):
         JOBS[job_id]['status'] = 'failed'
         error_msg = str(e)
         JOBS[job_id]['logs'].append(f"Error: {error_msg}")
-        JOBS[job_id]['error_details'] = error_msg # Expose to frontend
+        JOBS[job_id]['error_details'] = error_msg
         print(f"Job failed: {e}")
 
 @app.route('/start_job', methods=['POST'])

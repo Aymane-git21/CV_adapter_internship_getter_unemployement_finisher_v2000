@@ -3,6 +3,7 @@ import { ArrowRight, FileText, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type HistoryEntry } from "../api";
+import { AdSlot } from "../components/AdSlot";
 import { useI18n } from "../i18n";
 import { useSession, useStudio } from "../store";
 
@@ -121,6 +122,7 @@ export default function Dashboard() {
           ))}
         </div>
       )}
+      <AdSlot slot="dashboard-footer" className="mt-8" />
     </div>
   );
 }

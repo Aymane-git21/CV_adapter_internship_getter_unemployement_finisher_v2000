@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, Plus, X, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import type { JobSnapshot } from "../../api";
+import { AdSlot } from "../../components/AdSlot";
 import { useI18n } from "../../i18n";
 import { useSession, useStudio, type DocKind } from "../../store";
 import { EditorPanel } from "./EditorPanel";
@@ -65,6 +66,7 @@ function ProgressView({ job }: { job: JobSnapshot }) {
             </div>
           ))}
         </div>
+        <AdSlot slot="studio-progress" className="mt-6" />
       </div>
     </div>
   );

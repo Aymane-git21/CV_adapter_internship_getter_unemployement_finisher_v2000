@@ -1,0 +1,93 @@
+{
+  "full_name": "Alex Martin",
+  "headline": "Machine Learning Engineer — LLM Systems & MLOps",
+  "contacts": {
+    "email": "alex.martin@example.com",
+    "phone": "+33 6 12 34 56 78",
+    "location": "Paris, France",
+    "linkedin": "linkedin.com/in/alex-martin-ml",
+    "github": "github.com/alexmartin-ml",
+    "website": "alexmartin.dev"
+  },
+  "summary": "ML engineer with 4 years of experience taking LLM and computer-vision systems from prototype to production. Designed RAG platforms serving 40k daily queries, cut inference costs by 35%, and led the MLOps practice for a 12-person data team. Looking to build AI products that survive contact with real users.",
+  "experience": [
+    {
+      "title": "Machine Learning Engineer",
+      "company": "Lumina AI",
+      "location": "Paris, France",
+      "start": "Jan 2024",
+      "end": "Present",
+      "bullets": [
+        "Architected the retrieval-augmented generation platform behind the flagship assistant: hybrid BM25 + dense retrieval, reranking, and grounded citation checks serving 40k queries/day at p95 < 900 ms.",
+        "Cut LLM serving costs 35% by routing between fine-tuned small models and frontier APIs based on query complexity scoring.",
+        "Built the evaluation harness (LLM-as-judge + golden sets) that gates every prompt and model change in CI."
+      ]
+    },
+    {
+      "title": "Data Scientist",
+      "company": "Nexa Retail Group",
+      "location": "Lille, France",
+      "start": "Sep 2021",
+      "end": "Dec 2023",
+      "bullets": [
+        "Shipped demand-forecasting models (gradient boosting, hierarchical reconciliation) covering 1,200 stores, reducing stockouts 18%.",
+        "Industrialized the feature pipeline on Spark + Airflow; training-to-deploy time fell from 3 weeks to 2 days.",
+        "Mentored two junior data scientists and ran the team's paper-reading group."
+      ]
+    },
+    {
+      "title": "Research Intern — Computer Vision",
+      "company": "INRIA",
+      "location": "Grenoble, France",
+      "start": "Feb 2021",
+      "end": "Aug 2021",
+      "bullets": [
+        "Implemented self-supervised pretraining (SimCLR variants) for defect detection on industrial imagery; +9 mAP over the supervised baseline with 10x less labeled data."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "MSc Computer Science — Machine Learning",
+      "school": "Université Grenoble Alpes",
+      "location": "Grenoble, France",
+      "start": "2019",
+      "end": "2021",
+      "details": ["Thesis: contrastive pretraining for industrial vision", "Graduated with highest honors"]
+    },
+    {
+      "degree": "BSc Mathematics & Computer Science",
+      "school": "Université de Lille",
+      "location": "Lille, France",
+      "start": "2016",
+      "end": "2019",
+      "details": []
+    }
+  ],
+  "skills": [
+    { "category": "ML & LLM", "items": ["PyTorch", "RAG", "fine-tuning (LoRA)", "evaluation", "vLLM", "embeddings"] },
+    { "category": "Data & Infra", "items": ["Python", "SQL", "Spark", "Airflow", "Kafka", "Postgres"] },
+    { "category": "MLOps & Cloud", "items": ["Docker", "Kubernetes", "GCP (Vertex, Cloud Run)", "CI/CD", "monitoring & drift"] }
+  ],
+  "projects": [
+    {
+      "name": "OpenRecruit",
+      "tech": "FastAPI · React · Typst",
+      "description": "Open-source CV tailoring tool: structured generation with schema-enforced LLM output and millisecond document rendering."
+    },
+    {
+      "name": "GPU cost dashboard",
+      "tech": "Grafana · Prometheus",
+      "description": "Real-time per-team GPU utilization and cost attribution adopted by 3 squads."
+    }
+  ],
+  "languages": [
+    { "name": "French", "level": "native" },
+    { "name": "English", "level": "C1" },
+    { "name": "Spanish", "level": "B1" }
+  ],
+  "interests": ["Trail running", "Chess (1800 ELO)", "Synthesizers"],
+  "certifications": [
+    { "name": "GCP Professional ML Engineer", "issuer": "Google Cloud", "year": "2024" }
+  ]
+}

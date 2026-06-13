@@ -1,0 +1,23 @@
+{
+  "sender": {
+    "full_name": "Alex Martin",
+    "email": "alex.martin@example.com",
+    "phone": "+33 6 12 34 56 78",
+    "location": "Paris, France"
+  },
+  "recipient": {
+    "name": "Hiring Team",
+    "company": "Hermès — DSI Groupe",
+    "address_lines": ["13-15 rue de la Ville-l'Évêque", "75008 Paris"]
+  },
+  "date_str": "Paris, June 13, 2026",
+  "subject": "Re: AI Solutions Architect — Core IA team",
+  "greeting": "Dear Hiring Team,",
+  "paragraphs": [
+    "Your Core IA team is building exactly the kind of system I have spent the last four years learning to ship: end-to-end LLM architectures that hold up in production, not just in demos. At Lumina AI, I designed the retrieval-augmented platform behind our flagship assistant — hybrid retrieval, grounded citation checks, and an evaluation harness that gates every change — serving 40,000 queries a day with a p95 under 900 ms.",
+    "What draws me to Hermès is the explicit mandate to design for exploitability from day one: drift thresholds, rollback strategies, and runbooks as first-class deliverables. That is how I already work. My cost-routing layer cut LLM serving spend by 35% precisely because observability and fallback paths were designed before the first model call, and my experience defending architecture decisions in front of design reviews maps directly to your Design Authority process.",
+    "I would welcome the chance to discuss how my experience industrializing RAG, agents, and evaluation pipelines could serve the roadmap of SecuredGPT and LLMHub. Thank you for your consideration."
+  ],
+  "closing": "Yours sincerely,",
+  "signature": "Alex Martin"
+}

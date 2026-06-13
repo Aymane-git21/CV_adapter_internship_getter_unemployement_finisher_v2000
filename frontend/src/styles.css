@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+/* ── CV Glowup design tokens — "Paper in the Dark" ──────────────────────── */
+@theme {
+  --color-ink-950: #0a0d13;
+  --color-ink-900: #10141d;
+  --color-ink-850: #141927;
+  --color-ink-800: #181e2b;
+  --color-ink-700: #232b3d;
+  --color-ink-600: #2e3850;
+
+  --color-paper: #fcfcfa;
+  --color-paper-dim: #f1f1ec;
+
+  --color-fg: #e9ebf1;
+  --color-fg-dim: #98a0b3;
+  --color-fg-faint: #5c6478;
+
+  --color-blue-300: #7aa5ff;
+  --color-blue-400: #5b90ff;
+  --color-blue-500: #3d7fff;
+  --color-blue-600: #2b63d9;
+  --color-blue-950: #0d1b3a;
+
+  --color-signal-400: #ff8266;
+  --color-signal-500: #ff6b4a;
+  --color-signal-950: #2b130d;
+
+  --color-ok-400: #34d399;
+  --color-ok-950: #0a2018;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "IBM Plex Serif", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ink-950);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-blue-500) 35%, transparent);
+}
+
+/* Mono eyebrow label — the recurring structural device */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-fg-dim);
+}
+
+/* The paper sheet — the one bright object in the dark */
+.sheet {
+  background: var(--color-paper);
+  border-radius: 4px;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.5),
+    0 12px 40px -8px rgb(0 0 0 / 0.65),
+    0 0 0 1px rgb(255 255 255 / 0.04);
+}
+.sheet svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Scrollbars that belong to the studio */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-blue-400);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* CodeMirror frame */
+.cm-shell .cm-editor {
+  height: 100%;
+  background: transparent;
+  font-size: 13px;
+}
+.cm-shell .cm-editor.cm-focused {
+  outline: none;
+}
+.cm-shell .cm-gutters {
+  background: transparent;
+  border-right: 1px solid var(--color-ink-700);
+  color: var(--color-fg-faint);
+}
+.cm-shell .cm-activeLine {
+  background: rgb(255 255 255 / 0.03);
+}
+.cm-shell .cm-activeLineGutter {
+  background: transparent;
+  color: var(--color-fg-dim);
+}
+.cm-shell .cm-content {
+  caret-color: var(--color-blue-300);
+  font-family: var(--font-mono);
+}
+.cm-shell .cm-cursor {
+  border-left-color: var(--color-blue-300);
+}
+.cm-shell .cm-selectionBackground,
+.cm-shell .cm-editor ::selection {
+  background: color-mix(in srgb, var(--color-blue-500) 28%, transparent) !important;
+}

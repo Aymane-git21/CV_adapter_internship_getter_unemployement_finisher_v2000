@@ -32,12 +32,13 @@ RUN pip install -r backend/requirements.txt
 
 COPY backend/ backend/
 COPY templates/ templates/
+COPY cvglowup.db cvglowup.db
 COPY --from=web /build/dist frontend/dist
 
-# Non-root user; the compile jail is the only writable app path it needs.
+# Non-root user; needs write access to /app for sqlite db
 RUN useradd --create-home appuser \
     && mkdir -p templates/.compile \
-    && chown -R appuser:appuser /app/templates/.compile
+    && chown -R appuser:appuser /app
 USER appuser
 
 ENV ENV=prod \

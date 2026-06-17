@@ -15,8 +15,8 @@ static/
 
 .env
 .env.*
-*.db
-*.sqlite3
+# *.db
+# *.sqlite3
 uploads/
 outputs/
 instance/

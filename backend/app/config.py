@@ -34,8 +34,11 @@ class Settings(BaseSettings):
 
     # AI
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
-    gemini_model_lite: str = "gemini-2.5-flash-lite"
+    # Override via GEMINI_MODEL / GEMINI_MODEL_LITE. Google retires older models
+    # for new API keys (gemini-2.5-* now 404s "no longer available to new users"),
+    # so these track current GA models; bump them when Google deprecates again.
+    gemini_model: str = "gemini-3.5-flash"
+    gemini_model_lite: str = "gemini-3.1-flash-lite"
     cvg_fake_ai: bool = False  # force the deterministic offline provider
 
     # Typst

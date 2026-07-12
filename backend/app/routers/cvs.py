@@ -12,12 +12,17 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import MasterCV, Photo, User
 from ..schemas import CVData, MasterCVIn
-from ..security import get_byok_key, require_user
+from ..security import get_byok_key, get_current_user, require_user
 
 router = APIRouter(prefix="/api", tags=["cvs"])
 
 _MAX_PDF = 8 * 1024 * 1024
 _MAX_PHOTO = 3 * 1024 * 1024
+_MAX_NAME = 120  # MasterCV.name is String(120); Postgres raises on overflow, SQLite doesn't
+
+
+def _clamp_name(name: str | None) -> str:
+    return (name or "").strip()[:_MAX_NAME] or "My CV"
 
 
 def _cv_payload(cv: MasterCV) -> dict:
@@ -59,7 +64,7 @@ async def create_cv(
         raise HTTPException(status_code=422, detail="Provide raw_text or structured data.")
     count = len((await db.execute(select(MasterCV.id).where(MasterCV.user_id == user.id))).all())
     cv = MasterCV(
-        user_id=user.id, name=body.name, data=data.model_dump(),
+        user_id=user.id, name=_clamp_name(body.name), data=data.model_dump(),
         raw_text=body.raw_text, is_default=count == 0,
     )
     db.add(cv)
@@ -79,7 +84,9 @@ async def upload_cv(
     content = await file.read()
     if len(content) > _MAX_PDF:
         raise HTTPException(status_code=413, detail="PDF too large (8 MB max).")
-    if not content.startswith(b"%PDF"):
+    # The PDF spec allows the %PDF header anywhere in the first 1024 bytes;
+    # some generators prepend junk, so don't require it at offset 0.
+    if b"%PDF" not in content[:1024]:
         raise HTTPException(status_code=415, detail="Only PDF files are accepted.")
     if not get_settings().ai_enabled and not byok:
         raise HTTPException(
@@ -91,7 +98,7 @@ async def upload_cv(
     except AIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     count = len((await db.execute(select(MasterCV.id).where(MasterCV.user_id == user.id))).all())
-    cv = MasterCV(user_id=user.id, name=name, data=data.model_dump(), is_default=count == 0)
+    cv = MasterCV(user_id=user.id, name=_clamp_name(name), data=data.model_dump(), is_default=count == 0)
     db.add(cv)
     await db.commit()
     await db.refresh(cv)
@@ -157,7 +164,9 @@ _PNG_MAGIC = b"\x89PNG"
 @router.post("/photos")
 async def upload_photo(
     db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User | None, Depends(require_user)],
+    # Guests generate documents too, so photos are anonymous-friendly by design
+    # (user_id is nullable). require_user here would 401 every guest upload.
+    user: Annotated[User | None, Depends(get_current_user)],
     file: UploadFile = File(...),
 ):
     content = await file.read()

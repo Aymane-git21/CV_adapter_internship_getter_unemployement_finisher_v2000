@@ -62,9 +62,11 @@ class GeminiProvider:
                 timeout=_TIMEOUT,
             )
         except Exception as exc:  # noqa: BLE001 — translated below
-            transient = isinstance(exc, genai_errors.APIError) and getattr(exc, "code", 0) in (500, 502, 503)
+            code = getattr(exc, "code", 0) if isinstance(exc, genai_errors.APIError) else 0
+            transient = code in (429, 500, 502, 503)
             if retry and (transient or isinstance(exc, asyncio.TimeoutError)):
-                await asyncio.sleep(1.5)
+                # 429s need a longer breather than blips; one retry either way.
+                await asyncio.sleep(3.0 if code == 429 else 1.5)
                 return await self._generate(contents, schema=schema, lite=lite, retry=False)
             log.warning("gemini call failed: %s", exc)
             raise self._translate_error(exc) from exc

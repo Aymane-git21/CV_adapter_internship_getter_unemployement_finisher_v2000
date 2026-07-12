@@ -191,9 +191,15 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
               </button>
               <button
                 className={`${seg(cvMode === "upload")} ${!canUploadPdf ? "opacity-40" : ""}`}
-                onClick={() => canUploadPdf && setCvMode("upload")}
-                title={canUploadPdf ? "" : "PDF parsing needs the AI service"}
+                onClick={() => {
+                  if (!canUploadPdf) return;
+                  // /api/cvs/upload stores a MasterCV, which needs an account.
+                  if (!authed) { setAuthOpen(true); return; }
+                  setCvMode("upload");
+                }}
+                title={!canUploadPdf ? "PDF parsing needs the AI service" : !authed ? "Sign in to upload a PDF" : ""}
               >
+                {!authed && canUploadPdf && <Lock size={11} className="mr-1 inline-block opacity-60" />}
                 {t("studio.cv.upload")}
               </button>
             </div>

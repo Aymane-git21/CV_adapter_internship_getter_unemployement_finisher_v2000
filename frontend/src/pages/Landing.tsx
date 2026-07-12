@@ -1,8 +1,8 @@
 /* Landing — "Your CV has 7 seconds."
-   The hero is a Three.js scene (the tailored page floating over embers,
-   scanned the way a recruiter scans it) and the page is choreographed with
-   GSAP ScrollTrigger: staggered headline, scroll-linked camera, counting
-   stats, velocity-reactive marquee, magnetic CTA and a flame cursor.
+   The hero is a Three.js scene (the tailored page igniting from its edges
+   over a bed of embers) and the page is choreographed with GSAP
+   ScrollTrigger: staggered headline, scroll-linked camera, counting
+   stats, velocity-reactive marquee and a magnetic CTA.
    All motion is gated behind prefers-reduced-motion. */
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -181,8 +181,6 @@ export default function Landing() {
   const fallbackRef = useRef<HTMLDivElement>(null);
   const marqueeRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
-  const cursorDotRef = useRef<HTMLDivElement>(null);
-  const cursorRingRef = useRef<HTMLDivElement>(null);
   const scrollProgress = useRef(0);
 
   // ---- GSAP choreography (re-runs per language: text nodes change) -------
@@ -297,38 +295,6 @@ export default function Landing() {
     return () => ctx.revert();
   }, [lang]);
 
-  // ---- flame cursor (fine pointers only) ----------------------------------
-  useEffect(() => {
-    const fine = window.matchMedia("(pointer: fine)").matches;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const dot = cursorDotRef.current;
-    const ring = cursorRingRef.current;
-    if (!fine || reduced || !dot || !ring) return;
-
-    const dotX = gsap.quickTo(dot, "x", { duration: 0.12, ease: "power2.out" });
-    const dotY = gsap.quickTo(dot, "y", { duration: 0.12, ease: "power2.out" });
-    const ringX = gsap.quickTo(ring, "x", { duration: 0.45, ease: "power3.out" });
-    const ringY = gsap.quickTo(ring, "y", { duration: 0.45, ease: "power3.out" });
-
-    const move = (e: PointerEvent) => {
-      gsap.set([dot, ring], { autoAlpha: 1 });
-      dotX(e.clientX);
-      dotY(e.clientY);
-      ringX(e.clientX);
-      ringY(e.clientY);
-      const interactive = (e.target as HTMLElement).closest("a, button, summary");
-      gsap.to(ring, { scale: interactive ? 2 : 1, duration: 0.25 });
-    };
-    const leave = () => gsap.set([dot, ring], { autoAlpha: 0 });
-    document.addEventListener("pointermove", move, { passive: true });
-    document.documentElement.addEventListener("pointerleave", leave);
-    return () => {
-      document.removeEventListener("pointermove", move);
-      document.documentElement.removeEventListener("pointerleave", leave);
-      gsap.set([dot, ring], { autoAlpha: 0 });
-    };
-  }, []);
-
   // ---- magnetic primary CTA ------------------------------------------------
   useEffect(() => {
     const el = ctaRef.current;
@@ -358,16 +324,6 @@ export default function Landing() {
 
   return (
     <div ref={rootRef}>
-      {/* flame cursor */}
-      <div
-        ref={cursorDotRef}
-        className="pointer-events-none fixed left-0 top-0 z-[70] size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flame-500 opacity-0"
-      />
-      <div
-        ref={cursorRingRef}
-        className="pointer-events-none fixed left-0 top-0 z-[70] size-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-flame-500/50 opacity-0"
-      />
-
       {/* ── hero ─────────────────────────────────────────────────────────── */}
       <section
         ref={heroRef}

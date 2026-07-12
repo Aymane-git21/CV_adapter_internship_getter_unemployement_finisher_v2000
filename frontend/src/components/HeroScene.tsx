@@ -1,8 +1,9 @@
 /* Three.js hero — the tailored CV floating over a bed of rising embers.
-   Pointer parallax, a recruiter scan-light sweeping the page, and a
-   scroll-linked camera pull. Fails silent (no WebGL -> static fallback
-   stays visible), renders one still frame under prefers-reduced-motion,
-   and pauses whenever the hero is off-screen. */
+   Pointer parallax, a shader burn-in (the page ignites from its edges and
+   the glow front reveals the content), and a scroll-linked camera pull.
+   Fails silent (no WebGL -> static fallback stays visible), renders one
+   still frame under prefers-reduced-motion, and pauses whenever the hero
+   is off-screen. */
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import heroCv from "../assets/hero_cv.jpg";
@@ -16,6 +17,70 @@ export interface HeroSceneProps {
 
 const EMBER_COUNT = 260;
 const FLAME_COLORS = ["#e8722c", "#d96328", "#c2551b", "#d92638", "#f2a16b"];
+
+/* Burn-in reveal: a glow front creeps from the sheet edges toward the
+   center (sides lead), the content brightens to full where it has passed,
+   and a noisy flame band marks the moving frontier. 9s loop: ~6.5s burn,
+   then a fully-lit hold. Flame colors are #e8722c/#f2a16b in linear space
+   (colorspace_fragment converts the final color for output). */
+const BURN_VERTEX = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const BURN_FRAGMENT = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform float uTime;
+  uniform float uOpacity;
+  varying vec2 vUv;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+
+  void main() {
+    vec3 tex = texture2D(uMap, vUv).rgb;
+
+    // distance to the nearest edge; x weighs less so the sides lead
+    float dx = min(vUv.x, 1.0 - vUv.x);
+    float dy = min(vUv.y, 1.0 - vUv.y);
+    float d = min(dx, dy * 1.6);
+
+    // 9s cycle: the front travels inward for ~6.5s, then holds fully lit
+    float cyc = mod(uTime, 9.0);
+    float front = smoothstep(0.0, 6.5, cyc) * 0.78;
+
+    float grain = noise(vUv * 9.0 + uTime * 0.25) * 0.09; // organic frontier
+    float dd = d + grain;
+
+    float lit = smoothstep(front, front - 0.16, dd);
+    float band = exp(-pow((dd - front) / 0.045, 2.0));
+
+    vec3 flameA = vec3(0.807, 0.168, 0.025);
+    vec3 flameB = vec3(0.888, 0.356, 0.147);
+
+    vec3 unlit = tex * 0.55 + vec3(0.045, 0.018, 0.004); // dim, warm paper
+    vec3 col = mix(unlit, tex, lit);
+    col += band * mix(flameA, flameB, noise(vUv * 5.0 + uTime * 0.6)) * 0.9;
+    col += smoothstep(0.10, 0.0, d) * 0.22 * flameA;     // constant side rim
+
+    gl_FragColor = vec4(col, uOpacity);
+    #include <colorspace_fragment>
+  }
+`;
 
 /** Soft round sprite for ember particles. */
 function emberTexture(): THREE.Texture {
@@ -86,7 +151,20 @@ export default function HeroScene({ progress, onReady }: HeroSceneProps) {
     cvTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
     const sheetGeo = new THREE.PlaneGeometry(3.1, 3.1 * 1.29);
-    const front = new THREE.Mesh(sheetGeo, new THREE.MeshBasicMaterial({ map: cvTex }));
+    const burnUniforms = {
+      uMap: { value: cvTex },
+      uTime: { value: 7.5 }, // fully-lit phase — the reduced-motion still frame
+      uOpacity: { value: 1 },
+    };
+    const front = new THREE.Mesh(
+      sheetGeo,
+      new THREE.ShaderMaterial({
+        uniforms: burnUniforms,
+        vertexShader: BURN_VERTEX,
+        fragmentShader: BURN_FRAGMENT,
+        transparent: true,
+      }),
+    );
     front.renderOrder = 2;
     paper.add(front);
 
@@ -105,15 +183,6 @@ export default function HeroScene({ progress, onReady }: HeroSceneProps) {
     glow.scale.setScalar(9);
     glow.position.z = -1.4;
     paper.add(glow);
-
-    // recruiter scan-light sweeping the page (7s sweep + 2s hold, like the countdown)
-    const scan = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.3, 0.16),
-      new THREE.MeshBasicMaterial({ color: 0xe8722c, transparent: true, opacity: 0.5, depthWrite: false }),
-    );
-    scan.position.z = 0.02;
-    scan.renderOrder = 3;
-    paper.add(scan);
 
     // ---- embers ----------------------------------------------------------
     const emberGeo = new THREE.BufferGeometry();
@@ -158,12 +227,12 @@ export default function HeroScene({ progress, onReady }: HeroSceneProps) {
       const wide = w >= 1024;
       paper.position.x = wide ? 2.6 : 0;
       paper.scale.setScalar(wide ? 1 : Math.min(0.85, w / 700));
-      front.material.opacity = wide ? 1 : 0.28;
-      front.material.transparent = !wide;
+      burnUniforms.uOpacity.value = wide ? 1 : 0.28;
       paper.children.forEach((child) => {
+        if (child === (front as THREE.Object3D)) return;
         const mesh = child as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
-        if (mesh !== front && mesh.material && "opacity" in mesh.material) {
-          mesh.material.opacity = wide ? (mesh === (scan as unknown) ? 0.5 : 0.85) : 0.2;
+        if (mesh.material && "opacity" in mesh.material) {
+          mesh.material.opacity = wide ? 0.85 : 0.2;
         }
       });
     };
@@ -216,11 +285,8 @@ export default function HeroScene({ progress, onReady }: HeroSceneProps) {
       paper.rotation.x = -pointer.y * 0.08;
       paper.position.y = Math.sin(t * 0.8) * 0.08 + p * 3.2;
 
-      // recruiter scan: 7s sweep, 2s hold at the bottom
-      const cycle = (t % 9) / 7;
-      const sweep = Math.min(cycle, 1);
-      scan.position.y = 1.9 - sweep * 3.8;
-      (scan.material as THREE.MeshBasicMaterial).opacity = cycle > 1 ? 0 : 0.5;
+      // burn-in reveal: the shader keys everything off elapsed time
+      burnUniforms.uTime.value = t;
 
       // camera drift + scroll pull-back
       camera.position.x += (pointer.x * 0.5 - camera.position.x) * 0.04;

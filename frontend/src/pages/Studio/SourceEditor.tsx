@@ -48,8 +48,8 @@ export function SourceEditor({ ctl }: { ctl: DocController }) {
       </div>
       {diagnostics && (
         <div className="max-h-40 shrink-0 overflow-y-auto border-t border-signal-500/30 bg-signal-950 p-3">
-          <p className="eyebrow mb-1.5 text-signal-400">{t("studio.compile.error")}</p>
-          <pre className="whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-signal-400/90">
+          <p className="eyebrow mb-1.5 text-danger">{t("studio.compile.error")}</p>
+          <pre className="whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-danger/90">
             {diagnostics}
           </pre>
         </div>

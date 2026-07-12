@@ -82,7 +82,7 @@ async def generate(
         raise HTTPException(status_code=422, detail="No CV provided. Paste your CV or save one first.")
 
     # ---- Create job rows, then spawn ------------------------------------------
-    language = body.language if body.language in ("en", "fr") else "en"
+    language = body.language if body.language in ("en", "fr", "de") else "en"
     job_ids: list[str] = []
     for jd in jds:
         job = Job(

@@ -96,6 +96,27 @@ async def test_full_flow(client):
     assert me.json()["quota"]["used_today"] == 1
 
 
+async def test_generate_in_german(client):
+    await _register(client)
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "cv_text": SAMPLE_CV_TEXT, "language": "de",
+              "template": "onyx"},
+    )
+    assert r.status_code == 200, r.text
+    job_id = r.json()["jobs"][0]
+    snap = await _wait_job(client, job_id)
+    assert snap["status"] == "completed", snap.get("error")
+    assert snap["language"] == "de"
+    letter = next(d for d in snap["documents"] if d["kind"] == "letter")
+    r = await client.get(f"/api/documents/{letter['id']}")
+    assert r.status_code == 200
+    doc = r.json()
+    # Offline provider writes the German letter; the source embeds its data.
+    assert "Sehr geehrte Damen und Herren" in doc["source"]
+    assert 'lang: "de"' in doc["source"]
+
+
 async def test_guest_flow_and_limit(client):
     r = await client.post(
         "/api/generate",

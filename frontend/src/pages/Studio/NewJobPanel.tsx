@@ -5,7 +5,7 @@ import { api, ApiError, byokStore, type MasterCVMeta } from "../../api";
 import { useI18n } from "../../i18n";
 import { useSession, useStudio } from "../../store";
 
-const ACCENTS = ["#0F62FE", "#1C3B5A", "#0E8A66", "#7C3AED", "#B42318", "#101828"];
+const ACCENTS = ["#0F62FE", "#1C3B5A", "#0E8A66", "#7C3AED", "#C2551B", "#B42318", "#101828"];
 
 async function squareCrop(file: File, size = 512): Promise<Blob> {
   const img = await createImageBitmap(file);
@@ -131,7 +131,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
 
   const seg = (active: boolean) =>
     `rounded-md px-3 py-1.5 text-[13px] transition-colors ${
-      active ? "bg-ink-700 text-fg" : "text-fg-dim hover:text-fg"
+      active ? "bg-ink-700 text-text" : "text-text/70 hover:text-text"
     }`;
 
   return (
@@ -140,7 +140,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
         {/* ── left: the job descriptions ── */}
         <div>
           <p className="eyebrow mb-2">{t("studio.newJob")}</p>
-          <h1 className="mb-6 font-serif text-2xl font-semibold tracking-tight">
+          <h1 className="mb-6 font-sans text-2xl font-semibold tracking-tight">
             {jds.length > 1 ? `${jds.length} ${t("studio.jd.count")}` : t("nav.start")}
           </h1>
 
@@ -152,12 +152,12 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                   onChange={(e) => setJd(i, e.target.value)}
                   placeholder={t("studio.jd.placeholder")}
                   rows={jds.length > 1 ? 5 : 9}
-                  className="w-full resize-y rounded-lg border border-ink-700 bg-ink-900 p-3.5 text-sm leading-relaxed placeholder:text-fg-faint focus:border-blue-500"
+                  className="w-full resize-y rounded-lg border border-black/10 glass-panel p-3.5 text-sm leading-relaxed placeholder:text-text/50 focus:border-flame-500"
                 />
                 {jds.length > 1 && (
                   <button
                     onClick={() => removeJd(i)}
-                    className="absolute right-2 top-2 rounded p-1 text-fg-faint hover:bg-ink-700 hover:text-fg"
+                    className="absolute right-2 top-2 rounded p-1 text-text/50 hover:bg-ink-700 hover:text-text"
                     aria-label={t("ed.remove")}
                   >
                     <X size={14} />
@@ -170,17 +170,17 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
           {jds.length < maxParallel && (
             <button
               onClick={() => setJds((xs) => [...xs, ""])}
-              className="mt-3 flex items-center gap-1.5 text-[13px] text-blue-300 hover:text-blue-400"
+              className="mt-3 flex items-center gap-1.5 text-[13px] text-primary/80 hover:text-flame-400"
             >
               <Plus size={14} /> {t("studio.jd.add")}
-              <span className="font-mono text-[11px] text-fg-faint">({jds.length}/{maxParallel})</span>
+              <span className="font-mono text-[11px] text-text/50">({jds.length}/{maxParallel})</span>
             </button>
           )}
 
           {/* ── CV source ── */}
           <div className="mt-8">
             <p className="eyebrow mb-3">{t("studio.cv.source")}</p>
-            <div className="mb-3 inline-flex gap-1 rounded-lg border border-ink-700 bg-ink-900 p-1">
+            <div className="mb-3 inline-flex gap-1 rounded-lg border border-black/10 glass-panel p-1">
               {authed && (
                 <button className={seg(cvMode === "saved")} onClick={() => setCvMode("saved")}>
                   {t("studio.cv.saved")}
@@ -206,12 +206,12 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                     onClick={() => setSavedCvId(cv.id)}
                     className={`rounded-lg border px-3.5 py-2.5 text-left text-[13px] transition-colors ${
                       savedCvId === cv.id
-                        ? "border-blue-500 bg-blue-950 text-fg"
-                        : "border-ink-700 bg-ink-900 text-fg-dim hover:border-ink-600"
+                        ? "border-flame-500 bg-flame-950 text-text"
+                        : "border-black/10 glass-panel text-text/70 hover:border-ink-600"
                     }`}
                   >
                     <span className="block font-medium">{cv.name}</span>
-                    <span className="font-mono text-[11px] text-fg-faint">
+                    <span className="font-mono text-[11px] text-text/50">
                       {cv.data?.full_name ?? "—"}{cv.is_default ? " · default" : ""}
                     </span>
                   </button>
@@ -226,15 +226,15 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                   onChange={(e) => setCvText(e.target.value)}
                   placeholder={t("studio.cv.paste.placeholder")}
                   rows={7}
-                  className="w-full resize-y rounded-lg border border-ink-700 bg-ink-900 p-3.5 font-mono text-[12.5px] leading-relaxed placeholder:font-sans placeholder:text-fg-faint focus:border-blue-500"
+                  className="w-full resize-y rounded-lg border border-black/10 glass-panel p-3.5 font-mono text-[12.5px] leading-relaxed placeholder:font-sans placeholder:text-text/50 focus:border-flame-500"
                 />
                 {authed && (
-                  <label className="mt-2 flex items-center gap-2 text-[13px] text-fg-dim">
+                  <label className="mt-2 flex items-center gap-2 text-[13px] text-text/70">
                     <input
                       type="checkbox"
                       checked={saveMaster}
                       onChange={(e) => setSaveMaster(e.target.checked)}
-                      className="size-3.5 accent-blue-500"
+                      className="size-3.5 accent-flame-500"
                     />
                     {t("studio.cv.save")}
                   </label>
@@ -254,7 +254,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-ink-600 bg-ink-900 px-4 py-7 text-sm text-fg-dim transition-colors hover:border-blue-500 hover:text-fg"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-ink-600 glass-panel px-4 py-7 text-sm text-text/70 transition-colors hover:border-flame-500 hover:text-text"
                 >
                   {uploading ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
                   {uploadedCv ? `${uploadedCv.name} — ${uploadedCv.data?.full_name ?? "parsed"}` : "PDF, max 8 MB"}
@@ -268,10 +268,10 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
         <aside className="space-y-6 lg:pt-12">
           <div>
             <p className="eyebrow mb-3">{t("studio.language")}</p>
-            <div className="inline-flex gap-1 rounded-lg border border-ink-700 bg-ink-900 p-1">
-              {(["en", "fr"] as const).map((l) => (
+            <div className="inline-flex gap-1 rounded-lg border border-black/10 glass-panel p-1">
+              {(["en", "fr", "de"] as const).map((l) => (
                 <button key={l} className={seg(docLang === l)} onClick={() => setDocLang(l)}>
-                  {l === "en" ? "English" : "Français"}
+                  {{ en: "English", fr: "Français", de: "Deutsch" }[l]}
                 </button>
               ))}
             </div>
@@ -289,15 +289,15 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                     onClick={() => { setTemplate(tpl.id); setAccent(tpl.default_accent); }}
                     className={`flex w-full items-center justify-between rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
                       template === tpl.id
-                        ? "border-blue-500 bg-blue-950"
-                        : "border-ink-700 bg-ink-900 hover:border-ink-600"
+                        ? "border-flame-500 bg-flame-950"
+                        : "border-black/10 glass-panel hover:border-ink-600"
                     } ${locked ? "opacity-45" : ""}`}
                   >
                     <span>
                       <span className="block text-[13px] font-medium">{tpl.label}</span>
-                      <span className="font-mono text-[11px] text-fg-faint">{tpl.vibe}</span>
+                      <span className="font-mono text-[11px] text-text/50">{tpl.vibe}</span>
                     </span>
-                    {locked ? <Lock size={13} className="text-fg-faint" /> : (
+                    {locked ? <Lock size={13} className="text-text/50" /> : (
                       <span className="size-3.5 rounded-full" style={{ background: tpl.default_accent }} />
                     )}
                   </button>
@@ -344,7 +344,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                 <img src={photoPreview} alt="" className="size-12 rounded-full object-cover" />
                 <button
                   onClick={() => { setPhotoId(null); setPhotoPreview(null); }}
-                  className="flex items-center gap-1.5 text-[13px] text-fg-dim hover:text-signal-400"
+                  className="flex items-center gap-1.5 text-[13px] text-text/70 hover:text-danger"
                 >
                   <Trash2 size={13} /> {t("studio.photo.remove")}
                 </button>
@@ -352,7 +352,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
             ) : (
               <button
                 onClick={() => photoRef.current?.click()}
-                className="flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-900 px-3.5 py-2.5 text-[13px] text-fg-dim transition-colors hover:border-ink-600 hover:text-fg"
+                className="flex items-center gap-2 rounded-lg border border-black/10 glass-panel px-3.5 py-2.5 text-[13px] text-text/70 transition-colors hover:border-ink-600 hover:text-text"
               >
                 <Camera size={14} /> {t("studio.photo.add")}
               </button>
@@ -360,7 +360,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
           </div>
 
           {error && (
-            <p className="rounded-lg border border-signal-500/30 bg-signal-950 p-3 text-[13px] text-signal-400">
+            <p className="rounded-lg border border-signal-500/30 bg-signal-950 p-3 text-[13px] text-danger">
               {error}
             </p>
           )}
@@ -368,7 +368,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
           <button
             onClick={() => void launch()}
             disabled={!ready || busy}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 py-3 text-sm font-semibold text-white shadow-[0_0_32px_-8px] shadow-blue-500/70 transition hover:bg-blue-400 disabled:opacity-40 disabled:shadow-none"
+            className="btn-flame flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold disabled:opacity-40 disabled:shadow-none"
           >
             {busy && <Loader2 size={15} className="animate-spin" />}
             {busy ? t("studio.generating") : t("studio.generate")}

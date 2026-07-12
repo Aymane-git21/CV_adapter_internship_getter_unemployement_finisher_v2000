@@ -5,13 +5,13 @@ import { useI18n } from "../../i18n";
 import type { DocController } from "./useDocument";
 
 const inputCls =
-  "w-full rounded-md border border-ink-700 bg-ink-900 px-2.5 py-2 text-[13px] placeholder:text-fg-faint focus:border-blue-500";
+  "w-full rounded-md border border-black/10 glass-panel px-2.5 py-2 text-[13px] placeholder:text-text/50 focus:border-flame-500";
 const areaCls = `${inputCls} resize-y leading-relaxed`;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block font-mono text-[10.5px] uppercase tracking-wider text-fg-faint">{label}</span>
+      <span className="mb-1 block font-mono text-[10.5px] uppercase tracking-wider text-text/50">{label}</span>
       {children}
     </label>
   );
@@ -21,11 +21,11 @@ function Section({ title, onAdd, addLabel, children }: {
   title: string; onAdd?: () => void; addLabel?: string; children: React.ReactNode;
 }) {
   return (
-    <section className="border-b border-ink-800 px-4 py-4">
+    <section className="border-b border-black/10 px-4 py-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="eyebrow">{title}</h3>
         {onAdd && (
-          <button onClick={onAdd} className="flex items-center gap-1 text-[12px] text-blue-300 hover:text-blue-400">
+          <button onClick={onAdd} className="flex items-center gap-1 text-[12px] text-primary/80 hover:text-flame-400">
             <Plus size={12} /> {addLabel}
           </button>
         )}
@@ -37,10 +37,10 @@ function Section({ title, onAdd, addLabel, children }: {
 
 function EntryCard({ onRemove, children }: { onRemove: () => void; children: React.ReactNode }) {
   return (
-    <div className="relative rounded-lg border border-ink-800 bg-ink-900/60 p-3">
+    <div className="relative rounded-lg border border-black/10 glass-panel/60 p-3">
       <button
         onClick={onRemove}
-        className="absolute right-2 top-2 rounded p-1 text-fg-faint hover:bg-ink-700 hover:text-signal-400"
+        className="absolute right-2 top-2 rounded p-1 text-text/50 hover:bg-ink-700 hover:text-danger"
         aria-label="Remove entry"
       >
         <Trash2 size={12} />
@@ -266,7 +266,7 @@ function MessageForm({ ctl }: { ctl: DocController }) {
       />
       <button
         onClick={() => void navigator.clipboard.writeText(doc.text_content ?? "")}
-        className="rounded-md border border-ink-700 px-3 py-1.5 text-[13px] text-fg-dim hover:border-ink-600 hover:text-fg"
+        className="rounded-md border border-black/10 px-3 py-1.5 text-[13px] text-text/70 hover:border-ink-600 hover:text-text"
       >
         {t("studio.copy")}
       </button>

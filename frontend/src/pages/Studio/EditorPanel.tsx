@@ -16,7 +16,7 @@ export function EditorPanel({ ctl }: { ctl: DocController }) {
 
   if (loading || !doc) {
     return (
-      <div className="grid h-full place-items-center text-fg-dim">
+      <div className="grid h-full place-items-center text-text/70">
         <Loader2 className="animate-spin" size={20} />
       </div>
     );
@@ -31,8 +31,8 @@ export function EditorPanel({ ctl }: { ctl: DocController }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-ink-950">
-      <div className="flex shrink-0 items-center justify-between border-b border-ink-800 px-2">
+    <div className="flex h-full min-h-0 flex-col bg-transparent">
+      <div className="flex shrink-0 items-center justify-between border-b border-black/10 px-2">
         <div role="tablist" className="flex">
           {tabs.map((tb) => (
             <button
@@ -41,22 +41,22 @@ export function EditorPanel({ ctl }: { ctl: DocController }) {
               aria-selected={tab === tb}
               onClick={() => setTab(tb)}
               className={`px-3 py-2 font-mono text-[11px] uppercase tracking-wider transition-colors ${
-                tab === tb ? "text-fg" : "text-fg-faint hover:text-fg-dim"
+                tab === tb ? "text-text" : "text-text/50 hover:text-text/70"
               }`}
             >
               {labels[tb]}
             </button>
           ))}
         </div>
-        {syncing && <Loader2 size={13} className="mr-2 animate-spin text-blue-300" />}
+        {syncing && <Loader2 size={13} className="mr-2 animate-spin text-primary/80" />}
       </div>
 
       {doc.mode === "source" && !isMessage && tab === "content" && (
-        <div className="flex items-center justify-between gap-3 border-b border-ink-800 bg-blue-950/60 px-3 py-2 text-[12px] text-blue-300">
+        <div className="flex items-center justify-between gap-3 border-b border-black/10 bg-flame-950/60 px-3 py-2 text-[12px] text-primary/80">
           <span>{t("studio.sourceMode.banner")}</span>
           <button
             onClick={() => void ctl.revertToData()}
-            className="shrink-0 rounded border border-blue-500/40 px-2 py-1 text-[11px] hover:bg-blue-500/20"
+            className="shrink-0 rounded border border-flame-500/40 px-2 py-1 text-[11px] hover:bg-primary/20"
           >
             {t("studio.sourceMode.revert")}
           </button>

@@ -16,22 +16,22 @@ function JobTab({ job, active, onSelect, onClose }: {
 }) {
   const icon =
     job.status === "completed" ? <CheckCircle2 size={13} className="text-ok-400" />
-    : job.status === "failed" ? <XCircle size={13} className="text-signal-400" />
-    : <Loader2 size={13} className="animate-spin text-blue-300" />;
+    : job.status === "failed" ? <XCircle size={13} className="text-danger" />
+    : <Loader2 size={13} className="animate-spin text-primary/80" />;
   return (
     <div
       role="tab"
       aria-selected={active}
       onClick={onSelect}
-      className={`group flex max-w-56 cursor-pointer items-center gap-2 border-r border-ink-800 px-3.5 py-2 text-[13px] transition-colors ${
-        active ? "bg-ink-850 text-fg" : "bg-transparent text-fg-dim hover:bg-ink-900 hover:text-fg"
+      className={`group flex max-w-56 cursor-pointer items-center gap-2 border-r border-black/10 px-3.5 py-2 text-[13px] transition-colors ${
+        active ? "bg-ink-850 text-text" : "bg-transparent text-text/70 hover:glass-panel hover:text-text"
       }`}
     >
       {icon}
       <span className="truncate">{job.title ?? "…"}</span>
       <button
         onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="ml-1 hidden rounded p-0.5 text-fg-faint hover:bg-ink-700 hover:text-fg group-hover:block"
+        className="ml-1 hidden rounded p-0.5 text-text/50 hover:bg-ink-700 hover:text-text group-hover:block"
         aria-label="Close tab"
       >
         <X size={12} />
@@ -48,21 +48,21 @@ function ProgressView({ job }: { job: JobSnapshot }) {
     <div className="grid h-full place-items-center p-6">
       <div className="w-full max-w-lg">
         <p className="eyebrow mb-2">{job.title ?? t("studio.generating")}</p>
-        <div className="mb-5 h-1 overflow-hidden rounded-full bg-ink-800">
+        <div className="mb-5 h-1 overflow-hidden rounded-full glass-panel">
           <div
-            className="h-full rounded-full bg-blue-500 transition-all duration-700"
+            className="h-full rounded-full bg-primary transition-all duration-700"
             style={{ width: `${Math.max(4, pct)}%` }}
           />
         </div>
-        <div className="space-y-2.5 rounded-lg border border-ink-800 bg-ink-900 p-4 font-mono text-xs">
+        <div className="space-y-2.5 rounded-lg border border-black/10 glass-panel p-4 font-mono text-xs">
           {job.events.map((ev, i) => (
             <div key={i} className="flex items-start gap-2.5">
               {i === job.events.length - 1 && job.status === "running" ? (
-                <Loader2 size={13} className="mt-px shrink-0 animate-spin text-blue-300" />
+                <Loader2 size={13} className="mt-px shrink-0 animate-spin text-primary/80" />
               ) : (
                 <CheckCircle2 size={13} className="mt-px shrink-0 text-ok-400" />
               )}
-              <span className="text-fg-dim">{ev.message}</span>
+              <span className="text-text/70">{ev.message}</span>
             </div>
           ))}
         </div>
@@ -77,12 +77,12 @@ function FailedView({ job, onClose }: { job: JobSnapshot; onClose: () => void })
   return (
     <div className="grid h-full place-items-center p-6">
       <div className="max-w-md text-center">
-        <XCircle size={32} className="mx-auto mb-3 text-signal-400" />
-        <h2 className="mb-2 font-serif text-lg font-semibold">{t("studio.failed")}</h2>
-        <p className="mb-5 text-sm text-fg-dim">{job.error}</p>
+        <XCircle size={32} className="mx-auto mb-3 text-danger" />
+        <h2 className="mb-2 font-sans text-lg font-semibold">{t("studio.failed")}</h2>
+        <p className="mb-5 text-sm text-text/70">{job.error}</p>
         <button
           onClick={onClose}
-          className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
         >
           {t("studio.retry")}
         </button>
@@ -108,7 +108,7 @@ function Workspace({ job }: { job: JobSnapshot }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b border-ink-800 bg-ink-900/60 px-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-black/10 glass-panel/60 px-3">
         <div role="tablist" className="flex">
           {kinds.map((k) => (
             <button
@@ -118,8 +118,8 @@ function Workspace({ job }: { job: JobSnapshot }) {
               onClick={() => setActiveKind(k)}
               className={`border-b-2 px-3.5 py-2.5 text-[13px] transition-colors ${
                 activeKind === k
-                  ? "border-blue-500 text-fg"
-                  : "border-transparent text-fg-dim hover:text-fg"
+                  ? "border-flame-500 text-text"
+                  : "border-transparent text-text/70 hover:text-text"
               }`}
             >
               {t(`studio.doc.${k}` as Parameters<typeof t>[0])}
@@ -129,7 +129,7 @@ function Workspace({ job }: { job: JobSnapshot }) {
         {me && !me.authenticated && (
           <button
             onClick={() => setAuthOpen(true)}
-            className="hidden rounded-md border border-blue-500/40 bg-blue-950 px-3 py-1.5 text-xs text-blue-300 hover:bg-blue-500/20 lg:block"
+            className="hidden rounded-md border border-flame-500/40 bg-flame-950 px-3 py-1.5 text-xs text-primary/80 hover:bg-primary/20 lg:block"
           >
             {t("studio.guest.cta")}
           </button>
@@ -141,7 +141,7 @@ function Workspace({ job }: { job: JobSnapshot }) {
           <Panel defaultSize={44} minSize={28} className="min-w-0">
             <EditorPanel ctl={ctl} />
           </Panel>
-          <PanelResizeHandle className="w-px bg-ink-700 transition-colors hover:bg-blue-500 data-[resize-handle-state=drag]:bg-blue-500" />
+          <PanelResizeHandle className="w-px bg-ink-700 transition-colors hover:bg-primary data-[resize-handle-state=drag]:bg-primary" />
           <Panel minSize={30} className="min-w-0">
             <Preview ctl={ctl} />
           </Panel>
@@ -169,9 +169,9 @@ export default function Studio() {
   const showNewPanel = showNew || tabOrder.length === 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-ink-950">
+    <div className="flex h-full min-h-0 flex-col bg-transparent">
       {/* job tab strip */}
-      <div className="flex h-9 shrink-0 items-stretch border-b border-ink-800 bg-ink-950">
+      <div className="flex h-9 shrink-0 items-stretch border-b border-black/10 bg-transparent">
         <div className="flex flex-1 items-stretch overflow-x-auto">
           {tabOrder.map((id) =>
             jobs[id] ? (
@@ -187,11 +187,11 @@ export default function Studio() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className={`flex items-center gap-1.5 border-l border-ink-800 px-3.5 text-[13px] transition-colors ${
-            showNewPanel ? "bg-ink-850 text-fg" : "text-fg-dim hover:text-fg"
+          className={`flex items-center gap-1.5 border-l border-black/10 px-3.5 text-[13px] transition-colors ${
+            showNewPanel ? "bg-ink-850 text-text" : "text-text/70 hover:text-text"
           }`}
         >
-          <Plus size={14} className="text-blue-300" />
+          <Plus size={14} className="text-primary/80" />
           <span className="hidden sm:inline">{t("studio.newJob")}</span>
         </button>
       </div>

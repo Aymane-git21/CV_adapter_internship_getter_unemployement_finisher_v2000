@@ -52,6 +52,29 @@ const copy = {
     loginFirst: "Connectez-vous pour gérer vos réglages.",
     feedback: "Un bug ? Dites-le nous :",
   },
+  de: {
+    title: "Einstellungen",
+    account: "Konto",
+    plan: "Plan",
+    manageBilling: "Abrechnung verwalten",
+    cvs: "Master-Lebensläufe",
+    cvsHint: "Die Quelle der Wahrheit, aus der jeder angepasste Lebenslauf entsteht. Behalten Sie einen pro Karriererichtung.",
+    addPaste: "Aus Text hinzufügen",
+    addUpload: "PDF hochladen",
+    pasteTitle: "Fügen Sie Ihren Lebenslauf ein",
+    name: "Name",
+    create: "Erstellen",
+    default: "Standard",
+    makeDefault: "Als Standard festlegen",
+    byok: "Ihr Gemini-API-Schlüssel",
+    byokHint: "Optional. Mit Ihrem eigenen Schlüssel sind Generierungen unbegrenzt und kostenlos — der Schlüssel bleibt in diesem Browser (localStorage), wird nur mit Ihren eigenen Anfragen gesendet und nie auf unseren Servern gespeichert. Kostenlos erhältlich bei",
+    byokPlaceholder: "AIza…",
+    byokSave: "Prüfen & speichern",
+    byokActive: "Schlüssel aktiv — unbegrenzte Generierungen",
+    byokRemove: "Schlüssel entfernen",
+    loginFirst: "Melden Sie sich an, um Ihre Einstellungen zu verwalten.",
+    feedback: "Einen Fehler gefunden? Sagen Sie es uns:",
+  },
 };
 
 function ByokCard() {
@@ -78,13 +101,13 @@ function ByokCard() {
   };
 
   return (
-    <section className="rounded-xl border border-ink-700 bg-ink-900 p-6">
+    <section className="rounded-xl border border-black/10 glass-panel p-6">
       <h2 className="mb-1 flex items-center gap-2 text-[15px] font-semibold">
         <KeyRound size={15} className="text-ok-400" /> {c.byok}
       </h2>
-      <p className="mb-4 text-[13px] leading-relaxed text-fg-dim">
+      <p className="mb-4 text-[13px] leading-relaxed text-text/70">
         {c.byokHint}{" "}
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-300 underline-offset-2 hover:underline">
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-primary/80 underline-offset-2 hover:underline">
           aistudio.google.com
         </a>.
       </p>
@@ -95,7 +118,7 @@ function ByokCard() {
           </span>
           <button
             onClick={() => { byokStore.set(null); setActive(false); }}
-            className="text-[13px] text-fg-dim hover:text-signal-400"
+            className="text-[13px] text-text/70 hover:text-danger"
           >
             {c.byokRemove}
           </button>
@@ -106,18 +129,18 @@ function ByokCard() {
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder={c.byokPlaceholder}
-            className="w-72 max-w-full rounded-md border border-ink-700 bg-ink-950 px-3 py-2 font-mono text-[13px] placeholder:text-fg-faint focus:border-blue-500"
+            className="w-72 max-w-full rounded-md border border-black/10 bg-transparent px-3 py-2 font-mono text-[13px] placeholder:text-text/50 focus:border-flame-500"
           />
           <button
             onClick={() => void save()}
             disabled={busy || key.trim().length < 10}
-            className="rounded-md bg-blue-500 px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-400 disabled:opacity-40"
+            className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white hover:bg-primary/90 disabled:opacity-40"
           >
             {busy ? "…" : c.byokSave}
           </button>
         </div>
       )}
-      {error && <p className="mt-3 text-[13px] text-signal-400">{error}</p>}
+      {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
     </section>
   );
 }
@@ -167,28 +190,28 @@ function MasterCVs() {
   };
 
   return (
-    <section className="rounded-xl border border-ink-700 bg-ink-900 p-6">
+    <section className="rounded-xl border border-black/10 glass-panel p-6">
       <h2 className="mb-1 text-[15px] font-semibold">{c.cvs}</h2>
-      <p className="mb-4 text-[13px] text-fg-dim">{c.cvsHint}</p>
+      <p className="mb-4 text-[13px] text-text/70">{c.cvsHint}</p>
 
       <div className="mb-4 space-y-2">
         {rows.map((cv) => (
-          <div key={cv.id} className="flex items-center gap-3 rounded-lg border border-ink-800 bg-ink-950/60 px-3.5 py-2.5">
+          <div key={cv.id} className="flex items-center gap-3 rounded-lg border border-black/10 glass-panel px-3.5 py-2.5">
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13.5px] font-medium">
                 {cv.name}
                 {cv.is_default && (
-                  <span className="ml-2 rounded-full bg-blue-950 px-2 py-0.5 font-mono text-[10px] text-blue-300">
+                  <span className="ml-2 rounded-full bg-flame-950 px-2 py-0.5 font-mono text-[10px] text-primary/80">
                     {c.default}
                   </span>
                 )}
               </p>
-              <p className="font-mono text-[11px] text-fg-faint">{cv.data?.full_name ?? "—"}</p>
+              <p className="font-mono text-[11px] text-text/50">{cv.data?.full_name ?? "—"}</p>
             </div>
             {!cv.is_default && (
               <button
                 onClick={() => void api.setDefaultCv(cv.id).then(reload)}
-                className="grid size-7 place-items-center rounded text-fg-faint hover:bg-ink-800 hover:text-fg"
+                className="grid size-7 place-items-center rounded text-text/50 hover:glass-panel hover:text-text"
                 title={c.makeDefault}
               >
                 <Star size={13} />
@@ -196,7 +219,7 @@ function MasterCVs() {
             )}
             <button
               onClick={() => void api.deleteCv(cv.id).then(reload)}
-              className="grid size-7 place-items-center rounded text-fg-faint hover:bg-ink-800 hover:text-signal-400"
+              className="grid size-7 place-items-center rounded text-text/50 hover:glass-panel hover:text-danger"
               title="Delete"
             >
               <Trash2 size={13} />
@@ -208,7 +231,7 @@ function MasterCVs() {
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setPasteOpen((v) => !v)}
-          className="rounded-md border border-ink-700 px-3.5 py-2 text-[13px] text-fg-dim hover:border-ink-600 hover:text-fg"
+          className="rounded-md border border-black/10 px-3.5 py-2 text-[13px] text-text/70 hover:border-ink-600 hover:text-text"
         >
           {c.addPaste}
         </button>
@@ -216,43 +239,43 @@ function MasterCVs() {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={busy}
-          className="flex items-center gap-1.5 rounded-md border border-ink-700 px-3.5 py-2 text-[13px] text-fg-dim hover:border-ink-600 hover:text-fg disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-md border border-black/10 px-3.5 py-2 text-[13px] text-text/70 hover:border-ink-600 hover:text-text disabled:opacity-50"
         >
           {busy ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />} {c.addUpload}
         </button>
       </div>
 
       {pasteOpen && (
-        <div className="mt-4 space-y-2 rounded-lg border border-ink-800 p-4">
+        <div className="mt-4 space-y-2 rounded-lg border border-black/10 p-4">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={c.name}
-            className="w-full rounded-md border border-ink-700 bg-ink-950 px-3 py-2 text-[13px] placeholder:text-fg-faint focus:border-blue-500"
+            className="w-full rounded-md border border-black/10 bg-transparent px-3 py-2 text-[13px] placeholder:text-text/50 focus:border-flame-500"
           />
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={7}
             placeholder={c.pasteTitle}
-            className="w-full rounded-md border border-ink-700 bg-ink-950 px-3 py-2 font-mono text-[12px] placeholder:font-sans placeholder:text-fg-faint focus:border-blue-500"
+            className="w-full rounded-md border border-black/10 bg-transparent px-3 py-2 font-mono text-[12px] placeholder:font-sans placeholder:text-text/50 focus:border-flame-500"
           />
           <button
             onClick={() => void createFromText()}
             disabled={busy || text.trim().length < 60}
-            className="rounded-md bg-blue-500 px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-400 disabled:opacity-40"
+            className="rounded-md bg-primary px-4 py-2 text-[13px] font-medium text-white hover:bg-primary/90 disabled:opacity-40"
           >
             {busy ? "…" : c.create}
           </button>
         </div>
       )}
-      {error && <p className="mt-3 text-[13px] text-signal-400">{error}</p>}
+      {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
     </section>
   );
 }
 
 export default function Settings() {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const c = copy[lang];
   const me = useSession((s) => s.me);
   const config = useSession((s) => s.config);
@@ -262,9 +285,9 @@ export default function Settings() {
     return (
       <div className="grid min-h-[60vh] place-items-center px-6 text-center">
         <div>
-          <p className="mb-4 text-fg-dim">{c.loginFirst}</p>
-          <button onClick={() => setAuthOpen(true)} className="rounded-lg bg-blue-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-400">
-            Log in
+          <p className="mb-4 text-text/70">{c.loginFirst}</p>
+          <button onClick={() => setAuthOpen(true)} className="btn-flame rounded-lg px-5 py-2.5 text-sm font-semibold">
+            {t("nav.login")}
           </button>
           <div className="mx-auto mt-10 max-w-xl text-left">
             <ByokCard />
@@ -276,19 +299,19 @@ export default function Settings() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-6 py-14">
-      <h1 className="font-serif text-3xl font-semibold tracking-tight">{c.title}</h1>
+      <h1 className="font-sans text-3xl font-semibold tracking-tight">{c.title}</h1>
 
-      <section className="rounded-xl border border-ink-700 bg-ink-900 p-6">
+      <section className="rounded-xl border border-black/10 glass-panel p-6">
         <h2 className="mb-3 text-[15px] font-semibold">{c.account}</h2>
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-[13.5px]">
-          <span className="text-fg-dim">{me?.email}</span>
+          <span className="text-text/70">{me?.email}</span>
           <span className="font-mono text-[12px]">
-            {c.plan}: <strong className="uppercase text-blue-300">{me?.plan}</strong>
+            {c.plan}: <strong className="uppercase text-primary/80">{me?.plan}</strong>
           </span>
           {config?.billing_enabled && me?.plan !== "free" && (
             <button
               onClick={() => void api.billingPortal().then(({ url }) => (window.location.href = url)).catch(() => {})}
-              className="text-[13px] text-fg-dim underline-offset-2 hover:text-fg hover:underline"
+              className="text-[13px] text-text/70 underline-offset-2 hover:text-text hover:underline"
             >
               {c.manageBilling}
             </button>
@@ -299,9 +322,9 @@ export default function Settings() {
       <MasterCVs />
       <ByokCard />
 
-      <p className="pt-2 text-[12.5px] text-fg-faint">
+      <p className="pt-2 text-[12.5px] text-text/50">
         {c.feedback}{" "}
-        <a href="mailto:hello@cvglowup.com" className="text-blue-300 underline-offset-2 hover:underline">
+        <a href="mailto:hello@cvglowup.com" className="text-primary/80 underline-offset-2 hover:underline">
           hello@cvglowup.com
         </a>
       </p>

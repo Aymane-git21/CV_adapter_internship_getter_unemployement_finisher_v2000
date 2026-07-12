@@ -43,8 +43,8 @@ export function AdSlot({ slot, className = "" }: { slot: string; className?: str
   if (!show) return null;
 
   return (
-    <div className={`overflow-hidden rounded-lg border border-ink-800 bg-ink-900/60 ${className}`}>
-      <p className="px-2 pt-1 text-right font-mono text-[9px] uppercase tracking-wider text-fg-faint">Ad</p>
+    <div className={`overflow-hidden rounded-lg border border-black/10 glass-panel/60 ${className}`}>
+      <p className="px-2 pt-1 text-right font-mono text-[9px] uppercase tracking-wider text-text/50">Ad</p>
       <ins
         className="adsbygoogle block"
         style={{ display: "block", minHeight: 90 }}

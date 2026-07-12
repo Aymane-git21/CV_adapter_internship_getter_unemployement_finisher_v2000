@@ -1,12 +1,13 @@
 /* Landing — "Your CV has 7 seconds." The hero is the product itself: a real
    compiled document being scanned the way a recruiter scans it. */
-import { motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { motion, useInView, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Columns2, FileSearch, Gauge, KeyRound, MessageSquareText, Timer,
+  Columns2, FileSearch, Gauge, KeyRound, Languages, Timer,
 } from "lucide-react";
 import heroCv from "../assets/hero_cv.jpg";
+import logoUrl from "../assets/CVglowup_logo.svg";
 import { useI18n } from "../i18n";
 import { useSession } from "../store";
 
@@ -36,7 +37,7 @@ const copy = {
       ["Millisecond typesetting", "A Typst engine replaces LaTeX: the page re-renders in ~0.2 s on every edit. No queues, no waiting for PDFs.", Gauge],
       ["Your key, your rules", "Plug in your own Gemini API key and generate without limits, free. The key stays in your browser — we never store it.", KeyRound],
     ],
-    languages: "English & French — site, documents and lettres de motivation.",
+    languages: "English, French & German — site, documents, lettres de motivation and Anschreiben.",
     faqEyebrow: "Questions",
     faq: [
       ["Does it invent experience I don't have?", "No. The generator is instructed to rephrase, reorder and emphasize — never to fabricate employers, dates or numbers. Everything stays editable, and the source of truth is your master CV."],
@@ -46,6 +47,7 @@ const copy = {
       ["What about my data?", "Documents live in your account, deletable anytime. Guest documents are reachable only by their secret link. Bring-your-own keys are never stored server-side."],
     ],
     footerBlurb: "CV Glowup typesets careers.",
+    marquee: ["Product Manager", "Software Engineer", "Data Analyst", "UX Designer", "Sales Executive", "Marketing Lead", "Consultant", "Project Manager", "DevOps Engineer", "Account Manager"],
   },
   fr: {
     eyebrow: "Les recruteurs décident vite",
@@ -72,7 +74,7 @@ const copy = {
       ["Composition en millisecondes", "Un moteur Typst remplace LaTeX : la page se recompose en ~0,2 s à chaque édition. Pas de file d'attente.", Gauge],
       ["Votre clé, vos règles", "Branchez votre propre clé API Gemini et générez sans limite, gratuitement. La clé reste dans votre navigateur.", KeyRound],
     ],
-    languages: "Français & anglais — site, CV et lettres de motivation.",
+    languages: "Français, anglais & allemand — site, CV, lettres de motivation et Anschreiben.",
     faqEyebrow: "Questions",
     faq: [
       ["Est-ce que ça invente des expériences ?", "Non. Le générateur reformule, réordonne et met en valeur — jamais il n'invente employeurs, dates ou chiffres. Tout reste éditable, et votre CV de référence fait foi."],
@@ -82,6 +84,44 @@ const copy = {
       ["Et mes données ?", "Vos documents vivent dans votre compte, supprimables à tout moment. Les clés API personnelles ne sont jamais stockées côté serveur."],
     ],
     footerBlurb: "CV Glowup compose des carrières.",
+    marquee: ["Chef de projet", "Ingénieur logiciel", "Data Analyst", "Designer UX", "Commercial", "Responsable marketing", "Consultant", "Product Manager", "Ingénieur DevOps", "Chargé de clientèle"],
+  },
+  de: {
+    eyebrow: "Recruiter entscheiden schnell",
+    title1: "Ihr Lebenslauf hat",
+    title2: "7 Sekunden.",
+    title3: "Nutzen Sie jede davon.",
+    sub: "Fügen Sie eine Stellenanzeige ein. CV Glowup schreibt Ihren Lebenslauf und Ihr Anschreiben darauf zu, setzt beides in Millisekunden — und zeigt Ihnen die fertige Seite, während Sie editieren: Formulare, Quelltext oder Chat.",
+    ctaPrimary: "Lebenslauf anpassen — kostenlos",
+    ctaSecondary: "Preise ansehen",
+    ctaNote: "Erste Generierung kostenlos. Ohne Konto, ohne Karte.",
+    statHuman: "dauert der erste Blick eines Recruiters auf einen Lebenslauf",
+    statAts: "der großen Unternehmen filtern Lebensläufe zuerst per Software",
+    statTypst: "zum Setzen Ihrer Seite — live, während Sie tippen",
+    howEyebrow: "So funktioniert es",
+    how: [
+      ["Stellenanzeige einfügen", "Eine oder mehrere — jede läuft parallel in ihrem eigenen Tab."],
+      ["Zusehen, wie sich die Dokumente schreiben", "Lebenslauf, Anschreiben und Kontaktnachricht, zugeschnitten auf die Stelle und live auf einer echten A4-Seite gesetzt."],
+      ["Alles bearbeiten, auf drei Wegen", "Strukturierte Formulare, der rohe Typst-Quelltext, oder sagen Sie dem Assistenten einfach, was er ändern soll."],
+    ],
+    featEyebrow: "Gebaut für den Bewerbungsmarathon",
+    features: [
+      ["Parallele Bewerbungen", "Bis zu zehn Stellen auf einmal. Jede Stelle bekommt ihren eigenen Tab, ihren eigenen Lebenslauf, ihr eigenes Anschreiben.", Columns2],
+      ["Ein Match-Score, der nicht lügt", "Keywords werden einmal extrahiert, dann werden beide Versionen an derselben Liste gemessen. Das Vorher/Nachher-Delta wird berechnet, nicht generiert.", FileSearch],
+      ["Satz in Millisekunden", "Eine Typst-Engine ersetzt LaTeX: Die Seite rendert bei jeder Änderung in ~0,2 s neu. Keine Warteschlangen, kein Warten auf PDFs.", Gauge],
+      ["Ihr Schlüssel, Ihre Regeln", "Hinterlegen Sie Ihren eigenen Gemini-API-Schlüssel und generieren Sie unbegrenzt, kostenlos. Der Schlüssel bleibt in Ihrem Browser — wir speichern ihn nie.", KeyRound],
+    ],
+    languages: "Deutsch, Englisch & Französisch — Website, Dokumente, Anschreiben und lettres de motivation.",
+    faqEyebrow: "Fragen",
+    faq: [
+      ["Erfindet es Erfahrung, die ich nicht habe?", "Nein. Der Generator formuliert um, ordnet neu und betont — er erfindet nie Arbeitgeber, Daten oder Zahlen. Alles bleibt editierbar, und Ihr Master-Lebenslauf ist die einzige Quelle der Wahrheit."],
+      ["Wo ist der Haken beim Gratis-Plan?", "Drei Generierungen pro Tag, zwei Vorlagen, eine Stelle auf einmal. Bezahlte Pläne erhöhen die Limits; Ihr eigener API-Schlüssel hebt sie komplett auf."],
+      ["Kann ich das Ergebnis bearbeiten?", "Alles. Strukturierte Formulare für schnelle Änderungen, der volle Typst-Quelltext für Kontrolle, und ein Chat-Assistent für „mach es prägnanter“. Die Seite setzt sich live neu."],
+      ["Warum Typst statt LaTeX?", "Dieselbe typografische Qualität, ein Tausendstel der Wartezeit. Kompilieren dauert Millisekunden, die Vorschau folgt Ihren Tastenanschlägen."],
+      ["Was passiert mit meinen Daten?", "Dokumente liegen in Ihrem Konto und sind jederzeit löschbar. Gast-Dokumente sind nur über ihren geheimen Link erreichbar. Eigene API-Schlüssel werden nie serverseitig gespeichert."],
+    ],
+    footerBlurb: "CV Glowup setzt Karrieren.",
+    marquee: ["Projektmanager", "Softwareentwickler", "Data Analyst", "UX-Designer", "Vertriebsleiter", "Marketing Manager", "Berater", "Product Manager", "DevOps Engineer", "Key Account Manager"],
   },
 };
 
@@ -104,9 +144,9 @@ function ScanOverlay() {
   return (
     <>
       {/* countdown chip */}
-      <div className="absolute -left-3 -top-3 z-10 flex items-center gap-1.5 rounded-lg border border-signal-500/40 bg-ink-950/95 px-2.5 py-1.5 shadow-xl sm:-left-5 sm:-top-5">
-        <Timer size={13} className="text-signal-400" />
-        <span className="font-mono text-[13px] font-medium tabular-nums text-signal-400">
+      <div className="absolute -left-3 -top-3 z-10 flex items-center gap-1.5 rounded-lg border border-danger/40 glass-panel px-2.5 py-1.5 shadow-xl sm:-left-5 sm:-top-5">
+        <Timer size={13} className="text-danger" />
+        <span className="font-mono text-[13px] font-medium tabular-nums text-danger">
           {count.toFixed(1)}s
         </span>
       </div>
@@ -116,8 +156,8 @@ function ScanOverlay() {
           className="pointer-events-none absolute inset-x-0 z-10 h-20"
           style={{
             background:
-              "linear-gradient(to bottom, transparent, rgba(61,127,255,0.14) 70%, rgba(61,127,255,0.5))",
-            borderBottom: "1.5px solid rgba(61,127,255,0.8)",
+              "linear-gradient(to bottom, transparent, rgba(217,99,40,0.14) 70%, rgba(217,99,40,0.5))",
+            borderBottom: "1.5px solid rgba(217,99,40,0.8)",
           }}
           initial={{ top: "-10%" }}
           animate={{ top: ["−10%", "92%"] }}
@@ -128,44 +168,84 @@ function ScanOverlay() {
   );
 }
 
+/* Number that counts up when scrolled into view. */
+function CountUp({ to, decimals = 0, suffix = "" }: { to: number; decimals?: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
+  const reduced = useReducedMotion();
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    if (reduced) {
+      setValue(to);
+      return;
+    }
+    const started = performance.now();
+    const duration = 1200;
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - started) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(to * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, to, reduced]);
+  return (
+    <span ref={ref}>
+      {value.toFixed(decimals)}
+      {suffix}
+    </span>
+  );
+}
+
 export default function Landing() {
-  const { lang, t } = useI18n();
+  const { lang } = useI18n();
   const me = useSession((s) => s.me);
   const c = copy[lang];
 
   return (
     <div>
       {/* ── hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-ink-800">
+      <section className="relative overflow-hidden border-b border-black/10">
+        {/* drifting ember glow */}
         <div
-          className="pointer-events-none absolute inset-0"
+          className="ember pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(900px 500px at 75% 30%, rgba(61,127,255,0.09), transparent 65%)",
+              "radial-gradient(900px 500px at 75% 30%, rgba(218,111,47,0.16), transparent 65%)",
           }}
         />
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+        {/* logo watermark */}
+        <img
+          src={logoUrl}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-24 -top-24 w-[420px] opacity-[0.05] blur-[1px]"
+        />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div>
             <motion.p
-              className="eyebrow mb-4 text-signal-400"
+              className="eyebrow mb-4 text-danger"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
             >
               {c.eyebrow}
             </motion.p>
             <motion.h1
-              className="mb-6 font-serif text-[2.6rem] font-semibold leading-[1.08] tracking-tight sm:text-[3.4rem]"
+              className="mb-6 font-sans text-[2.6rem] font-bold leading-[1.08] tracking-tight sm:text-[3.4rem] text-text"
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.06 }}
             >
               {c.title1}{" "}
-              <span className="whitespace-nowrap text-signal-400">{c.title2}</span>
+              <span className="flame-text whitespace-nowrap">{c.title2}</span>
               <br />
-              <span className="text-fg">{c.title3}</span>
+              <span className="text-text">{c.title3}</span>
             </motion.h1>
             <motion.p
-              className="mb-8 max-w-xl text-[15.5px] leading-relaxed text-fg-dim"
+              className="mb-8 max-w-xl text-[15.5px] leading-relaxed text-text/70"
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.12 }}
@@ -180,18 +260,18 @@ export default function Landing() {
             >
               <Link
                 to="/studio"
-                className="rounded-lg bg-blue-500 px-6 py-3 text-[15px] font-semibold text-white shadow-[0_0_40px_-8px] shadow-blue-500/70 transition hover:bg-blue-400"
+                className="btn-flame rounded-lg px-6 py-3 text-[15px] font-semibold"
               >
                 {c.ctaPrimary}
               </Link>
-              <Link to="/pricing" className="text-[14px] text-fg-dim underline-offset-4 hover:text-fg hover:underline">
+              <Link to="/pricing" className="text-[14px] text-text/70 underline-offset-4 hover:text-text hover:underline">
                 {c.ctaSecondary}
               </Link>
             </motion.div>
-            <p className="mt-4 font-mono text-[11.5px] text-fg-faint">{c.ctaNote}</p>
+            <p className="mt-4 font-mono text-[11.5px] text-text/50">{c.ctaNote}</p>
           </div>
 
-          {/* the paper in the dark */}
+          {/* the paper under the recruiter's scan */}
           <motion.div
             className="relative mx-auto w-full max-w-[420px]"
             initial={{ opacity: 0, y: 24, rotate: 0.8 }}
@@ -206,19 +286,41 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── stats strip ──────────────────────────────────────────────────── */}
-      <section className="border-b border-ink-800 bg-ink-900/50">
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 sm:grid-cols-3">
-          {[
-            ["7.4s", c.statHuman, "text-signal-400"],
-            ["99%", c.statAts, "text-fg"],
-            ["0.2s", c.statTypst, "text-blue-300"],
-          ].map(([n, label, color]) => (
-            <div key={n as string} className="flex items-baseline gap-3">
-              <span className={`font-mono text-2xl font-semibold tabular-nums ${color}`}>{n}</span>
-              <span className="text-[13px] leading-snug text-fg-dim">{label}</span>
-            </div>
+      {/* ── role marquee ─────────────────────────────────────────────────── */}
+      <section className="marquee-mask overflow-hidden border-b border-black/10 py-3" aria-hidden="true">
+        <div className="marquee-track gap-3">
+          {[...c.marquee, ...c.marquee].map((role, i) => (
+            <span
+              key={i}
+              className="whitespace-nowrap rounded-full border border-black/10 glass-panel px-3.5 py-1 font-mono text-[11.5px] text-text/60"
+            >
+              {role}
+            </span>
           ))}
+        </div>
+      </section>
+
+      {/* ── stats strip ──────────────────────────────────────────────────── */}
+      <section className="border-b border-black/10 glass-panel">
+        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 sm:grid-cols-3">
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-2xl font-semibold tabular-nums text-danger">
+              <CountUp to={7.4} decimals={1} suffix="s" />
+            </span>
+            <span className="text-[13px] leading-snug text-text/70">{c.statHuman}</span>
+          </div>
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-2xl font-semibold tabular-nums text-text">
+              <CountUp to={99} suffix="%" />
+            </span>
+            <span className="text-[13px] leading-snug text-text/70">{c.statAts}</span>
+          </div>
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-2xl font-semibold tabular-nums text-flame-600">
+              <CountUp to={0.2} decimals={1} suffix="s" />
+            </span>
+            <span className="text-[13px] leading-snug text-text/70">{c.statTypst}</span>
+          </div>
         </div>
       </section>
 
@@ -234,36 +336,38 @@ export default function Landing() {
               viewport={{ once: true, margin: "-60px" }}
               transition={{ delay: i * 0.08 }}
             >
-              <div className="mb-3 font-mono text-[13px] text-blue-300">0{i + 1}</div>
-              <h3 className="mb-2 font-serif text-lg font-semibold">{title}</h3>
-              <p className="text-[14px] leading-relaxed text-fg-dim">{body}</p>
+              <div className="mb-3 font-mono text-[13px] text-flame-600">0{i + 1}</div>
+              <h3 className="mb-2 font-sans text-lg font-semibold text-text">{title}</h3>
+              <p className="text-[14px] leading-relaxed text-text/70">{body}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
       {/* ── features ─────────────────────────────────────────────────────── */}
-      <section className="border-y border-ink-800 bg-ink-900/40">
+      <section className="border-y border-black/10 glass-panel">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <p className="eyebrow mb-10">{c.featEyebrow}</p>
           <div className="grid gap-5 sm:grid-cols-2">
             {(c.features as [string, string, typeof Columns2][]).map(([title, body, Icon], i) => (
               <motion.div
                 key={title}
-                className="rounded-xl border border-ink-700 bg-ink-900 p-6"
+                className="card-lift rounded-xl border border-white/40 glass-panel p-6"
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ delay: i * 0.06 }}
               >
-                <Icon size={18} className="mb-4 text-blue-300" />
-                <h3 className="mb-2 text-[15px] font-semibold">{title}</h3>
-                <p className="text-[13.5px] leading-relaxed text-fg-dim">{body}</p>
+                <span className="mb-4 grid size-9 place-items-center rounded-lg bg-flame-950 text-flame-600">
+                  <Icon size={17} />
+                </span>
+                <h3 className="mb-2 text-[15px] font-semibold text-text">{title}</h3>
+                <p className="text-[13.5px] leading-relaxed text-text/70">{body}</p>
               </motion.div>
             ))}
           </div>
-          <p className="mt-8 flex items-center gap-2 font-mono text-[12px] text-fg-faint">
-            <MessageSquareText size={13} /> {c.languages}
+          <p className="mt-8 flex items-center gap-2 font-mono text-[12px] text-text/50">
+            <Languages size={13} className="text-flame-600" /> {c.languages}
           </p>
         </div>
       </section>
@@ -271,21 +375,21 @@ export default function Landing() {
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-3xl px-6 py-20">
         <p className="eyebrow mb-8">{c.faqEyebrow}</p>
-        <div className="divide-y divide-ink-800 border-y border-ink-800">
+        <div className="divide-y divide-black/10 border-y border-black/10">
           {c.faq.map(([q, a]) => (
             <details key={q} className="group py-4">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-fg">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-text">
                 {q}
-                <span className="font-mono text-fg-faint transition-transform group-open:rotate-45">+</span>
+                <span className="font-mono text-text/50 transition-transform group-open:rotate-45">+</span>
               </summary>
-              <p className="pt-3 text-[14px] leading-relaxed text-fg-dim">{a}</p>
+              <p className="pt-3 text-[14px] leading-relaxed text-text/70">{a}</p>
             </details>
           ))}
         </div>
         <div className="mt-12 text-center">
           <Link
             to="/studio"
-            className="inline-block rounded-lg bg-blue-500 px-6 py-3 text-[15px] font-semibold text-white shadow-[0_0_40px_-8px] shadow-blue-500/70 transition hover:bg-blue-400"
+            className="btn-flame inline-block rounded-lg px-6 py-3 text-[15px] font-semibold"
           >
             {c.ctaPrimary}
           </Link>
@@ -293,10 +397,13 @@ export default function Landing() {
       </section>
 
       {/* ── footer ───────────────────────────────────────────────────────── */}
-      <footer className="border-t border-ink-800">
+      <footer className="border-t border-black/10">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-8">
-          <p className="font-serif text-[14px] text-fg-dim">{c.footerBlurb}</p>
-          <p className="font-mono text-[11px] text-fg-faint">
+          <p className="flex items-center gap-2.5 font-sans text-[14px] font-medium text-text/70">
+            <img src={logoUrl} alt="" className="size-6" aria-hidden="true" />
+            {c.footerBlurb}
+          </p>
+          <p className="font-mono text-[11px] text-text/50">
             © {new Date().getFullYear()} cvglowup.com
             {me?.authenticated ? "" : " · GDPR-friendly · no tracking ads on paid plans"}
           </p>

@@ -1,6 +1,7 @@
-import { FileText, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { useI18n } from "../i18n";
+import logoUrl from "../assets/CVglowup_logo.svg";
+import { LANGS, useI18n } from "../i18n";
 import { useSession } from "../store";
 import { byokStore } from "../api";
 
@@ -17,33 +18,59 @@ function QuotaPill() {
   }
   if (!me.authenticated) return null;
   return (
-    <span className="hidden rounded-full border border-ink-700 bg-ink-900 px-2.5 py-1 font-mono text-[11px] text-fg-dim sm:inline">
+    <span className="hidden rounded-full border border-black/10 glass-panel px-2.5 py-1 font-mono text-[11px] text-text/70 sm:inline">
       {me.quota.remaining_today}/{me.quota.daily_limit} {t("quota.left")}
     </span>
   );
 }
 
+function LangSwitch() {
+  const { lang, setLang } = useI18n();
+  return (
+    <div
+      className="flex items-center rounded-full border border-black/10 glass-panel p-0.5"
+      role="group"
+      aria-label="Language"
+    >
+      {LANGS.map((l) => (
+        <button
+          key={l}
+          onClick={() => setLang(l)}
+          aria-pressed={lang === l}
+          className={`rounded-full px-2 py-0.5 font-mono text-[10.5px] uppercase transition-colors ${
+            lang === l ? "bg-primary text-white shadow-sm" : "text-text/60 hover:text-text"
+          }`}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Nav() {
-  const { t, lang, setLang } = useI18n();
+  const { t } = useI18n();
   const me = useSession((s) => s.me);
   const setAuthOpen = useSession((s) => s.setAuthOpen);
   const logout = useSession((s) => s.logout);
   const location = useLocation();
 
   const navCls = ({ isActive }: { isActive: boolean }) =>
-    `rounded-md px-3 py-1.5 text-sm transition-colors ${
-      isActive ? "bg-ink-800 text-fg" : "text-fg-dim hover:text-fg"
+    `nav-underline rounded-md px-3 py-1.5 text-sm transition-colors ${
+      isActive ? "text-text" : "text-text/70 hover:text-text"
     }`;
 
   return (
-    <header className="z-40 flex h-14 shrink-0 items-center justify-between border-b border-ink-800 bg-ink-950/90 px-4 backdrop-blur sm:px-6">
+    <header className="z-40 flex h-14 shrink-0 items-center justify-between glass-panel border-b-white/40 px-4 sm:px-6">
       <div className="flex items-center gap-6">
-        <Link to="/" className="flex items-center gap-2.5" aria-label="CV Glowup home">
-          <span className="grid size-7 place-items-center rounded-md bg-blue-500 text-paper">
-            <FileText size={15} strokeWidth={2.4} />
-          </span>
-          <span className="font-serif text-[17px] font-semibold tracking-tight">
-            CV<span className="text-blue-300">Glowup</span>
+        <Link to="/" className="group flex items-center gap-2.5" aria-label="CV Glowup home">
+          <img
+            src={logoUrl}
+            alt=""
+            className="size-9 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
+          />
+          <span className="font-sans text-[17px] font-bold tracking-tight">
+            CV<span className="text-primary">Glowup</span>
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
@@ -57,21 +84,15 @@ export function Nav() {
 
       <div className="flex items-center gap-3">
         <QuotaPill />
-        <button
-          onClick={() => setLang(lang === "en" ? "fr" : "en")}
-          className="rounded-md border border-ink-700 px-2 py-1 font-mono text-[11px] uppercase text-fg-dim hover:text-fg"
-          aria-label="Switch language"
-        >
-          {lang === "en" ? "FR" : "EN"}
-        </button>
+        <LangSwitch />
         {me?.authenticated ? (
           <div className="flex items-center gap-2">
-            <NavLink to="/settings" className="hidden text-sm text-fg-dim hover:text-fg sm:inline">
+            <NavLink to="/settings" className="hidden text-sm text-text/70 hover:text-text sm:inline">
               {me.email?.split("@")[0]}
             </NavLink>
             <button
               onClick={() => void logout()}
-              className="grid size-8 place-items-center rounded-md text-fg-dim hover:bg-ink-800 hover:text-fg"
+              className="grid size-8 place-items-center rounded-md text-text/70 hover:bg-black/5 hover:text-text"
               title={t("nav.logout")}
             >
               <LogOut size={15} />
@@ -80,7 +101,7 @@ export function Nav() {
         ) : (
           <button
             onClick={() => setAuthOpen(true)}
-            className="rounded-md px-3 py-1.5 text-sm text-fg-dim hover:text-fg"
+            className="rounded-md px-3 py-1.5 text-sm text-text/70 hover:text-text"
           >
             {t("nav.login")}
           </button>
@@ -88,7 +109,7 @@ export function Nav() {
         {!location.pathname.startsWith("/studio") && (
           <Link
             to="/studio"
-            className="rounded-md bg-blue-500 px-3.5 py-1.5 text-sm font-medium text-white shadow-[0_0_24px_-6px] shadow-blue-500/60 transition hover:bg-blue-400"
+            className="btn-flame rounded-lg px-3.5 py-1.5 text-sm font-semibold"
           >
             {t("nav.start")}
           </Link>

@@ -1,4 +1,4 @@
-/* Lightweight EN/FR dictionary i18n. */
+/* Lightweight EN/FR/DE dictionary i18n. */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 const dict = {
@@ -184,10 +184,101 @@ const dict = {
     "common.save": "Enregistrer",
     "common.delete": "Supprimer",
   },
+  de: {
+    "nav.studio": "Studio",
+    "nav.pricing": "Preise",
+    "nav.dashboard": "Übersicht",
+    "nav.settings": "Einstellungen",
+    "nav.login": "Anmelden",
+    "nav.logout": "Abmelden",
+    "nav.start": "Lebenslauf anpassen",
+    "auth.title.login": "Willkommen zurück",
+    "auth.title.register": "Konto erstellen",
+    "auth.email": "E-Mail",
+    "auth.password": "Passwort (mind. 8 Zeichen)",
+    "auth.login": "Anmelden",
+    "auth.register": "Konto erstellen",
+    "auth.switch.toRegister": "Noch kein Konto? Jetzt erstellen",
+    "auth.switch.toLogin": "Schon registriert? Anmelden",
+    "auth.guestNote": "Ihre erste Generierung ist kostenlos — ohne Konto.",
+    "studio.newJob": "Neue Bewerbung",
+    "studio.jd.placeholder": "Fügen Sie hier die vollständige Stellenanzeige ein…",
+    "studio.jd.add": "Weitere Stellenanzeige hinzufügen",
+    "studio.jd.count": "Stellenanzeigen",
+    "studio.cv.source": "Ihr Lebenslauf",
+    "studio.cv.saved": "Gespeicherter Lebenslauf",
+    "studio.cv.paste": "Text einfügen",
+    "studio.cv.upload": "PDF hochladen",
+    "studio.cv.paste.placeholder": "Fügen Sie Ihren vollständigen Lebenslauf ein — Erfahrung, Ausbildung, Kenntnisse…",
+    "studio.cv.save": "Als Master-Lebenslauf speichern",
+    "studio.photo": "Foto im Lebenslauf",
+    "studio.photo.add": "Foto hinzufügen",
+    "studio.photo.remove": "Entfernen",
+    "studio.language": "Dokumentsprache",
+    "studio.template": "Vorlage",
+    "studio.accent": "Akzentfarbe",
+    "studio.generate": "Dokumente generieren",
+    "studio.generating": "Wird generiert…",
+    "studio.tabs.empty": "Keine offenen Bewerbungen",
+    "studio.doc.cv": "Lebenslauf",
+    "studio.doc.letter": "Anschreiben",
+    "studio.doc.message": "Nachricht",
+    "studio.panel.content": "Inhalt",
+    "studio.panel.source": "Quelltext",
+    "studio.panel.chat": "Assistent",
+    "studio.score.before": "vorher",
+    "studio.score.after": "nachher",
+    "studio.score.title": "Keyword-Abdeckung",
+    "studio.score.missing": "Noch fehlend",
+    "studio.score.none": "Alle Schlüsselbegriffe abgedeckt",
+    "studio.preview.fit": "Einpassen",
+    "studio.download.pdf": "PDF herunterladen",
+    "studio.download.typ": "Typst-Quelltext",
+    "studio.copy": "Kopieren",
+    "studio.copied": "Kopiert",
+    "studio.sourceMode.banner": "Quelltext-Modus — Sie haben den Typst-Code direkt bearbeitet. Der strukturierte Editor ist für dieses Dokument pausiert.",
+    "studio.sourceMode.revert": "Zurück zur strukturierten Bearbeitung",
+    "studio.chat.placeholder": "z. B. „Mach das Profil prägnanter“, „Übersetze ins Englische“, „Kürze Erfahrung Nr. 2“…",
+    "studio.chat.hello": "Sagen Sie mir, was ich ändern soll — ich bearbeite das Dokument direkt.",
+    "studio.chat.send": "Senden",
+    "studio.compile.error": "Kompilierfehler",
+    "studio.guest.cta": "Erstellen Sie ein kostenloses Konto, um Ihre Dokumente zu behalten und mehr zu generieren.",
+    "studio.failed": "Generierung fehlgeschlagen",
+    "studio.retry": "Erneut versuchen",
+    "ed.identity": "Identität",
+    "ed.fullName": "Vollständiger Name",
+    "ed.headline": "Titel",
+    "ed.summary": "Profil",
+    "ed.contacts": "Kontaktdaten",
+    "ed.experience": "Berufserfahrung",
+    "ed.education": "Ausbildung",
+    "ed.skills": "Kenntnisse",
+    "ed.projects": "Projekte",
+    "ed.languages": "Sprachen",
+    "ed.interests": "Interessen (eine pro Zeile)",
+    "ed.addEntry": "Hinzufügen",
+    "ed.remove": "Entfernen",
+    "ed.bullets": "Stichpunkte (einer pro Zeile)",
+    "ed.recipient": "Empfänger",
+    "ed.subject": "Betreff",
+    "ed.greeting": "Anrede",
+    "ed.paragraphs": "Absätze",
+    "ed.closing": "Grußformel",
+    "ed.messageText": "Nachrichtentext",
+    "quota.left": "heute übrig",
+    "quota.byok": "Eigener API-Schlüssel — unbegrenzt",
+    "common.loading": "Wird geladen…",
+    "common.cancel": "Abbrechen",
+    "common.save": "Speichern",
+    "common.delete": "Löschen",
+  },
 } as const;
 
-export type Lang = "en" | "fr";
+export const LANGS = ["en", "fr", "de"] as const;
+export type Lang = (typeof LANGS)[number];
 type DictKey = keyof (typeof dict)["en"];
+
+const isLang = (v: unknown): v is Lang => LANGS.includes(v as Lang);
 
 const I18nCtx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (k: DictKey) => string }>({
   lang: "en",
@@ -198,8 +289,11 @@ const I18nCtx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (k: D
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     const saved = localStorage.getItem("cvg_lang");
-    if (saved === "fr" || saved === "en") return saved;
-    return navigator.language.toLowerCase().startsWith("fr") ? "fr" : "en";
+    if (isLang(saved)) return saved;
+    const nav = navigator.language.toLowerCase();
+    if (nav.startsWith("fr")) return "fr";
+    if (nav.startsWith("de")) return "de";
+    return "en";
   });
   const setLang = (l: Lang) => {
     setLangState(l);

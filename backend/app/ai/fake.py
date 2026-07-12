@@ -52,7 +52,11 @@ class FakeProvider:
         return JobAnalysis(
             job_title=title,
             company=company,
-            language_detected="fr" if " le " in low and " et " in low else "en",
+            language_detected=(
+                "fr" if " le " in low and " et " in low
+                else "de" if " und " in low and (" der " in low or " die " in low)
+                else "en"
+            ),
             keywords=keywords,
             notes="Deterministic offline analysis (no API key configured).",
         )
@@ -91,13 +95,27 @@ class FakeProvider:
         if terms:
             tailored.skills = [SkillGroup(category="Key match", items=terms)] + tailored.skills
         target = analysis.job_title if analysis.job_title != "Job Application" else "this role"
-        prefix = "Profil ciblé : " if language == "fr" else "Targeted profile: "
+        prefix = {"fr": "Profil ciblé : ", "de": "Zielprofil: "}.get(language, "Targeted profile: ")
         tailored.summary = f"{prefix}{target}. {master.summary}"[:500]
         return tailored
 
     async def write_letter(self, jd: str, analysis: JobAnalysis, cv: CVData, language: str) -> LetterData:
         await self._tick()
-        company = analysis.company or ("votre entreprise" if language == "fr" else "your company")
+        company = analysis.company or {
+            "fr": "votre entreprise", "de": "Ihr Unternehmen",
+        }.get(language, "your company")
+        if language == "de":
+            return LetterData(
+                recipient=LetterRecipient(name="Sehr geehrte Damen und Herren", company=analysis.company),
+                subject=f"Bewerbung als {analysis.job_title}",
+                greeting="Sehr geehrte Damen und Herren,",
+                paragraphs=[
+                    f"Ihre Ausschreibung für die Position {analysis.job_title} hat mein Interesse geweckt, da mein Profil eng zu Ihren Anforderungen passt.",
+                    f"Meine im Lebenslauf beschriebenen Erfahrungen decken die Kernkompetenzen ab, die {company} sucht.",
+                    "Über die Gelegenheit zu einem persönlichen Gespräch freue ich mich sehr.",
+                ],
+                closing="Mit freundlichen Grüßen",
+            )
         if language == "fr":
             return LetterData(
                 recipient=LetterRecipient(name="Madame, Monsieur", company=analysis.company),
@@ -124,6 +142,11 @@ class FakeProvider:
 
     async def outreach(self, jd: str, analysis: JobAnalysis, cv: CVData, language: str) -> str:
         await self._tick()
+        if language == "de":
+            return (
+                f"Guten Tag, ich habe mich soeben auf die Position {analysis.job_title} beworben. "
+                "Mein Profil passt eng zu Ihren Anforderungen — hätten Sie 15 Minuten für ein kurzes Gespräch?"
+            )
         if language == "fr":
             return (
                 f"Bonjour, je viens de postuler au poste de {analysis.job_title}. "

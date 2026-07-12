@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import logoUrl from "../assets/CVglowup_logo.svg";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import { useSession } from "../store";
@@ -82,25 +83,27 @@ export function AuthModal() {
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-ink-950/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-md"
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-ink-700 bg-ink-900 p-6 shadow-2xl"
+        className="w-full max-w-sm rounded-xl glass-panel p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <p className="eyebrow mb-1.5">CV Glowup</p>
-            <h2 className="font-serif text-xl font-semibold">
+            <p className="eyebrow mb-1.5 flex items-center gap-2">
+              <img src={logoUrl} alt="" className="size-6" aria-hidden="true" /> CV Glowup
+            </p>
+            <h2 className="font-sans text-xl font-semibold text-text">
               {mode === "login" ? t("auth.title.login") : t("auth.title.register")}
             </h2>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="grid size-8 place-items-center rounded-md text-fg-dim hover:bg-ink-800 hover:text-fg"
+            className="grid size-8 place-items-center rounded-md text-text/70 hover:bg-black/5 hover:text-text"
             aria-label={t("common.cancel")}
           >
             <X size={16} />
@@ -114,7 +117,7 @@ export function AuthModal() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder={t("auth.email")}
-            className="w-full rounded-md border border-ink-700 bg-ink-950 px-3 py-2.5 text-sm placeholder:text-fg-faint focus:border-blue-500"
+            className="w-full rounded-md border border-white/50 bg-white/40 px-3 py-2.5 text-sm text-text placeholder:text-text/50 focus:border-primary focus:outline-none"
           />
           <input
             type="password"
@@ -123,13 +126,13 @@ export function AuthModal() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t("auth.password")}
-            className="w-full rounded-md border border-ink-700 bg-ink-950 px-3 py-2.5 text-sm placeholder:text-fg-faint focus:border-blue-500"
+            className="w-full rounded-md border border-white/50 bg-white/40 px-3 py-2.5 text-sm text-text placeholder:text-text/50 focus:border-primary focus:outline-none"
           />
-          {error && <p className="text-sm text-signal-400">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-md bg-blue-500 py-2.5 text-sm font-medium text-white transition hover:bg-blue-400 disabled:opacity-50"
+            className="btn-flame w-full rounded-md py-2.5 text-sm font-semibold disabled:opacity-50"
           >
             {busy ? "…" : mode === "login" ? t("auth.login") : t("auth.register")}
           </button>
@@ -139,11 +142,11 @@ export function AuthModal() {
 
         <button
           onClick={() => setMode(mode === "login" ? "register" : "login")}
-          className="mt-4 w-full text-center text-xs text-fg-dim hover:text-fg"
+          className="mt-4 w-full text-center text-xs text-text/70 hover:text-text"
         >
           {mode === "login" ? t("auth.switch.toRegister") : t("auth.switch.toLogin")}
         </button>
-        <p className="mt-3 text-center text-[11px] text-fg-faint">{t("auth.guestNote")}</p>
+        <p className="mt-3 text-center text-[11px] text-text/50">{t("auth.guestNote")}</p>
       </div>
     </div>
   );

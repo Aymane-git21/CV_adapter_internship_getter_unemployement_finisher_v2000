@@ -47,30 +47,30 @@ export function ChatPanel({ ctl }: { ctl: DocController }) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         <div className="flex items-start gap-2.5">
-          <span className="grid size-6 shrink-0 place-items-center rounded-full bg-blue-950 text-blue-300">
+          <span className="grid size-6 shrink-0 place-items-center rounded-full bg-flame-950 text-primary/80">
             <Sparkles size={12} />
           </span>
-          <p className="rounded-lg rounded-tl-none border border-ink-800 bg-ink-900 px-3 py-2 text-[13px] text-fg-dim">
+          <p className="rounded-lg rounded-tl-none border border-black/10 glass-panel px-3 py-2 text-[13px] text-text/70">
             {t("studio.chat.hello")}
           </p>
         </div>
         {messages.map((m, i) =>
           m.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <p className="max-w-[85%] rounded-lg rounded-tr-none bg-blue-600 px-3 py-2 text-[13px] text-white">
+              <p className="max-w-[85%] rounded-lg rounded-tr-none bg-flame-600 px-3 py-2 text-[13px] text-white">
                 {m.text}
               </p>
             </div>
           ) : (
             <div key={i} className="flex items-start gap-2.5">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-blue-950 text-blue-300">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-flame-950 text-primary/80">
                 <Sparkles size={12} />
               </span>
               <p
                 className={`max-w-[85%] whitespace-pre-wrap rounded-lg rounded-tl-none border px-3 py-2 text-[13px] ${
                   m.error
-                    ? "border-signal-500/30 bg-signal-950 text-signal-400"
-                    : "border-ink-800 bg-ink-900 text-fg-dim"
+                    ? "border-signal-500/30 bg-signal-950 text-danger"
+                    : "border-black/10 glass-panel text-text/70"
                 }`}
               >
                 {m.text}
@@ -79,7 +79,7 @@ export function ChatPanel({ ctl }: { ctl: DocController }) {
           ),
         )}
         {busy && (
-          <div className="flex items-center gap-2.5 pl-9 text-fg-faint">
+          <div className="flex items-center gap-2.5 pl-9 text-text/50">
             <Loader2 size={13} className="animate-spin" />
             <span className="font-mono text-[11px]">editing…</span>
           </div>
@@ -89,7 +89,7 @@ export function ChatPanel({ ctl }: { ctl: DocController }) {
 
       <form
         onSubmit={(e) => { e.preventDefault(); void send(); }}
-        className="flex shrink-0 items-end gap-2 border-t border-ink-800 p-3"
+        className="flex shrink-0 items-end gap-2 border-t border-black/10 p-3"
       >
         <textarea
           value={input}
@@ -99,12 +99,12 @@ export function ChatPanel({ ctl }: { ctl: DocController }) {
           }}
           placeholder={t("studio.chat.placeholder")}
           rows={2}
-          className="flex-1 resize-none rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-[13px] placeholder:text-fg-faint focus:border-blue-500"
+          className="flex-1 resize-none rounded-lg border border-black/10 glass-panel px-3 py-2 text-[13px] placeholder:text-text/50 focus:border-flame-500"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-500 text-white transition hover:bg-blue-400 disabled:opacity-40"
+          className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-white transition hover:bg-primary/90 disabled:opacity-40"
           aria-label={t("studio.chat.send")}
         >
           <Send size={14} />

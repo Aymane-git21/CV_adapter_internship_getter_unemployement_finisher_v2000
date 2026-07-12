@@ -36,6 +36,16 @@ async def test_cv_templates_compile_one_page(template):
     assert "#import \"/typst/" in source
 
 
+@pytest.mark.parametrize("lang", ["en", "fr", "de"])
+async def test_cv_compiles_in_all_ui_languages(lang):
+    settings = {"template": "onyx", "accent": "#C2551B", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": lang}
+    result, source = await renderer.compile_document("cv", "onyx", _cv_data(), settings, fmt="svg")
+    assert result.ok, result.diagnostics
+    assert result.pages == 1
+    assert f'lang: "{lang}"' in source
+
+
 async def test_letter_compiles_pdf():
     settings = {"template": "classic", "accent": "#1C3B5A", "density": "normal",
                 "show_photo": False, "font_scale": 1.0, "lang": "en"}

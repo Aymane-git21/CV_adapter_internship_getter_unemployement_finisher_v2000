@@ -1,37 +1,52 @@
 @import "tailwindcss";
 
-/* ── CV Glowup design tokens — "Paper in the Dark" ──────────────────────── */
+/* ---------------------------------------------------------------------------
+   CV Glowup design tokens — brand drawn from the katana-in-flames logo:
+   charcoal ink (#232323) + flame orange (#DA6F2F family) on warm paper.
+   flame-600 is the actionable primary (4.5:1+ on paper for AA text).
+--------------------------------------------------------------------------- */
 @theme {
-  --color-ink-950: #0a0d13;
-  --color-ink-900: #10141d;
-  --color-ink-850: #141927;
-  --color-ink-800: #181e2b;
-  --color-ink-700: #232b3d;
-  --color-ink-600: #2e3850;
+  --color-primary: #c2551b;
+  --color-secondary: #4a4038;
+  --color-success: #0f9d58;
+  --color-warning: #e89558;
+  --color-danger: #d92638;
+  --color-surface: #ffffff;
+  --color-text: #232323;
+  --color-neutral: #ffffff;
 
-  --color-paper: #fcfcfa;
-  --color-paper-dim: #f1f1ec;
+  --color-fg: #232323;
+  --color-fg-dim: #4a4038;
+  --color-fg-faint: #78716c;
 
-  --color-fg: #e9ebf1;
-  --color-fg-dim: #98a0b3;
-  --color-fg-faint: #5c6478;
+  --color-paper: #fcfaf7;
+  --color-paper-dim: #f3efe8;
 
-  --color-blue-300: #7aa5ff;
-  --color-blue-400: #5b90ff;
-  --color-blue-500: #3d7fff;
-  --color-blue-600: #2b63d9;
-  --color-blue-950: #0d1b3a;
+  /* flame scale — the brand accent */
+  --color-flame-300: #f2a16b;
+  --color-flame-400: #e8722c;
+  --color-flame-500: #d96328;
+  --color-flame-600: #c2551b;
+  --color-flame-700: #9e4212;
+  --color-flame-950: rgba(217, 99, 40, 0.1);
 
-  --color-signal-400: #ff8266;
-  --color-signal-500: #ff6b4a;
-  --color-signal-950: #2b130d;
+  --color-signal-400: #d92638;
+  --color-signal-500: #d92638;
+  --color-signal-950: rgba(217, 38, 56, 0.08);
 
-  --color-ok-400: #34d399;
-  --color-ok-950: #0a2018;
+  --color-ok-400: #0f9d58;
+  --color-ok-950: rgba(15, 157, 88, 0.1);
 
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "IBM Plex Serif", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-ink-950: transparent;
+  --color-ink-900: rgba(255, 255, 255, 0.4);
+  --color-ink-850: rgba(255, 255, 255, 0.5);
+  --color-ink-800: rgba(255, 255, 255, 0.6);
+  --color-ink-700: rgba(255, 255, 255, 0.8);
+  --color-ink-600: rgba(35, 35, 35, 0.2);
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 html,
@@ -41,33 +56,157 @@ body,
 }
 
 body {
-  background: var(--color-ink-950);
+  background:
+    radial-gradient(1100px 600px at 85% -10%, rgba(218, 111, 47, 0.13), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(218, 111, 47, 0.07), transparent 55%),
+    linear-gradient(180deg, #faf6f0, #f5f0e8);
+  background-attachment: fixed;
   color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-::selection {
-  background: color-mix(in srgb, var(--color-blue-500) 35%, transparent);
+/* Glass panel utility — warm-tinted liquid glass */
+.glass-panel {
+  background: rgba(255, 253, 250, 0.45);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 4px 30px rgba(35, 35, 35, 0.05);
 }
 
-/* Mono eyebrow label — the recurring structural device */
+::selection {
+  background: color-mix(in srgb, var(--color-flame-400) 35%, transparent);
+}
+
+/* Mono eyebrow label */
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--color-fg-dim);
+  color: var(--color-primary);
 }
 
-/* The paper sheet — the one bright object in the dark */
+/* Flame gradient text — headlines only */
+.flame-text {
+  background: linear-gradient(100deg, #d92638 0%, #e8722c 55%, #f2a16b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Primary action button — gradient core + sheen sweep on hover */
+.btn-flame {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #d96328, #c2551b 60%, #9e4212);
+  color: #fff;
+  box-shadow:
+    0 1px 2px rgba(158, 66, 18, 0.4),
+    0 8px 24px -6px rgba(217, 99, 40, 0.5);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-flame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+.btn-flame:hover {
+  filter: brightness(1.06);
+  box-shadow:
+    0 1px 2px rgba(158, 66, 18, 0.4),
+    0 12px 32px -6px rgba(217, 99, 40, 0.65);
+}
+.btn-flame:hover::after {
+  transform: translateX(120%);
+}
+.btn-flame:active {
+  transform: scale(0.98);
+}
+
+/* Card that lifts and warms on hover */
+.card-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  border-color: rgba(217, 99, 40, 0.45);
+  box-shadow:
+    0 4px 30px rgba(35, 35, 35, 0.05),
+    0 16px 40px -12px rgba(217, 99, 40, 0.28);
+}
+
+/* Slow drifting ember glow — hero backdrop */
+@keyframes ember-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50% { transform: translate(4%, -6%) scale(1.12); opacity: 1; }
+}
+.ember {
+  animation: ember-drift 9s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Gentle float for the logo mark */
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.float-soft {
+  animation: float-soft 6s ease-in-out infinite;
+}
+
+/* Nav link underline that draws itself */
+.nav-underline {
+  position: relative;
+}
+.nav-underline::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.2rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-flame-500), var(--color-flame-300));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.nav-underline:hover::after,
+.nav-underline[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+/* Keyword marquee strip */
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-x 36s linear infinite;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+.marquee-mask {
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+/* The paper sheet */
 .sheet {
   background: var(--color-paper);
-  border-radius: 4px;
+  border-radius: 8px;
   box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.5),
-    0 12px 40px -8px rgb(0 0 0 / 0.65),
-    0 0 0 1px rgb(255 255 255 / 0.04);
+    0 1px 2px rgb(0 0 0 / 0.1),
+    0 12px 40px -8px rgb(0 0 0 / 0.15),
+    0 0 0 1px rgb(0 0 0 / 0.04);
 }
 .sheet svg {
   display: block;
@@ -75,16 +214,16 @@ body {
   height: auto;
 }
 
-/* Scrollbars that belong to the studio */
+/* Scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-ink-600) transparent;
+  scrollbar-color: rgba(35, 35, 35, 0.2) transparent;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-blue-400);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -107,24 +246,24 @@ body {
 }
 .cm-shell .cm-gutters {
   background: transparent;
-  border-right: 1px solid var(--color-ink-700);
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
   color: var(--color-fg-faint);
 }
 .cm-shell .cm-activeLine {
-  background: rgb(255 255 255 / 0.03);
+  background: rgba(0, 0, 0, 0.03);
 }
 .cm-shell .cm-activeLineGutter {
   background: transparent;
   color: var(--color-fg-dim);
 }
 .cm-shell .cm-content {
-  caret-color: var(--color-blue-300);
+  caret-color: var(--color-primary);
   font-family: var(--font-mono);
 }
 .cm-shell .cm-cursor {
-  border-left-color: var(--color-blue-300);
+  border-left-color: var(--color-primary);
 }
 .cm-shell .cm-selectionBackground,
 .cm-shell .cm-editor ::selection {
-  background: color-mix(in srgb, var(--color-blue-500) 28%, transparent) !important;
+  background: color-mix(in srgb, var(--color-primary) 28%, transparent) !important;
 }

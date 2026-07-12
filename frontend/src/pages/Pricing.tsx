@@ -18,6 +18,7 @@ const copy = {
     soon: "Online payment opens soon — email us to upgrade early.",
     manage: "Manage subscription",
     login: "Log in to upgrade",
+    start: "Start",
     byokTitle: "Bring your own key",
     byokPrice: "Free, unlimited",
     byokBody: "Paste your own Gemini API key (Google gives one free at aistudio.google.com) and generate without daily limits — every template unlocked. The key never leaves your browser except to call Gemini for your own requests.",
@@ -41,6 +42,7 @@ const copy = {
     soon: "Le paiement en ligne arrive — écrivez-nous pour un accès anticipé.",
     manage: "Gérer l'abonnement",
     login: "Connectez-vous pour évoluer",
+    start: "Commencer",
     byokTitle: "Votre propre clé API",
     byokPrice: "Gratuit, illimité",
     byokBody: "Collez votre clé API Gemini (gratuite sur aistudio.google.com) et générez sans limite quotidienne — tous les modèles débloqués. La clé ne quitte votre navigateur que pour appeler Gemini.",
@@ -51,6 +53,30 @@ const copy = {
       templates: "modèles",
       editing: "Éditeur live, source & chat",
       letters: "CV + lettre + message",
+    },
+  },
+  de: {
+    eyebrow: "Preise",
+    title: "Zahlen Sie für Volumen, nicht für Qualität.",
+    sub: "Jeder Plan liefert dieselben recruiter-fertigen Dokumente. Pläne ändern nur, wie viele und wie schnell.",
+    perMonth: "/Monat",
+    free: "Kostenlos",
+    current: "Aktueller Plan",
+    upgrade: "Upgraden",
+    soon: "Online-Zahlung startet bald — schreiben Sie uns für ein frühes Upgrade.",
+    manage: "Abo verwalten",
+    login: "Zum Upgraden anmelden",
+    start: "Loslegen",
+    byokTitle: "Eigener API-Schlüssel",
+    byokPrice: "Kostenlos, unbegrenzt",
+    byokBody: "Fügen Sie Ihren eigenen Gemini-API-Schlüssel ein (kostenlos bei aistudio.google.com) und generieren Sie ohne Tageslimits — alle Vorlagen freigeschaltet. Der Schlüssel verlässt Ihren Browser nur, um Gemini für Ihre eigenen Anfragen aufzurufen.",
+    byokCta: "Schlüssel einrichten",
+    rows: {
+      daily: "Generierungen / Tag",
+      parallel: "Stellen parallel",
+      templates: "Vorlagen",
+      editing: "Live-Editor, Quelltext & Chat",
+      letters: "Lebenslauf + Anschreiben + Nachricht",
     },
   },
 };
@@ -86,10 +112,10 @@ export default function Pricing() {
   return (
     <div className="mx-auto max-w-6xl px-6 py-16">
       <p className="eyebrow mb-3">{c.eyebrow}</p>
-      <h1 className="mb-3 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">{c.title}</h1>
-      <p className="mb-12 max-w-2xl text-[15px] text-fg-dim">{c.sub}</p>
+      <h1 className="mb-3 font-sans text-3xl font-semibold tracking-tight sm:text-4xl">{c.title}</h1>
+      <p className="mb-12 max-w-2xl text-[15px] text-text/70">{c.sub}</p>
 
-      {error && <p className="mb-6 text-sm text-signal-400">{error}</p>}
+      {error && <p className="mb-6 text-sm text-danger">{error}</p>}
 
       <div className="grid gap-5 md:grid-cols-3">
         {plans.map((p) => {
@@ -98,8 +124,10 @@ export default function Pricing() {
           return (
             <div
               key={p.key}
-              className={`rounded-2xl border p-6 ${
-                highlight ? "border-blue-500/60 bg-blue-950/40 shadow-[0_0_60px_-20px] shadow-blue-500/40" : "border-ink-700 bg-ink-900"
+              className={`card-lift rounded-2xl border p-6 ${
+                highlight
+                  ? "border-flame-500/60 bg-flame-950 shadow-lg shadow-flame-500/20"
+                  : "border-black/10 glass-panel"
               }`}
             >
               <h2 className="mb-1 text-[15px] font-semibold">{p.label}</h2>
@@ -107,26 +135,26 @@ export default function Pricing() {
                 <span className="font-mono text-3xl font-semibold">
                   {p.price_eur === 0 ? c.free : `${p.price_eur}€`}
                 </span>
-                {p.price_eur > 0 && <span className="text-[13px] text-fg-dim">{c.perMonth}</span>}
+                {p.price_eur > 0 && <span className="text-[13px] text-text/70">{c.perMonth}</span>}
               </p>
-              <ul className="mb-6 space-y-2.5 text-[13.5px] text-fg-dim">
+              <ul className="mb-6 space-y-2.5 text-[13.5px] text-text/70">
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />
-                  <span><strong className="text-fg">{p.daily >= 1000 ? "∞" : p.daily}</strong> {c.rows.daily}</span></li>
+                  <span><strong className="text-text">{p.daily >= 1000 ? "∞" : p.daily}</strong> {c.rows.daily}</span></li>
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />
-                  <span><strong className="text-fg">{p.parallel}</strong> {c.rows.parallel}</span></li>
+                  <span><strong className="text-text">{p.parallel}</strong> {c.rows.parallel}</span></li>
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />
-                  <span><strong className="text-fg">{p.templates.length}</strong> {c.rows.templates}</span></li>
+                  <span><strong className="text-text">{p.templates.length}</strong> {c.rows.templates}</span></li>
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />{c.rows.editing}</li>
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />{c.rows.letters}</li>
               </ul>
               {p.price_eur === 0 ? (
-                <Link to="/studio" className="block rounded-lg border border-ink-600 py-2.5 text-center text-[14px] text-fg-dim hover:border-ink-500 hover:text-fg">
-                  {isCurrent ? c.current : "Start"}
+                <Link to="/studio" className="block rounded-lg border border-ink-600 py-2.5 text-center text-[14px] text-text/70 transition-colors hover:border-primary hover:text-text">
+                  {isCurrent ? c.current : c.start}
                 </Link>
               ) : isCurrent ? (
                 <button
                   onClick={() => void api.billingPortal().then(({ url }) => (window.location.href = url)).catch(() => {})}
-                  className="w-full rounded-lg border border-ink-600 py-2.5 text-[14px] text-fg-dim hover:text-fg"
+                  className="w-full rounded-lg border border-ink-600 py-2.5 text-[14px] text-text/70 hover:text-text"
                 >
                   {c.manage}
                 </button>
@@ -135,7 +163,7 @@ export default function Pricing() {
                   onClick={() => void checkout(p.key)}
                   disabled={busy !== ""}
                   className={`w-full rounded-lg py-2.5 text-[14px] font-semibold transition ${
-                    highlight ? "bg-blue-500 text-white hover:bg-blue-400" : "border border-ink-600 text-fg hover:border-ink-500"
+                    highlight ? "btn-flame" : "border border-ink-600 text-text hover:border-primary"
                   } disabled:opacity-50`}
                 >
                   {busy === p.key ? "…" : me?.authenticated ? c.upgrade : c.login}
@@ -143,7 +171,7 @@ export default function Pricing() {
               ) : (
                 <a
                   href="mailto:hello@cvglowup.com?subject=Upgrade"
-                  className="block rounded-lg border border-ink-600 py-2.5 text-center text-[13px] text-fg-dim hover:text-fg"
+                  className="block rounded-lg border border-ink-600 py-2.5 text-center text-[13px] text-text/70 hover:text-text"
                 >
                   {c.soon}
                 </a>
@@ -154,13 +182,13 @@ export default function Pricing() {
       </div>
 
       {/* BYOK */}
-      <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-ok-400/25 bg-ok-950/60 p-6 sm:flex-row sm:items-center">
+      <div className="card-lift mt-5 flex flex-col gap-4 rounded-2xl border border-ok-400/25 bg-ok-950 p-6 sm:flex-row sm:items-center">
         <KeyRound size={22} className="shrink-0 text-ok-400" />
         <div className="flex-1">
           <h2 className="text-[15px] font-semibold">
             {c.byokTitle} — <span className="font-mono text-ok-400">{c.byokPrice}</span>
           </h2>
-          <p className="mt-1 max-w-3xl text-[13.5px] leading-relaxed text-fg-dim">{c.byokBody}</p>
+          <p className="mt-1 max-w-3xl text-[13.5px] leading-relaxed text-text/70">{c.byokBody}</p>
         </div>
         <Link
           to="/settings"

@@ -62,6 +62,16 @@
     interests: "Centres d'intérêt",
     certifications: "Certifications",
   ),
+  de: (
+    summary: "Profil",
+    experience: "Berufserfahrung",
+    education: "Ausbildung",
+    skills: "Kenntnisse",
+    projects: "Projekte",
+    languages: "Sprachen",
+    interests: "Interessen",
+    certifications: "Zertifikate",
+  ),
 )
 
 #let label-for(settings, key) = {

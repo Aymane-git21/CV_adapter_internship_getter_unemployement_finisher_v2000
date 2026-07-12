@@ -32,6 +32,10 @@ _EN_MONTHS = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
 ]
+_DE_MONTHS = [
+    "Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember",
+]
 
 
 def _sem() -> asyncio.Semaphore:
@@ -46,6 +50,9 @@ def letter_date(language: str, city: str) -> str:
     if language == "fr":
         base = f"le {now.day} {_FR_MONTHS[now.month - 1]} {now.year}"
         return f"{city}, {base}" if city else base.capitalize()
+    if language == "de":
+        base = f"{now.day}. {_DE_MONTHS[now.month - 1]} {now.year}"
+        return f"{city}, den {base}" if city else base
     base = f"{_EN_MONTHS[now.month - 1]} {now.day}, {now.year}"
     return f"{city}, {base}" if city else base
 

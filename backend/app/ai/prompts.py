@@ -1,7 +1,7 @@
 """All prompts in one place. Every generation call uses structured output
 (response_schema), so prompts focus on quality, not output formatting."""
 
-LANG_NAMES = {"en": "English", "fr": "French"}
+LANG_NAMES = {"en": "English", "fr": "French", "de": "German"}
 
 
 def lang_name(code: str) -> str:
@@ -16,7 +16,8 @@ Analyze the JOB DESCRIPTION below (the CANDIDATE CV is given for context only).
 Extract:
 - job_title: the role title, concise.
 - company: the hiring company name ("" if not stated).
-- language_detected: "fr" if the job description is French, else "en".
+- language_detected: "fr" if the job description is French, "de" if German,
+  else "en".
 - keywords: 12-20 concrete skills/requirements a screening system would scan
   for. Each has term (short, canonical), weight 1-3 (3 = must-have, appears
   repeatedly or in requirements; 1 = nice-to-have), and aliases (other
@@ -83,13 +84,22 @@ MASTER CV (single source of truth — JSON):
 
 
 def letter_prompt(jd: str, analysis_notes: str, cv_json: str, language: str) -> str:
-    return f"""Write an outstanding cover letter ({'lettre de motivation' if language == 'fr' else 'cover letter'})
+    doc_name = {"fr": "lettre de motivation", "de": "Anschreiben"}.get(language, "cover letter")
+    default_recipient = {
+        "fr": '"Madame, Monsieur"',
+        "de": '"Sehr geehrte Damen und Herren"',
+    }.get(language, '"Hiring Team"')
+    subject_hint = {
+        "fr": ' (e.g. "Objet : Candidature au poste de ...")',
+        "de": ' (e.g. "Bewerbung als ...")',
+    }.get(language, "")
+    return f"""Write an outstanding cover letter ({doc_name})
 in {lang_name(language)} for the job below, from the candidate described by the CV JSON.
 
 Fill ONLY these fields (the system fills sender/date/signature):
 - recipient: name (use the hiring contact if known, else a natural default
-  like {'"Madame, Monsieur"' if language == 'fr' else '"Hiring Team"'}), company, address_lines (from the job posting if present).
-- subject: one line, mentions the exact role title{' (e.g. "Objet : Candidature au poste de ...")' if language == 'fr' else ''}.
+  like {default_recipient}), company, address_lines (from the job posting if present).
+- subject: one line, mentions the exact role title{subject_hint}.
 - greeting: culturally correct salutation.
 - paragraphs: exactly 3 paragraphs, 60-100 words each:
   P1 hook — why this company/role specifically, with the candidate's single
@@ -97,7 +107,9 @@ Fill ONLY these fields (the system fills sender/date/signature):
   P2 proof — 2-3 concrete results from the CV mapped to the job's needs.
   Use real numbers from the CV only.
   P3 close — what the candidate will bring, confident call to action.
-- closing: culturally correct closing line{' (formule de politesse complète)' if language == 'fr' else ''}.
+- closing: culturally correct closing line{
+        {"fr": " (formule de politesse complète)", "de": ' (e.g. "Mit freundlichen Grüßen")'}.get(language, "")
+    }.
 
 Tone: confident, specific, human. Zero clichés, zero placeholders.
 WHAT THIS EMPLOYER CARES ABOUT: {analysis_notes}

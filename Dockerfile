@@ -32,7 +32,6 @@ RUN pip install -r backend/requirements.txt
 
 COPY backend/ backend/
 COPY templates/ templates/
-COPY cvglowup.db cvglowup.db
 COPY --from=web /build/dist frontend/dist
 
 # Non-root user; needs write access to /app for sqlite db

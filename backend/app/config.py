@@ -1,5 +1,6 @@
 """Application settings, loaded from environment / .env."""
 import os
+import re
 import shutil
 from functools import lru_cache
 from pathlib import Path
@@ -72,9 +73,17 @@ class Settings(BaseSettings):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgresql://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        # asyncpg does not understand ?sslmode=require (libpq syntax); it uses ssl=true.
-        if "+asyncpg" in url and "sslmode=" in url:
-            url = url.replace("sslmode=require", "ssl=true")
+        if "+asyncpg" in url:
+            # asyncpg speaks libpq-style `sslmode` under the name `ssl`, accepting the
+            # same value names (require/verify-ca/verify-full/...). It cannot parse
+            # `sslmode` or Neon's `channel_binding`, so translate/strip them.
+            url = url.replace("sslmode=", "ssl=")
+            url = re.sub(r"[?&]channel_binding=[^&]*", "", url)
+            # Normalise separators left behind (e.g. stripped the leading `?param`).
+            url = url.replace("?&", "?")
+            if "?" not in url and "&" in url:
+                url = url.replace("&", "?", 1)
+            url = url.rstrip("?&")
         return url
 
     @property

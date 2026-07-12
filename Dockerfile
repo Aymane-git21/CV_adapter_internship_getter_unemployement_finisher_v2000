@@ -45,4 +45,7 @@ ENV ENV=prod \
     TYPST_BIN=/usr/local/bin/typst
 
 EXPOSE 8080
-CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# --proxy-headers + trusting the Cloud Run front proxy lets the app see the real
+# https scheme (X-Forwarded-Proto), so the same-origin check in main.py works
+# behind TLS termination instead of 403-ing "Origin not allowed".
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8080} --proxy-headers --forwarded-allow-ips=*"]

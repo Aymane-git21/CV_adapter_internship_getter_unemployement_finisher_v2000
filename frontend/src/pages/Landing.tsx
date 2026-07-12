@@ -1,17 +1,26 @@
-/* Landing — "Your CV has 7 seconds." The hero is the product itself: a real
-   compiled document being scanned the way a recruiter scans it. */
-import { motion, useInView, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+/* Landing — "Your CV has 7 seconds."
+   The hero is a Three.js scene (the tailored page floating over embers,
+   scanned the way a recruiter scans it) and the page is choreographed with
+   GSAP ScrollTrigger: staggered headline, scroll-linked camera, counting
+   stats, velocity-reactive marquee, magnetic CTA and a flame cursor.
+   All motion is gated behind prefers-reduced-motion. */
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Columns2, FileSearch, Gauge, KeyRound, Languages, Timer,
+  ChevronDown, Columns2, FileSearch, Gauge, KeyRound, Languages, Timer,
 } from "lucide-react";
 import heroCv from "../assets/hero_cv.jpg";
 import logoUrl from "../assets/CVglowup_logo.svg";
 import { useI18n } from "../i18n";
 import { useSession } from "../store";
 
-const copy = {
+gsap.registerPlugin(ScrollTrigger);
+
+const HeroScene = lazy(() => import("../components/HeroScene"));
+
+export const copy = {
   en: {
     eyebrow: "Recruiters decide fast",
     title1: "Your CV has",
@@ -125,78 +134,39 @@ const copy = {
   },
 };
 
-function ScanOverlay() {
-  const reduced = useReducedMotion();
+/* Words wrapped for the staggered reveal. */
+function SplitWords({ text, className = "" }: { text: string; className?: string }) {
+  return (
+    <>
+      {text.split(" ").map((word, i) => (
+        <span key={i} className="inline-block overflow-hidden pb-[0.08em] -mb-[0.08em] align-bottom">
+          <span className={`hero-word inline-block will-change-transform ${className}`}>{word}&nbsp;</span>
+        </span>
+      ))}
+    </>
+  );
+}
+
+/* The 7-second countdown chip floating over the scanned page. */
+function CountdownChip() {
   const [count, setCount] = useState(7.0);
   useEffect(() => {
-    if (reduced) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const started = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const elapsed = ((now - started) / 1000) % 9; // 7s countdown + 2s hold
+      const elapsed = ((now - started) / 1000) % 9;
       setCount(Math.max(0, 7 - elapsed));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [reduced]);
-
+  }, []);
   return (
-    <>
-      {/* countdown chip */}
-      <div className="absolute -left-3 -top-3 z-10 flex items-center gap-1.5 rounded-lg border border-danger/40 glass-panel px-2.5 py-1.5 shadow-xl sm:-left-5 sm:-top-5">
-        <Timer size={13} className="text-danger" />
-        <span className="font-mono text-[13px] font-medium tabular-nums text-danger">
-          {count.toFixed(1)}s
-        </span>
-      </div>
-      {/* scan line */}
-      {!reduced && (
-        <motion.div
-          className="pointer-events-none absolute inset-x-0 z-10 h-20"
-          style={{
-            background:
-              "linear-gradient(to bottom, transparent, rgba(217,99,40,0.14) 70%, rgba(217,99,40,0.5))",
-            borderBottom: "1.5px solid rgba(217,99,40,0.8)",
-          }}
-          initial={{ top: "-10%" }}
-          animate={{ top: ["−10%", "92%"] }}
-          transition={{ duration: 7, repeat: Infinity, repeatDelay: 2, ease: "linear" }}
-        />
-      )}
-    </>
-  );
-}
-
-/* Number that counts up when scrolled into view. */
-function CountUp({ to, decimals = 0, suffix = "" }: { to: number; decimals?: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
-  const reduced = useReducedMotion();
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (!inView) return;
-    if (reduced) {
-      setValue(to);
-      return;
-    }
-    const started = performance.now();
-    const duration = 1200;
-    let raf = 0;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - started) / duration);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setValue(to * eased);
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [inView, to, reduced]);
-  return (
-    <span ref={ref}>
-      {value.toFixed(decimals)}
-      {suffix}
-    </span>
+    <div className="pointer-events-none absolute right-[8%] top-[16%] z-10 hidden items-center gap-1.5 rounded-lg border border-danger/40 glass-panel px-2.5 py-1.5 shadow-xl lg:flex">
+      <Timer size={13} className="text-danger" />
+      <span className="font-mono text-[13px] font-medium tabular-nums text-danger">{count.toFixed(1)}s</span>
+    </div>
   );
 }
 
@@ -205,90 +175,255 @@ export default function Landing() {
   const me = useSession((s) => s.me);
   const c = copy[lang];
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const heroContentRef = useRef<HTMLDivElement>(null);
+  const fallbackRef = useRef<HTMLDivElement>(null);
+  const marqueeRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLAnchorElement>(null);
+  const cursorDotRef = useRef<HTMLDivElement>(null);
+  const cursorRingRef = useRef<HTMLDivElement>(null);
+  const scrollProgress = useRef(0);
+
+  // ---- GSAP choreography (re-runs per language: text nodes change) -------
+  useLayoutEffect(() => {
+    // The app scrolls inside <main class="overflow-y-auto">, not the window —
+    // every trigger must watch that element or it never fires.
+    const scroller = rootRef.current?.closest("main") ?? undefined;
+    const ctx = gsap.context(() => {
+      // Scroll progress feeds the Three.js camera even under reduced motion
+      // (it only moves when the user scrolls, which is user-initiated).
+      ScrollTrigger.create({
+        scroller,
+        trigger: heroRef.current,
+        start: "top top",
+        end: "bottom top",
+        onUpdate: (self) => {
+          scrollProgress.current = self.progress;
+        },
+      });
+
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        // 1 — headline cascade
+        gsap.from(".hero-word", {
+          yPercent: 115,
+          duration: 0.9,
+          ease: "power4.out",
+          stagger: 0.045,
+          delay: 0.1,
+        });
+        gsap.from("[data-hero-fade]", {
+          y: 18,
+          autoAlpha: 0,
+          duration: 0.8,
+          ease: "power3.out",
+          stagger: 0.09,
+          delay: 0.55,
+        });
+
+        // 2 — hero content drifts up and out as you scroll
+        gsap.to(heroContentRef.current, {
+          yPercent: -14,
+          autoAlpha: 0.1,
+          ease: "none",
+          scrollTrigger: { scroller, trigger: heroRef.current, start: "top top", end: "bottom top", scrub: true },
+        });
+
+        // 3 — marquee scrolls forever, faster while the user scrolls
+        const track = marqueeRef.current;
+        if (track) {
+          const tween = gsap.to(track, { xPercent: -50, repeat: -1, ease: "none", duration: 32 });
+          let boost = 1;
+          ScrollTrigger.create({
+            scroller,
+            onUpdate: (self) => {
+              boost = 1 + Math.min(3.5, Math.abs(self.getVelocity()) / 350);
+            },
+          });
+          const lerp = () => {
+            tween.timeScale(gsap.utils.interpolate(tween.timeScale(), boost, 0.08));
+            boost = gsap.utils.interpolate(boost, 1, 0.04);
+          };
+          gsap.ticker.add(lerp);
+          return () => gsap.ticker.remove(lerp);
+        }
+
+        return undefined;
+      });
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        // 4 — stats count up when they enter
+        gsap.utils.toArray<HTMLElement>("[data-count-to]").forEach((node) => {
+          const to = parseFloat(node.dataset.countTo!);
+          const decimals = parseInt(node.dataset.decimals ?? "0", 10);
+          const suffix = node.dataset.suffix ?? "";
+          const state = { v: 0 };
+          gsap.to(state, {
+            v: to,
+            duration: 1.4,
+            ease: "power3.out",
+            scrollTrigger: { scroller, trigger: node, start: "top 88%", once: true },
+            onUpdate: () => {
+              node.textContent = state.v.toFixed(decimals) + suffix;
+            },
+          });
+        });
+
+        // 5 — section reveals
+        gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
+          gsap.from(el, {
+            y: 42,
+            autoAlpha: 0,
+            duration: 0.9,
+            ease: "power3.out",
+            scrollTrigger: { scroller, trigger: el, start: "top 86%", once: true },
+            delay: parseFloat(el.dataset.reveal || "0"),
+          });
+        });
+
+        // 6 — the giant step numbers slide in with scrub
+        gsap.utils.toArray<HTMLElement>("[data-step-num]").forEach((el) => {
+          gsap.from(el, {
+            xPercent: -30,
+            autoAlpha: 0,
+            ease: "none",
+            scrollTrigger: { scroller, trigger: el, start: "top 95%", end: "top 55%", scrub: true },
+          });
+        });
+      });
+    }, rootRef);
+
+    return () => ctx.revert();
+  }, [lang]);
+
+  // ---- flame cursor (fine pointers only) ----------------------------------
+  useEffect(() => {
+    const fine = window.matchMedia("(pointer: fine)").matches;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const dot = cursorDotRef.current;
+    const ring = cursorRingRef.current;
+    if (!fine || reduced || !dot || !ring) return;
+
+    const dotX = gsap.quickTo(dot, "x", { duration: 0.12, ease: "power2.out" });
+    const dotY = gsap.quickTo(dot, "y", { duration: 0.12, ease: "power2.out" });
+    const ringX = gsap.quickTo(ring, "x", { duration: 0.45, ease: "power3.out" });
+    const ringY = gsap.quickTo(ring, "y", { duration: 0.45, ease: "power3.out" });
+
+    const move = (e: PointerEvent) => {
+      gsap.set([dot, ring], { autoAlpha: 1 });
+      dotX(e.clientX);
+      dotY(e.clientY);
+      ringX(e.clientX);
+      ringY(e.clientY);
+      const interactive = (e.target as HTMLElement).closest("a, button, summary");
+      gsap.to(ring, { scale: interactive ? 2 : 1, duration: 0.25 });
+    };
+    const leave = () => gsap.set([dot, ring], { autoAlpha: 0 });
+    document.addEventListener("pointermove", move, { passive: true });
+    document.documentElement.addEventListener("pointerleave", leave);
+    return () => {
+      document.removeEventListener("pointermove", move);
+      document.documentElement.removeEventListener("pointerleave", leave);
+      gsap.set([dot, ring], { autoAlpha: 0 });
+    };
+  }, []);
+
+  // ---- magnetic primary CTA ------------------------------------------------
+  useEffect(() => {
+    const el = ctaRef.current;
+    if (!el || !window.matchMedia("(pointer: fine)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const xTo = gsap.quickTo(el, "x", { duration: 0.3, ease: "power3.out" });
+    const yTo = gsap.quickTo(el, "y", { duration: 0.3, ease: "power3.out" });
+    const move = (e: MouseEvent) => {
+      const r = el.getBoundingClientRect();
+      xTo((e.clientX - (r.left + r.width / 2)) * 0.25);
+      yTo((e.clientY - (r.top + r.height / 2)) * 0.35);
+    };
+    const reset = () => {
+      gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1, 0.4)" });
+    };
+    el.addEventListener("mousemove", move);
+    el.addEventListener("mouseleave", reset);
+    return () => {
+      el.removeEventListener("mousemove", move);
+      el.removeEventListener("mouseleave", reset);
+    };
+  }, []);
+
+  const fadeFallback = () => {
+    if (fallbackRef.current) gsap.to(fallbackRef.current, { autoAlpha: 0, duration: 0.8 });
+  };
+
   return (
-    <div>
+    <div ref={rootRef}>
+      {/* flame cursor */}
+      <div
+        ref={cursorDotRef}
+        className="pointer-events-none fixed left-0 top-0 z-[70] size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flame-500 opacity-0"
+      />
+      <div
+        ref={cursorRingRef}
+        className="pointer-events-none fixed left-0 top-0 z-[70] size-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-flame-500/50 opacity-0"
+      />
+
       {/* ── hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-black/10">
-        {/* drifting ember glow */}
-        <div
-          className="ember pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(900px 500px at 75% 30%, rgba(218,111,47,0.16), transparent 65%)",
-          }}
-        />
-        {/* logo watermark */}
-        <img
-          src={logoUrl}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 w-[420px] opacity-[0.05] blur-[1px]"
-        />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
-          <div>
-            <motion.p
-              className="eyebrow mb-4 text-danger"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              {c.eyebrow}
-            </motion.p>
-            <motion.h1
-              className="mb-6 font-sans text-[2.6rem] font-bold leading-[1.08] tracking-tight sm:text-[3.4rem] text-text"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.06 }}
-            >
-              {c.title1}{" "}
-              <span className="flame-text whitespace-nowrap">{c.title2}</span>
+      <section
+        ref={heroRef}
+        className="relative flex min-h-[calc(100vh-3.5rem)] items-center overflow-hidden border-b border-black/10"
+      >
+        {/* three.js scene */}
+        <Suspense fallback={null}>
+          <HeroScene progress={scrollProgress} onReady={fadeFallback} />
+        </Suspense>
+
+        {/* static fallback until the scene's first frame (or forever without WebGL) */}
+        <div ref={fallbackRef} className="pointer-events-none absolute right-[4%] top-1/2 hidden w-[360px] -translate-y-1/2 rotate-1 lg:block">
+          <div className="sheet overflow-hidden">
+            <img src={heroCv} alt="" className="block w-full" />
+          </div>
+        </div>
+
+        <CountdownChip />
+
+        <div ref={heroContentRef} className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16">
+          <div className="max-w-2xl">
+            <p data-hero-fade className="eyebrow mb-5 text-danger">{c.eyebrow}</p>
+            <h1 className="mb-7 font-sans text-[2.7rem] font-bold leading-[1.06] tracking-tight text-text sm:text-[4rem]">
+              <SplitWords text={c.title1} />
+              <SplitWords text={c.title2} className="flame-text" />
               <br />
-              <span className="text-text">{c.title3}</span>
-            </motion.h1>
-            <motion.p
-              className="mb-8 max-w-xl text-[15.5px] leading-relaxed text-text/70"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 }}
-            >
+              <SplitWords text={c.title3} />
+            </h1>
+            <p data-hero-fade className="mb-9 max-w-xl text-[15.5px] leading-relaxed text-text/70">
               {c.sub}
-            </motion.p>
-            <motion.div
-              className="flex flex-wrap items-center gap-4"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.18 }}
-            >
+            </p>
+            <div data-hero-fade className="flex flex-wrap items-center gap-5">
               <Link
+                ref={ctaRef}
                 to="/studio"
-                className="btn-flame rounded-lg px-6 py-3 text-[15px] font-semibold"
+                className="btn-flame inline-block rounded-xl px-7 py-3.5 text-[15px] font-semibold"
               >
                 {c.ctaPrimary}
               </Link>
               <Link to="/pricing" className="text-[14px] text-text/70 underline-offset-4 hover:text-text hover:underline">
                 {c.ctaSecondary}
               </Link>
-            </motion.div>
-            <p className="mt-4 font-mono text-[11.5px] text-text/50">{c.ctaNote}</p>
-          </div>
-
-          {/* the paper under the recruiter's scan */}
-          <motion.div
-            className="relative mx-auto w-full max-w-[420px]"
-            initial={{ opacity: 0, y: 24, rotate: 0.8 }}
-            animate={{ opacity: 1, y: 0, rotate: 0.8 }}
-            transition={{ delay: 0.15, duration: 0.7 }}
-          >
-            <ScanOverlay />
-            <div className="sheet overflow-hidden">
-              <img src={heroCv} alt="A tailored CV, typeset by CV Glowup" className="block w-full" />
             </div>
-          </motion.div>
+            <p data-hero-fade className="mt-5 font-mono text-[11.5px] text-text/50">{c.ctaNote}</p>
+          </div>
+        </div>
+
+        {/* scroll hint */}
+        <div data-hero-fade className="absolute bottom-5 left-1/2 -translate-x-1/2 text-flame-600">
+          <ChevronDown size={18} className="animate-bounce" />
         </div>
       </section>
 
       {/* ── role marquee ─────────────────────────────────────────────────── */}
       <section className="marquee-mask overflow-hidden border-b border-black/10 py-3" aria-hidden="true">
-        <div className="marquee-track gap-3">
+        <div ref={marqueeRef} className="flex w-max gap-3">
           {[...c.marquee, ...c.marquee].map((role, i) => (
             <span
               key={i}
@@ -302,80 +437,69 @@ export default function Landing() {
 
       {/* ── stats strip ──────────────────────────────────────────────────── */}
       <section className="border-b border-black/10 glass-panel">
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 sm:grid-cols-3">
-          <div className="flex items-baseline gap-3">
-            <span className="font-mono text-2xl font-semibold tabular-nums text-danger">
-              <CountUp to={7.4} decimals={1} suffix="s" />
-            </span>
+        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-10 sm:grid-cols-3">
+          <div data-reveal className="flex items-baseline gap-3">
+            <span data-count-to="7.4" data-decimals="1" data-suffix="s" className="font-mono text-3xl font-semibold tabular-nums text-danger">7.4s</span>
             <span className="text-[13px] leading-snug text-text/70">{c.statHuman}</span>
           </div>
-          <div className="flex items-baseline gap-3">
-            <span className="font-mono text-2xl font-semibold tabular-nums text-text">
-              <CountUp to={99} suffix="%" />
-            </span>
+          <div data-reveal="0.08" className="flex items-baseline gap-3">
+            <span data-count-to="99" data-suffix="%" className="font-mono text-3xl font-semibold tabular-nums text-text">99%</span>
             <span className="text-[13px] leading-snug text-text/70">{c.statAts}</span>
           </div>
-          <div className="flex items-baseline gap-3">
-            <span className="font-mono text-2xl font-semibold tabular-nums text-flame-600">
-              <CountUp to={0.2} decimals={1} suffix="s" />
-            </span>
+          <div data-reveal="0.16" className="flex items-baseline gap-3">
+            <span data-count-to="0.2" data-decimals="1" data-suffix="s" className="font-mono text-3xl font-semibold tabular-nums text-flame-600">0.2s</span>
             <span className="text-[13px] leading-snug text-text/70">{c.statTypst}</span>
           </div>
         </div>
       </section>
 
       {/* ── how it works ─────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <p className="eyebrow mb-10">{c.howEyebrow}</p>
-        <div className="grid gap-10 md:grid-cols-3">
+      <section className="mx-auto max-w-6xl px-6 py-24">
+        <p data-reveal className="eyebrow mb-12">{c.howEyebrow}</p>
+        <div className="space-y-14">
           {c.how.map(([title, body], i) => (
-            <motion.div
-              key={title}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ delay: i * 0.08 }}
-            >
-              <div className="mb-3 font-mono text-[13px] text-flame-600">0{i + 1}</div>
-              <h3 className="mb-2 font-sans text-lg font-semibold text-text">{title}</h3>
-              <p className="text-[14px] leading-relaxed text-text/70">{body}</p>
-            </motion.div>
+            <div key={title} className="grid items-baseline gap-4 md:grid-cols-[140px_1fr]">
+              <div data-step-num className="flame-text font-mono text-[64px] font-bold leading-none md:text-[88px]">
+                0{i + 1}
+              </div>
+              <div data-reveal>
+                <h3 className="mb-2 font-sans text-2xl font-semibold tracking-tight text-text">{title}</h3>
+                <p className="max-w-2xl text-[15px] leading-relaxed text-text/70">{body}</p>
+              </div>
+            </div>
           ))}
         </div>
       </section>
 
       {/* ── features ─────────────────────────────────────────────────────── */}
       <section className="border-y border-black/10 glass-panel">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <p className="eyebrow mb-10">{c.featEyebrow}</p>
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <p data-reveal className="eyebrow mb-12">{c.featEyebrow}</p>
           <div className="grid gap-5 sm:grid-cols-2">
             {(c.features as [string, string, typeof Columns2][]).map(([title, body, Icon], i) => (
-              <motion.div
+              <div
                 key={title}
-                className="card-lift rounded-xl border border-white/40 glass-panel p-6"
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ delay: i * 0.06 }}
+                data-reveal={String(i * 0.07)}
+                className="card-lift rounded-xl border border-white/40 glass-panel p-7"
               >
-                <span className="mb-4 grid size-9 place-items-center rounded-lg bg-flame-950 text-flame-600">
-                  <Icon size={17} />
+                <span className="mb-5 grid size-10 place-items-center rounded-lg bg-flame-950 text-flame-600">
+                  <Icon size={18} />
                 </span>
-                <h3 className="mb-2 text-[15px] font-semibold text-text">{title}</h3>
+                <h3 className="mb-2 text-[16px] font-semibold text-text">{title}</h3>
                 <p className="text-[13.5px] leading-relaxed text-text/70">{body}</p>
-              </motion.div>
+              </div>
             ))}
           </div>
-          <p className="mt-8 flex items-center gap-2 font-mono text-[12px] text-text/50">
+          <p data-reveal className="mt-10 flex items-center gap-2 font-mono text-[12px] text-text/50">
             <Languages size={13} className="text-flame-600" /> {c.languages}
           </p>
         </div>
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-3xl px-6 py-20">
-        <p className="eyebrow mb-8">{c.faqEyebrow}</p>
-        <div className="divide-y divide-black/10 border-y border-black/10">
+      <section className="mx-auto max-w-3xl px-6 py-24">
+        <p data-reveal className="eyebrow mb-8">{c.faqEyebrow}</p>
+        <div data-reveal className="divide-y divide-black/10 border-y border-black/10">
           {c.faq.map(([q, a]) => (
             <details key={q} className="group py-4">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium text-text">
@@ -386,10 +510,10 @@ export default function Landing() {
             </details>
           ))}
         </div>
-        <div className="mt-12 text-center">
+        <div data-reveal className="mt-14 text-center">
           <Link
             to="/studio"
-            className="btn-flame inline-block rounded-lg px-6 py-3 text-[15px] font-semibold"
+            className="btn-flame inline-block rounded-xl px-8 py-4 text-[16px] font-semibold"
           >
             {c.ctaPrimary}
           </Link>

@@ -1,7 +1,7 @@
 /* Lightweight EN/FR/DE dictionary i18n. */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-const dict = {
+export const dict = {
   en: {
     // nav
     "nav.studio": "Studio",

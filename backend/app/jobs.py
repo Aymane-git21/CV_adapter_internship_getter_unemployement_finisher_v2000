@@ -141,7 +141,7 @@ async def _pipeline(
     before = ats.score(analysis.keywords, master.plain_text())
     await _emit(
         db, job, "analyzed",
-        f"Found {len(analysis.keywords)} key requirements — current match {before['score']}%.", 22,
+        f"Found {len(analysis.keywords)} key requirements. Current match {before['score']}%.", 22,
     )
 
     await _emit(db, job, "generate", "Tailoring CV, cover letter and outreach in parallel…", 30)
@@ -153,7 +153,7 @@ async def _pipeline(
     after = ats.score(analysis.keywords, tailored.plain_text())
     await _emit(
         db, job, "generated",
-        f"Content ready — keyword match {before['score']}% → {after['score']}%.", 62,
+        f"Content ready. Keyword match {before['score']}% → {after['score']}%.", 62,
     )
 
     # Deterministic letter fields the model must not control.
@@ -192,8 +192,12 @@ async def _pipeline(
         diag = cv_result.diagnostics or letter_result.diagnostics
         raise AIError(f"Document rendering failed: {diag[:300]}")
 
-    cv_settings = {**doc_settings, "density": cv_result.density_used}
-    title = f"{analysis.job_title}" + (f" — {analysis.company}" if analysis.company else "")
+    cv_settings = {
+        **doc_settings,
+        "density": cv_result.density_used,
+        "font_scale": cv_result.font_scale_used,
+    }
+    title = f"{analysis.job_title}" + (f" | {analysis.company}" if analysis.company else "")
 
     cv_doc = Document(
         id=uuid.uuid4().hex, job_id=job.id, user_id=job.user_id, kind="cv",

@@ -105,7 +105,11 @@ async def update_document(
         if not result.ok:
             raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
         doc.source = source
-        doc.settings = {**(doc.settings or {}), "density": result.density_used}
+        doc.settings = {
+            **(doc.settings or {}),
+            "density": result.density_used,
+            "font_scale": result.font_scale_used,
+        }
     else:
         result = await renderer.compile_source(doc.source or "", photo=photo, fmt="svg")
         if not result.ok:
@@ -168,7 +172,7 @@ async def chat_edit(
             new_text = await provider.edit_source(doc.text_content or "", body.message)
             doc.text_content = new_text.replace("// edit requested:", "").strip()[:5000]
             await db.commit()
-            return {"ok": True, "text_content": doc.text_content, "reply": "Done — message updated."}
+            return {"ok": True, "text_content": doc.text_content, "reply": "Done, message updated."}
 
         photo = await _photo_bytes(db, doc)
         if doc.mode == "data":
@@ -191,7 +195,7 @@ async def chat_edit(
             if not result.ok:
                 return {
                     "ok": False,
-                    "reply": "The edit produced source that does not compile — I did not apply it.",
+                    "reply": "The edit produced source that does not compile, so I did not apply it.",
                     "diagnostics": result.diagnostics,
                 }
             doc.source = new_source
@@ -202,7 +206,7 @@ async def chat_edit(
     await db.commit()
     return {
         "ok": True,
-        "reply": "Done — document updated.",
+        "reply": "Done, document updated.",
         "data": doc.data,
         "source": doc.source,
         "svgs": result.svgs,
@@ -218,7 +222,7 @@ async def download_pdf(
 ):
     doc = await _get_doc(db, doc_id, user)
     if doc.kind == "message":
-        raise HTTPException(status_code=422, detail="Messages are plain text — use copy instead.")
+        raise HTTPException(status_code=422, detail="Messages are plain text. Use copy instead.")
     if doc.pdf is None:
         result = await renderer.compile_source(
             doc.source or "", photo=await _photo_bytes(db, doc), fmt="pdf"

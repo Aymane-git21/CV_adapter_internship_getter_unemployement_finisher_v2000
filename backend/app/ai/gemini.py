@@ -38,7 +38,7 @@ class GeminiProvider:
                 return AIError(msg, byok=self._byok)
             if code == 429:
                 msg = (
-                    "Your Gemini API key hit its rate/quota limit — wait a minute or check your plan."
+                    "Your Gemini API key hit its rate/quota limit. Wait a minute or check your plan."
                     if self._byok
                     else "The AI service is at capacity right now. Try again shortly."
                 )

@@ -86,7 +86,7 @@ def create_app() -> FastAPI:
                     q.popleft()
                 if len(q) >= limit:
                     return JSONResponse(
-                        {"detail": "Too many requests — slow down a little."}, status_code=429
+                        {"detail": "Too many requests. Slow down a little."}, status_code=429
                     )
                 q.append(now)
                 break

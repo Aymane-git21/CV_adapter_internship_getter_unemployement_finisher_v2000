@@ -97,7 +97,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
       if (e instanceof ApiError) {
         setError(e.message);
         if (e.code === "guest_limit" && !authed) setAuthOpen(true);
-      } else setError("Something went wrong — try again.");
+      } else setError("Something went wrong, try again.");
     } finally {
       setBusy(false);
     }
@@ -218,7 +218,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                   >
                     <span className="block font-medium">{cv.name}</span>
                     <span className="font-mono text-[11px] text-text/50">
-                      {cv.data?.full_name ?? "—"}{cv.is_default ? " · default" : ""}
+                      {cv.data?.full_name ?? "·"}{cv.is_default ? " · default" : ""}
                     </span>
                   </button>
                 ))}
@@ -263,7 +263,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-ink-600 glass-panel px-4 py-7 text-sm text-text/70 transition-colors hover:border-flame-500 hover:text-text"
                 >
                   {uploading ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
-                  {uploadedCv ? `${uploadedCv.name} — ${uploadedCv.data?.full_name ?? "parsed"}` : "PDF, max 8 MB"}
+                  {uploadedCv ? `${uploadedCv.name} | ${uploadedCv.data?.full_name ?? "parsed"}` : "PDF, max 8 MB"}
                 </button>
               </div>
             )}

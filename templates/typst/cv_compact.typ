@@ -150,7 +150,7 @@
           text(size: p.base, weight: 600, fill: ink, getstr(ed, "degree"))
           let school = getstr(ed, "school")
           if school != "" {
-            text(size: p.base, fill: muted, " — " + school)
+            text(size: p.base, fill: muted, " · " + school)
           }
         },
         text(
@@ -189,4 +189,6 @@
       text(size: p.small, fill: muted, interests.join("  ·  "))
     }
   }
+
+  end-anchor()
 }

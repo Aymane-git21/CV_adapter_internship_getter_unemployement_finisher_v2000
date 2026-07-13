@@ -109,13 +109,16 @@
       margin-y: 1.1cm, margin-x: 1.15cm, photo: 2.4cm,
     )
   }
-  // Apply font scaling to type sizes only (not spacing lengths).
+  // Type sizes always follow font_scale. When scaling UP (the renderer's
+  // page-fill pass), the fixed pt gaps grow too, so a sparse CV gains
+  // proportional whitespace instead of just bigger letters.
+  let gap-scale = calc.max(scale, 1.0)
   (
     base: p.base * scale, small: p.small * scale, name: p.name * scale,
     headline: p.headline * scale, h: p.h * scale,
     leading: p.leading, par-gap: p.par-gap,
-    sect-above: p.sect-above, sect-below: p.sect-below,
-    entry-gap: p.entry-gap, bullet-gap: p.bullet-gap,
+    sect-above: p.sect-above * gap-scale, sect-below: p.sect-below * gap-scale,
+    entry-gap: p.entry-gap * gap-scale, bullet-gap: p.bullet-gap * gap-scale,
     margin-y: p.margin-y, margin-x: p.margin-x, photo: p.photo,
   )
 }
@@ -172,6 +175,13 @@
   if has(contacts.at("website", default: none)) { out.push(("globe", contacts.website)) }
   out
 }
+
+// Invisible end-of-content anchor. Zero layout footprint (place() takes the
+// element out of the flow); the backend queries <cvg-end> to measure how much
+// of the page the content fills (typstsvc.renderer.measure_fill).
+#let end-anchor() = place(
+  context [#metadata((page: here().position().page, y: here().position().y.pt())) <cvg-end>],
+)
 
 // Round or rounded-square photo crop.
 #let photo-box(photo, size, shape: "circle") = {

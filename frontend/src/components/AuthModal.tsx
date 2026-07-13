@@ -75,7 +75,7 @@ export function AuthModal() {
       setEmail("");
       setPassword("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong — try again.");
+      setError(err instanceof ApiError ? err.message : "Something went wrong, try again.");
     } finally {
       setBusy(false);
     }

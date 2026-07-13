@@ -39,7 +39,7 @@ async def generate(
     if any(len(jd) < 80 for jd in jds):
         raise HTTPException(
             status_code=422,
-            detail="A job description looks too short — paste the full posting (at least 80 characters).",
+            detail="A job description looks too short. Paste the full posting (at least 80 characters).",
         )
 
     guest_hash = guest_key_hash(request) if user is None else None

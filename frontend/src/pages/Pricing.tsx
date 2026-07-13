@@ -15,13 +15,13 @@ const copy = {
     free: "Free",
     current: "Current plan",
     upgrade: "Upgrade",
-    soon: "Online payment opens soon — email us to upgrade early.",
+    soon: "Online payment opens soon. Email us to upgrade early.",
     manage: "Manage subscription",
     login: "Log in to upgrade",
     start: "Start",
     byokTitle: "Bring your own key",
     byokPrice: "Free, unlimited",
-    byokBody: "Paste your own Gemini API key (Google gives one free at aistudio.google.com) and generate without daily limits — every template unlocked. The key never leaves your browser except to call Gemini for your own requests.",
+    byokBody: "Paste your own Gemini API key (Google gives one free at aistudio.google.com) and generate without daily limits, every template unlocked. The key never leaves your browser except to call Gemini for your own requests.",
     byokCta: "Set up my key",
     rows: {
       daily: "generations / day",
@@ -39,13 +39,13 @@ const copy = {
     free: "Gratuit",
     current: "Plan actuel",
     upgrade: "Passer au plan",
-    soon: "Le paiement en ligne arrive — écrivez-nous pour un accès anticipé.",
+    soon: "Le paiement en ligne arrive. Écrivez-nous pour un accès anticipé.",
     manage: "Gérer l'abonnement",
     login: "Connectez-vous pour évoluer",
     start: "Commencer",
     byokTitle: "Votre propre clé API",
     byokPrice: "Gratuit, illimité",
-    byokBody: "Collez votre clé API Gemini (gratuite sur aistudio.google.com) et générez sans limite quotidienne — tous les modèles débloqués. La clé ne quitte votre navigateur que pour appeler Gemini.",
+    byokBody: "Collez votre clé API Gemini (gratuite sur aistudio.google.com) et générez sans limite quotidienne, tous les modèles débloqués. La clé ne quitte votre navigateur que pour appeler Gemini.",
     byokCta: "Configurer ma clé",
     rows: {
       daily: "générations / jour",
@@ -63,13 +63,13 @@ const copy = {
     free: "Kostenlos",
     current: "Aktueller Plan",
     upgrade: "Upgraden",
-    soon: "Online-Zahlung startet bald — schreiben Sie uns für ein frühes Upgrade.",
+    soon: "Online-Zahlung startet bald. Schreiben Sie uns für ein frühes Upgrade.",
     manage: "Abo verwalten",
     login: "Zum Upgraden anmelden",
     start: "Loslegen",
     byokTitle: "Eigener API-Schlüssel",
     byokPrice: "Kostenlos, unbegrenzt",
-    byokBody: "Fügen Sie Ihren eigenen Gemini-API-Schlüssel ein (kostenlos bei aistudio.google.com) und generieren Sie ohne Tageslimits — alle Vorlagen freigeschaltet. Der Schlüssel verlässt Ihren Browser nur, um Gemini für Ihre eigenen Anfragen aufzurufen.",
+    byokBody: "Fügen Sie Ihren eigenen Gemini-API-Schlüssel ein (kostenlos bei aistudio.google.com) und generieren Sie ohne Tageslimits, alle Vorlagen freigeschaltet. Der Schlüssel verlässt Ihren Browser nur, um Gemini für Ihre eigenen Anfragen aufzurufen.",
     byokCta: "Schlüssel einrichten",
     rows: {
       daily: "Generierungen / Tag",
@@ -186,7 +186,7 @@ export default function Pricing() {
         <KeyRound size={22} className="shrink-0 text-ok-400" />
         <div className="flex-1">
           <h2 className="text-[15px] font-semibold">
-            {c.byokTitle} — <span className="font-mono text-ok-400">{c.byokPrice}</span>
+            {c.byokTitle} | <span className="font-mono text-ok-400">{c.byokPrice}</span>
           </h2>
           <p className="mt-1 max-w-3xl text-[13.5px] leading-relaxed text-text/70">{c.byokBody}</p>
         </div>

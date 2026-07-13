@@ -21,10 +21,10 @@ const copy = {
     default: "default",
     makeDefault: "Make default",
     byok: "Your Gemini API key",
-    byokHint: "Optional. With your own key, generations are unlimited and free — the key stays in this browser (localStorage), is sent only with your own requests, and is never stored on our servers. Get one free at",
+    byokHint: "Optional. With your own key, generations are unlimited and free. The key stays in this browser (localStorage), is sent only with your own requests, and is never stored on our servers. Get one free at",
     byokPlaceholder: "AIza…",
     byokSave: "Validate & save",
-    byokActive: "Key active — unlimited generations",
+    byokActive: "Key active | unlimited generations",
     byokRemove: "Remove key",
     loginFirst: "Log in to manage your settings.",
     feedback: "Found a bug? Tell us:",
@@ -44,10 +44,10 @@ const copy = {
     default: "défaut",
     makeDefault: "Définir par défaut",
     byok: "Votre clé API Gemini",
-    byokHint: "Optionnel. Avec votre propre clé, les générations sont illimitées et gratuites — la clé reste dans ce navigateur (localStorage), n'est envoyée qu'avec vos propres requêtes, et n'est jamais stockée sur nos serveurs. Clé gratuite sur",
+    byokHint: "Optionnel. Avec votre propre clé, les générations sont illimitées et gratuites. La clé reste dans ce navigateur (localStorage), n'est envoyée qu'avec vos propres requêtes, et n'est jamais stockée sur nos serveurs. Clé gratuite sur",
     byokPlaceholder: "AIza…",
     byokSave: "Valider & enregistrer",
-    byokActive: "Clé active — générations illimitées",
+    byokActive: "Clé active | générations illimitées",
     byokRemove: "Retirer la clé",
     loginFirst: "Connectez-vous pour gérer vos réglages.",
     feedback: "Un bug ? Dites-le nous :",
@@ -67,10 +67,10 @@ const copy = {
     default: "Standard",
     makeDefault: "Als Standard festlegen",
     byok: "Ihr Gemini-API-Schlüssel",
-    byokHint: "Optional. Mit Ihrem eigenen Schlüssel sind Generierungen unbegrenzt und kostenlos — der Schlüssel bleibt in diesem Browser (localStorage), wird nur mit Ihren eigenen Anfragen gesendet und nie auf unseren Servern gespeichert. Kostenlos erhältlich bei",
+    byokHint: "Optional. Mit Ihrem eigenen Schlüssel sind Generierungen unbegrenzt und kostenlos. Der Schlüssel bleibt in diesem Browser (localStorage), wird nur mit Ihren eigenen Anfragen gesendet und nie auf unseren Servern gespeichert. Kostenlos erhältlich bei",
     byokPlaceholder: "AIza…",
     byokSave: "Prüfen & speichern",
-    byokActive: "Schlüssel aktiv — unbegrenzte Generierungen",
+    byokActive: "Schlüssel aktiv | unbegrenzte Generierungen",
     byokRemove: "Schlüssel entfernen",
     loginFirst: "Melden Sie sich an, um Ihre Einstellungen zu verwalten.",
     feedback: "Einen Fehler gefunden? Sagen Sie es uns:",
@@ -206,7 +206,7 @@ function MasterCVs() {
                   </span>
                 )}
               </p>
-              <p className="font-mono text-[11px] text-text/50">{cv.data?.full_name ?? "—"}</p>
+              <p className="font-mono text-[11px] text-text/50">{cv.data?.full_name ?? "·"}</p>
             </div>
             {!cv.is_default && (
               <button

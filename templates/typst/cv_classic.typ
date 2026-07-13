@@ -82,7 +82,7 @@
         let org-bits = (getstr(job, "company"), getstr(job, "location")).filter(b => b != "")
         if org-bits.len() > 0 {
           linebreak()
-          text(size: p.small, style: "italic", fill: muted, org-bits.join(" — "))
+          text(size: p.small, style: "italic", fill: muted, org-bits.join(" · "))
         }
         for b in job.at("bullets", default: ()) {
           v(p.bullet-gap, weak: true)
@@ -108,7 +108,7 @@
         let org-bits = (getstr(ed, "school"), getstr(ed, "location")).filter(b => b != "")
         if org-bits.len() > 0 {
           linebreak()
-          text(size: p.small, style: "italic", fill: muted, org-bits.join(" — "))
+          text(size: p.small, style: "italic", fill: muted, org-bits.join(" · "))
         }
         let details = ed.at("details", default: ())
         if details.len() > 0 {
@@ -151,7 +151,7 @@
     _section(label-for(settings, "certifications"), accent, p)
     for cert in certifications {
       let bits = (getstr(cert, "name"), getstr(cert, "issuer"), getstr(cert, "year"))
-      text(size: p.small, bits.filter(b => b != "").join(" — "))
+      text(size: p.small, bits.filter(b => b != "").join("  ·  "))
       linebreak()
     }
   }
@@ -175,4 +175,6 @@
     _section(label-for(settings, "interests"), accent, p)
     text(size: p.base, fill: ink.lighten(6%), interests.join("  ·  "))
   }
+
+  end-anchor()
 }

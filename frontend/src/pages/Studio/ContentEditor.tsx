@@ -184,12 +184,13 @@ function CVForm({ ctl }: { ctl: DocController }) {
             <textarea
               rows={3}
               className={areaCls}
-              placeholder="French — native"
-              value={data.languages.map((l) => (l.level ? `${l.name} — ${l.level}` : l.name)).join("\n")}
+              placeholder="French | native"
+              value={data.languages.map((l) => (l.level ? `${l.name} | ${l.level}` : l.name)).join("\n")}
               onChange={(e) =>
                 set({
                   languages: e.target.value.split("\n").filter(Boolean).map((line) => {
-                    const [name, level = ""] = line.split("—").map((s) => s.trim());
+                    // "|" is the documented separator; "—" kept for old muscle memory
+                    const [name, level = ""] = line.split(/[|—]/).map((s) => s.trim());
                     return { name, level };
                   }),
                 })

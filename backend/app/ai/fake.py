@@ -65,7 +65,7 @@ class FakeProvider:
         await self._tick()
         text = raw_text or ""
         if pdf_bytes is not None and not text:
-            text = "Uploaded PDF (offline mode cannot read PDFs — paste text instead)"
+            text = "Uploaded PDF (offline mode cannot read PDFs: paste text instead)"
         lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         name = lines[0][:60] if lines else "Your Name"
         email = (_EMAIL.search(text) or [None])
@@ -130,7 +130,7 @@ class FakeProvider:
             )
         return LetterData(
             recipient=LetterRecipient(name="Hiring Team", company=analysis.company),
-            subject=f"Re: Application — {analysis.job_title}",
+            subject=f"Re: Application | {analysis.job_title}",
             greeting="Dear Hiring Team,",
             paragraphs=[
                 f"The {analysis.job_title} opening caught my attention because it matches my background closely.",
@@ -145,15 +145,15 @@ class FakeProvider:
         if language == "de":
             return (
                 f"Guten Tag, ich habe mich soeben auf die Position {analysis.job_title} beworben. "
-                "Mein Profil passt eng zu Ihren Anforderungen — hätten Sie 15 Minuten für ein kurzes Gespräch?"
+                "Mein Profil passt eng zu Ihren Anforderungen. Hätten Sie 15 Minuten für ein kurzes Gespräch?"
             )
         if language == "fr":
             return (
                 f"Bonjour, je viens de postuler au poste de {analysis.job_title}. "
-                "Mon profil correspond étroitement à vos besoins — seriez-vous disponible pour un échange de 15 minutes ?"
+                "Mon profil correspond étroitement à vos besoins. Seriez-vous disponible pour un échange de 15 minutes ?"
             )
         return (
-            f"Hi — I just applied for the {analysis.job_title} role. "
+            f"Hi, I just applied for the {analysis.job_title} role. "
             "My background matches the requirements closely; open to a quick 15-minute chat?"
         )
 

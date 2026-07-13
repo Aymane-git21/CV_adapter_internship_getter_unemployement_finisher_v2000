@@ -36,7 +36,7 @@ export function ChatPanel({ ctl }: { ctl: DocController }) {
     } catch (e) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", text: e instanceof Error ? e.message : "That edit failed — try again.", error: true },
+        { role: "assistant", text: e instanceof Error ? e.message : "That edit failed, try again.", error: true },
       ]);
     } finally {
       setBusy(false);

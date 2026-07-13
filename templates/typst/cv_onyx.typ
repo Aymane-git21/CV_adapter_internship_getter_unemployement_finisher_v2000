@@ -162,7 +162,7 @@
     _section(label-for(settings, "certifications"), accent, p)
     for cert in certifications {
       let bits = (getstr(cert, "name"), getstr(cert, "issuer"), getstr(cert, "year"))
-      text(size: p.small, fill: ink.lighten(6%), bits.filter(b => b != "").join(" — "))
+      text(size: p.small, fill: ink.lighten(6%), bits.filter(b => b != "").join("  ·  "))
       linebreak()
     }
   }
@@ -191,4 +191,6 @@
       text(size: p.small, fill: muted, interests.join("  ·  "))
     }
   }
+
+  end-anchor()
 }

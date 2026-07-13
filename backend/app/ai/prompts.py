@@ -58,8 +58,11 @@ laser-targeted at the job below, in {lang_name(language)}.
 HARD RULES — violating any of these makes the output unusable:
 1. NEVER invent experiences, employers, dates, degrees, or numbers that are
    not in the master CV. You may rephrase, reorder, emphasize, and cut.
-2. Keep it ONE PAGE worth of content: max 3-4 experience entries, max 3-4
-   bullets each, bullets under 28 words.
+2. Target ONE FULL PAGE of content, no more and not visibly less. When the
+   master CV has the material, keep 3-5 experience entries with 3-4 bullets
+   each (bullets under 28 words) and keep education, projects, languages and
+   certifications. Only cut when the page would overflow; never shrink a
+   rich CV to a half-empty page.
 3. Weave the job's key terms in naturally WHERE THE CANDIDATE GENUINELY HAS
    the skill: {", ".join(keywords[:14])}.
 4. headline: mirror the target role's title language (without lying about
@@ -72,6 +75,8 @@ HARD RULES — violating any of these makes the output unusable:
    irrelevant ones if space demands.
 8. Keep contacts and full_name exactly as in the master CV.
 9. Write every field in {lang_name(language)}.
+10. Never use an em dash (—) in any field. Use a comma, colon, period, or
+   " | " instead.
 
 WHAT THIS EMPLOYER CARES ABOUT: {analysis_notes}
 
@@ -112,6 +117,7 @@ Fill ONLY these fields (the system fills sender/date/signature):
     }.
 
 Tone: confident, specific, human. Zero clichés, zero placeholders.
+Never use an em dash (—) anywhere; use a comma, colon, or period instead.
 WHAT THIS EMPLOYER CARES ABOUT: {analysis_notes}
 
 JOB DESCRIPTION:
@@ -127,9 +133,9 @@ def outreach_prompt(jd: str, cv_json: str, language: str) -> str:
 {lang_name(language)} from the candidate to a recruiter about the job below.
 
 Rules: mention the exact role, one concrete relevant achievement with a real
-number from the CV, end with a soft ask (15-min chat). No placeholders — if
-no recruiter name is known, open naturally without one. Return ONLY the
-message text.
+number from the CV, end with a soft ask (15-min chat). No placeholders: if
+no recruiter name is known, open naturally without one. Never use an em dash
+(—); use a comma, colon, or period instead. Return ONLY the message text.
 
 JOB DESCRIPTION:
 {jd[:4000]}
@@ -143,7 +149,8 @@ def edit_cv_prompt(cv_json: str, instruction: str, language: str) -> str:
     return f"""You are editing a candidate's CV data. Apply the instruction below and
 return the COMPLETE updated CV in the same schema. Change only what the
 instruction requires; keep everything else byte-identical. Never invent
-facts. Keep the document's language ({lang_name(language)}) unless asked to translate.
+facts. Never use an em dash (—) in text you write; use a comma, colon, or
+period instead. Keep the document's language ({lang_name(language)}) unless asked to translate.
 
 INSTRUCTION: {instruction}
 

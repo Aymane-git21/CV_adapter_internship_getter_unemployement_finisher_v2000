@@ -11,7 +11,7 @@ const copy = {
   en: {
     eyebrow: "Your applications",
     title: "Everything you've tailored",
-    empty: "Nothing here yet — generate your first application and it will land here.",
+    empty: "Nothing here yet. Generate your first application and it will land here.",
     start: "Open the studio",
     open: "Open",
     loginFirst: "Log in to see your application history.",
@@ -19,7 +19,7 @@ const copy = {
   fr: {
     eyebrow: "Vos candidatures",
     title: "Tout ce que vous avez adapté",
-    empty: "Rien ici pour l'instant — générez votre première candidature et elle apparaîtra ici.",
+    empty: "Rien ici pour l'instant. Générez votre première candidature et elle apparaîtra ici.",
     start: "Ouvrir le studio",
     open: "Ouvrir",
     loginFirst: "Connectez-vous pour voir votre historique.",
@@ -27,7 +27,7 @@ const copy = {
   de: {
     eyebrow: "Ihre Bewerbungen",
     title: "Alles, was Sie angepasst haben",
-    empty: "Noch nichts hier — generieren Sie Ihre erste Bewerbung und sie erscheint hier.",
+    empty: "Noch nichts hier. Generieren Sie Ihre erste Bewerbung und sie erscheint hier.",
     start: "Studio öffnen",
     open: "Öffnen",
     loginFirst: "Melden Sie sich an, um Ihren Bewerbungsverlauf zu sehen.",
@@ -91,7 +91,7 @@ export default function Dashboard() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14.5px] font-medium">
                   {r.title}
-                  {r.company && <span className="text-text/70"> — {r.company}</span>}
+                  {r.company && <span className="text-text/70"> | {r.company}</span>}
                 </p>
                 <p className="mt-0.5 font-mono text-[11px] text-text/50">
                   {r.created_at ? new Date(r.created_at).toLocaleDateString(lang) : ""}

@@ -99,7 +99,8 @@ async def generate(
 
     for jid in job_ids:
         spawn_job(
-            jid, master_data, body.photo_id, body.template, body.accent, body.show_photo, byok
+            jid, master_data, body.photo_id, body.template, body.accent, body.show_photo, byok,
+            guest_hash=guest_hash,
         )
     return {"jobs": job_ids}
 

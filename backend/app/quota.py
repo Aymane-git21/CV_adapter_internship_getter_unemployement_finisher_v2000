@@ -125,6 +125,27 @@ async def check_quota(
         row.count += n_jobs
 
 
+async def refund_one(db: AsyncSession, user_id: int | None, guest_hash: str | None) -> None:
+    """Give back one generation charged by check_quota.
+
+    Called when a job fails (AI outage, rate limit, render error): the caller
+    got nothing, so the attempt must not count against their daily cap.
+    """
+    today = _today()
+    if user_id is not None:
+        user = await db.get(User, user_id)
+        if user is not None and user.gens_date == today and user.gens_today > 0:
+            user.gens_today -= 1
+    elif guest_hash:
+        row = (
+            await db.execute(
+                select(GuestUsage).where(GuestUsage.key_hash == guest_hash, GuestUsage.day == today)
+            )
+        ).scalar_one_or_none()
+        if row is not None and row.count > 0:
+            row.count -= 1
+
+
 def quota_snapshot(user: User | None) -> dict:
     plan = plan_for(user)
     used = 0

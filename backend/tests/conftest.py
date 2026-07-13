@@ -14,6 +14,7 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_db_path}"
 import httpx  # noqa: E402
 import pytest  # noqa: E402
 
+from backend.app import main as app_main  # noqa: E402
 from backend.app.db import dispose_db, init_db  # noqa: E402
 from backend.app.main import create_app  # noqa: E402
 
@@ -21,6 +22,9 @@ from backend.app.main import create_app  # noqa: E402
 @pytest.fixture
 async def client():
     await init_db()
+    # The per-IP rate limiter is a module global; every test shares one "IP",
+    # so leftovers from earlier tests would 429 later ones.
+    app_main._hits.clear()
     app = create_app()
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:

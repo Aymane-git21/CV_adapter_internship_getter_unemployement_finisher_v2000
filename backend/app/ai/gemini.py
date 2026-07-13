@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import TypeVar
 
 from google import genai
@@ -18,6 +19,22 @@ log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 _TIMEOUT = 90
+_MAX_RETRY_SLEEP = 65.0
+
+# Google's 429s carry the wait time two ways: a RetryInfo detail
+# ("'retryDelay': '28.3s'") and prose ("Please retry in 28.343756161s").
+_RETRY_DELAY = re.compile(r"retry(?:Delay'?:\s*'|\s+in\s+)([\d.]+)s", re.IGNORECASE)
+
+
+def _retry_delay_seconds(exc: Exception) -> float | None:
+    """Server-suggested backoff parsed from a Gemini 429, if present."""
+    m = _RETRY_DELAY.search(str(exc))
+    if m:
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
+    return None
 
 
 class GeminiProvider:
@@ -48,7 +65,7 @@ class GeminiProvider:
             return AIError("The AI took too long to respond. Try again.", byok=self._byok)
         return AIError("Unexpected AI failure. Try again.", byok=self._byok)
 
-    async def _generate(self, contents, *, schema: type[T] | None = None, lite: bool = False, retry: bool = True):
+    async def _generate(self, contents, *, schema: type[T] | None = None, lite: bool = False, attempts_left: int = 2):
         model = self._model_lite if lite else self._model
         config = None
         if schema is not None:
@@ -63,11 +80,19 @@ class GeminiProvider:
             )
         except Exception as exc:  # noqa: BLE001 — translated below
             code = getattr(exc, "code", 0) if isinstance(exc, genai_errors.APIError) else 0
-            transient = code in (429, 500, 502, 503)
-            if retry and (transient or isinstance(exc, asyncio.TimeoutError)):
-                # 429s need a longer breather than blips; one retry either way.
-                await asyncio.sleep(3.0 if code == 429 else 1.5)
-                return await self._generate(contents, schema=schema, lite=lite, retry=False)
+            delay: float | None = None
+            if code == 429:
+                # Rate limits (free tier: 5 req/min) tell us when to come back;
+                # honoring that is the difference between a slow job and a dead one.
+                delay = min((_retry_delay_seconds(exc) or 30.0) + 1.0, _MAX_RETRY_SLEEP)
+            elif code in (500, 502, 503) or isinstance(exc, asyncio.TimeoutError):
+                delay = 1.5
+            if attempts_left > 0 and delay is not None:
+                log.info("gemini transient (%s); retrying in %.1fs", code or "timeout", delay)
+                await asyncio.sleep(delay)
+                return await self._generate(
+                    contents, schema=schema, lite=lite, attempts_left=attempts_left - 1
+                )
             log.warning("gemini call failed: %s", exc)
             raise self._translate_error(exc) from exc
 

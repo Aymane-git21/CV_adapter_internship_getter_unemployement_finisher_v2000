@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import ats
+from . import ats, quota
 from .ai import get_provider
 from .ai.base import AIError
 from .config import get_settings
@@ -74,10 +74,11 @@ def spawn_job(
     accent: str,
     show_photo: bool,
     byok_key: str | None,
+    guest_hash: str | None = None,
 ) -> None:
     """Fire-and-forget; all state lands in the DB."""
     asyncio.create_task(
-        _run_job_safely(job_id, master_data, photo_id, template, accent, show_photo, byok_key)
+        _run_job_safely(job_id, master_data, photo_id, template, accent, show_photo, byok_key, guest_hash)
     )
 
 
@@ -97,6 +98,7 @@ async def _run_job(
     accent: str,
     show_photo: bool,
     byok_key: str | None,
+    guest_hash: str | None = None,
 ) -> None:
     async with session_factory()() as db:
         job = await db.get(Job, job_id)
@@ -108,12 +110,16 @@ async def _run_job(
             job.status = "failed"
             job.error = str(exc)
             job.finished_at = datetime.now(UTC)
+            if not job.byok:
+                await quota.refund_one(db, job.user_id, guest_hash)
             await _emit(db, job, "failed", str(exc), 100)
         except Exception as exc:
             log.exception("job %s failed", job_id)
             job.status = "failed"
             job.error = "Internal error while generating. Please try again."
             job.finished_at = datetime.now(UTC)
+            if not job.byok:
+                await quota.refund_one(db, job.user_id, guest_hash)
             await _emit(db, job, "failed", f"Internal error: {type(exc).__name__}", 100)
 
 

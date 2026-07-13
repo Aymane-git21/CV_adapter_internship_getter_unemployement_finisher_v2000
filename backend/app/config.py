@@ -34,6 +34,13 @@ class Settings(BaseSettings):
 
     # AI
     gemini_api_key: str = ""
+    # Server-side calls can go through Vertex AI instead of an AI Studio key:
+    # the Cloud Run service account authenticates, quotas are pay-as-you-go
+    # (the free-tier key caps at 20 requests/DAY), and the GenAI-scoped GCP
+    # credit covers the spend. BYOK requests always use the user's key.
+    gemini_use_vertex: bool = False
+    gcp_project: str = ""
+    gcp_location: str = "global"
     # Override via GEMINI_MODEL / GEMINI_MODEL_LITE. Google retires older models
     # for new API keys (gemini-2.5-* now 404s "no longer available to new users"),
     # so these track current GA models; bump them when Google deprecates again.
@@ -108,7 +115,7 @@ class Settings(BaseSettings):
 
     @property
     def ai_enabled(self) -> bool:
-        return bool(self.gemini_api_key) and not self.cvg_fake_ai
+        return (bool(self.gemini_api_key) or self.gemini_use_vertex) and not self.cvg_fake_ai
 
     @property
     def billing_enabled(self) -> bool:

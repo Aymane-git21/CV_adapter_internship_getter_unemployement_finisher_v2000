@@ -64,3 +64,11 @@ def test_ssl_true_never_emitted():
     assert "ssl=true" not in out
     assert "sslmode=" not in out
     assert "channel_binding" not in out
+
+
+def test_ai_enabled_via_vertex_without_key():
+    """GEMINI_USE_VERTEX=1 turns the AI on with no API key (service-account
+    auth); CVG_FAKE_AI still forces the offline provider."""
+    assert Settings(gemini_api_key="", gemini_use_vertex=True, cvg_fake_ai=False).ai_enabled
+    assert not Settings(gemini_api_key="", gemini_use_vertex=False, cvg_fake_ai=False).ai_enabled
+    assert not Settings(gemini_api_key="", gemini_use_vertex=True, cvg_fake_ai=True).ai_enabled

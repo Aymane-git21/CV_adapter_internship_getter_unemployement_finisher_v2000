@@ -38,11 +38,22 @@ def _retry_delay_seconds(exc: Exception) -> float | None:
 
 
 class GeminiProvider:
-    def __init__(self, api_key: str):
-        self._byok = api_key != get_settings().gemini_api_key
-        self._client = genai.Client(api_key=api_key)
-        self._model = get_settings().gemini_model
-        self._model_lite = get_settings().gemini_model_lite
+    def __init__(self, api_key: str | None):
+        """api_key=None -> Vertex AI via the runtime service account (server
+        traffic); a key -> AI Studio API (BYOK, or a key-configured server)."""
+        settings = get_settings()
+        if api_key:
+            self._byok = api_key != settings.gemini_api_key
+            self._client = genai.Client(api_key=api_key)
+        else:
+            self._byok = False
+            self._client = genai.Client(
+                vertexai=True,
+                project=settings.gcp_project or None,
+                location=settings.gcp_location or "global",
+            )
+        self._model = settings.gemini_model
+        self._model_lite = settings.gemini_model_lite
 
     # -- low level -----------------------------------------------------------
     def _translate_error(self, exc: Exception) -> AIError:

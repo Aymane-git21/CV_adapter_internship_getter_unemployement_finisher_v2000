@@ -150,6 +150,12 @@ async def test_validation_errors(client):
     assert r.status_code == 409
 
 
+async def test_api_healthz_pings_db(client):
+    r = await client.get("/api/healthz")
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "db": True}
+
+
 async def test_config_public(client):
     r = await client.get("/api/config")
     assert r.status_code == 200

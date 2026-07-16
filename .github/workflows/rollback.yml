@@ -1,0 +1,45 @@
+# One-click rollback: shifts 100% of traffic back to the previous READY
+# revision (or an explicit one) and smoke-checks prod afterwards. No build,
+# no downtime — the old revision's containers are still there.
+name: Rollback Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Revision to roll back to (leave blank for the previous READY revision)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-cvglowup
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    if: ${{ vars.GCP_PROJECT_ID != '' }}
+    permissions:
+      contents: read
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Rollback traffic + smoke prod
+        run: |
+          if [ -n "${{ inputs.revision }}" ]; then
+            python ops/deploy.py rollback --revision "${{ inputs.revision }}"
+          else
+            python ops/deploy.py rollback
+          fi

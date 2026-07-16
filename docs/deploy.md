@@ -21,27 +21,30 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
 ## 1. One-time: secrets
 
 ```bash
-printf '%s' "$(openssl rand -base64 48)" | gcloud secrets create cvg-secret-key --data-file=-
-printf '%s' "YOUR_NEW_GEMINI_KEY"        | gcloud secrets create cvg-gemini-key --data-file=-
+printf '%s' "$(openssl rand -base64 48)" | gcloud secrets create SECRET_KEY --data-file=-
+printf '%s' "YOUR_NEW_GEMINI_KEY"        | gcloud secrets create GEMINI_API_KEY --data-file=-
 printf '%s' "postgresql://user:pass@host/db?sslmode=require" \
-  | gcloud secrets create cvg-database-url --data-file=-
+  | gcloud secrets create DATABASE_URL --data-file=-
 ```
 
-## 2. Quickstart deploy (from your machine)
+(These are the names the live service uses; `ops/deploy.py` wires them as
+`SECRET_KEY=SECRET_KEY:latest` etc.)
+
+## 2. Deploying (from your machine or CI)
+
+All deploys go through the zero-downtime protocol in **[ops/README.md](../ops/README.md)**:
 
 ```bash
-gcloud run deploy cvglowup \
-  --source . \
-  --region $REGION \
-  --allow-unauthenticated \
-  --memory 1Gi --cpu 1 --concurrency 40 \
-  --min-instances 0 --max-instances 4 \
-  --set-env-vars "ENV=prod,ALLOWED_ORIGINS=https://cvglowup.com,https://www.cvglowup.com" \
-  --set-secrets "SECRET_KEY=cvg-secret-key:latest,GEMINI_API_KEY=cvg-gemini-key:latest,DATABASE_URL=cvg-database-url:latest"
+python ops/deploy.py deploy      # gate tests -> candidate -> smoke -> promote -> verify
+python ops/deploy.py rollback    # traffic back to the previous revision, in seconds
+python ops/deploy.py status
 ```
 
 The container builds from the repo `Dockerfile` (frontend build + Typst binary,
-~250 MB image). First request creates the database tables.
+~250 MB image). First request creates the database tables. Runtime env vars,
+secrets and resource limits are defined at the top of `ops/deploy.py` — that
+file is the source of truth; manual `gcloud run services update` changes are
+wiped on the next deploy.
 
 ## 3. CI/CD via GitHub Actions (optional)
 
@@ -71,7 +74,9 @@ In the GitHub repo settings:
 - **Variable** `GCP_PROJECT_ID` = your project id.
 - **Secret** `GCP_SA_KEY` = contents of `gh-key.json` (then delete the local file).
 
-Now `.github/workflows/deploy.yml` deploys on manual dispatch or any `v*` tag.
+Now `.github/workflows/deploy.yml` deploys on manual dispatch or any `v*` tag
+(gate tests first, then the zero-downtime protocol), and
+`.github/workflows/rollback.yml` shifts traffic back on demand.
 (For a keyless setup, swap the auth step to Workload Identity Federation.)
 
 ## 4. Custom domain

@@ -10,9 +10,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from .config import get_settings
-from .db import dispose_db, init_db
+from .db import dispose_db, init_db, session_factory
 from .routers import account, auth, billing, cvs, documents, generate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -103,6 +104,19 @@ def create_app() -> FastAPI:
     @app.get("/healthz")
     async def healthz():
         return {"ok": True}
+
+    # Deploy smoke checks hit this one: Google's edge intercepts /healthz on
+    # *.run.app URLs before it reaches the container, /api/* always gets through.
+    @app.get("/api/healthz")
+    async def api_healthz():
+        try:
+            async with session_factory()() as session:
+                await session.execute(text("SELECT 1"))
+            db_ok = True
+        except Exception:
+            log.exception("healthz database ping failed")
+            db_ok = False
+        return JSONResponse({"ok": db_ok, "db": db_ok}, status_code=200 if db_ok else 503)
 
     # ---- SPA serving (production build) ------------------------------------
     dist: Path = settings.frontend_dist

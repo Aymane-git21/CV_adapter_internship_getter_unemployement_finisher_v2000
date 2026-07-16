@@ -25,7 +25,7 @@ describe("Landing copy parity", () => {
       expect(Object.keys(copy[lang]).sort()).toEqual(base);
     });
     it(`copy.${lang} arrays match en lengths`, () => {
-      for (const key of ["how", "features", "faq", "marquee"] as const) {
+      for (const key of ["scan", "how", "howModes", "features", "faq", "marquee"] as const) {
         expect(copy[lang][key].length, `${lang}.${key}`).toBe(copy.en[key].length);
       }
     });

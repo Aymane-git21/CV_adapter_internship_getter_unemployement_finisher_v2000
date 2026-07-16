@@ -9,6 +9,12 @@
       "port": 8011
     },
     {
+      "name": "cvglowup-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:\\Users\\ayman\\Desktop\\CV_glowup\\frontend", "run", "dev"],
+      "port": 5173
+    },
+    {
       "name": "avisx-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "C:\\Users\\ayman\\Desktop\\Avis_X_FINAL\\frontend", "run", "dev"],

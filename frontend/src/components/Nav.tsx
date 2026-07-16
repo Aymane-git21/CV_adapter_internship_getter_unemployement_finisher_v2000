@@ -5,7 +5,7 @@ import { LANGS, useI18n } from "../i18n";
 import { useSession } from "../store";
 import { byokStore } from "../api";
 
-function QuotaPill() {
+function QuotaPill({ dark }: { dark: boolean }) {
   const me = useSession((s) => s.me);
   const { t } = useI18n();
   if (!me) return null;
@@ -18,17 +18,23 @@ function QuotaPill() {
   }
   if (!me.authenticated) return null;
   return (
-    <span className="hidden rounded-full border border-black/10 glass-panel px-2.5 py-1 font-mono text-[11px] text-text/70 sm:inline">
+    <span
+      className={`hidden rounded-full border px-2.5 py-1 font-mono text-[11px] sm:inline ${
+        dark ? "border-white/15 bg-white/5 text-[#f5ede2]/70" : "border-black/10 glass-panel text-text/70"
+      }`}
+    >
       {me.quota.remaining_today}/{me.quota.daily_limit} {t("quota.left")}
     </span>
   );
 }
 
-function LangSwitch() {
+function LangSwitch({ dark }: { dark: boolean }) {
   const { lang, setLang } = useI18n();
   return (
     <div
-      className="flex items-center rounded-full border border-black/10 glass-panel p-0.5"
+      className={`flex items-center rounded-full border p-0.5 ${
+        dark ? "border-white/15 bg-white/5" : "border-black/10 glass-panel"
+      }`}
       role="group"
       aria-label="Language"
     >
@@ -38,7 +44,11 @@ function LangSwitch() {
           onClick={() => setLang(l)}
           aria-pressed={lang === l}
           className={`rounded-full px-2 py-0.5 font-mono text-[10.5px] uppercase transition-colors ${
-            lang === l ? "bg-primary text-white shadow-sm" : "text-text/60 hover:text-text"
+            lang === l
+              ? "bg-primary text-white shadow-sm"
+              : dark
+                ? "text-[#f5ede2]/60 hover:text-[#f5ede2]"
+                : "text-text/60 hover:text-text"
           }`}
         >
           {l}
@@ -55,22 +65,37 @@ export function Nav() {
   const logout = useSession((s) => s.logout);
   const location = useLocation();
 
+  // The landing runs the dark "forge" register; every other page is light.
+  const dark = location.pathname === "/";
+
   const navCls = ({ isActive }: { isActive: boolean }) =>
     `nav-underline rounded-md px-3 py-1.5 text-sm transition-colors ${
-      isActive ? "text-text" : "text-text/70 hover:text-text"
+      dark
+        ? isActive
+          ? "text-[#f5ede2]"
+          : "text-[#f5ede2]/70 hover:text-[#f5ede2]"
+        : isActive
+          ? "text-text"
+          : "text-text/70 hover:text-text"
     }`;
 
   return (
-    <header className="z-40 flex h-14 shrink-0 items-center justify-between glass-panel border-b-white/40 px-4 sm:px-6">
-      <div className="flex items-center gap-6">
+    <header
+      className={`z-40 flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 ${
+        dark
+          ? "border-b border-white/10 bg-[#12100e] text-[#f5ede2]"
+          : "glass-panel border-b-white/40"
+      }`}
+    >
+      <div className="flex items-center gap-3 md:gap-6">
         <Link to="/" className="group flex items-center gap-2.5" aria-label="CV Glowup home">
           <img
             src={logoUrl}
             alt=""
             className="size-9 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
           />
-          <span className="font-sans text-[17px] font-bold tracking-tight">
-            CV<span className="text-primary">Glowup</span>
+          <span className="hidden font-sans text-[17px] font-bold tracking-tight min-[480px]:inline">
+            CV<span className={dark ? "text-flame-400" : "text-primary"}>Glowup</span>
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
@@ -82,17 +107,26 @@ export function Nav() {
         </nav>
       </div>
 
-      <div className="flex items-center gap-3">
-        <QuotaPill />
-        <LangSwitch />
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <QuotaPill dark={dark} />
+        <LangSwitch dark={dark} />
         {me?.authenticated ? (
           <div className="flex items-center gap-2">
-            <NavLink to="/settings" className="hidden text-sm text-text/70 hover:text-text sm:inline">
+            <NavLink
+              to="/settings"
+              className={`hidden text-sm sm:inline ${
+                dark ? "text-[#f5ede2]/70 hover:text-[#f5ede2]" : "text-text/70 hover:text-text"
+              }`}
+            >
               {me.email?.split("@")[0]}
             </NavLink>
             <button
               onClick={() => void logout()}
-              className="grid size-8 place-items-center rounded-md text-text/70 hover:bg-black/5 hover:text-text"
+              className={`grid size-8 place-items-center rounded-md ${
+                dark
+                  ? "text-[#f5ede2]/70 hover:bg-white/10 hover:text-[#f5ede2]"
+                  : "text-text/70 hover:bg-black/5 hover:text-text"
+              }`}
               title={t("nav.logout")}
             >
               <LogOut size={15} />
@@ -101,7 +135,9 @@ export function Nav() {
         ) : (
           <button
             onClick={() => setAuthOpen(true)}
-            className="rounded-md px-3 py-1.5 text-sm text-text/70 hover:text-text"
+            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm ${
+              dark ? "text-[#f5ede2]/70 hover:text-[#f5ede2]" : "text-text/70 hover:text-text"
+            }`}
           >
             {t("nav.login")}
           </button>
@@ -109,7 +145,7 @@ export function Nav() {
         {!location.pathname.startsWith("/studio") && (
           <Link
             to="/studio"
-            className="btn-flame rounded-lg px-3.5 py-1.5 text-sm font-semibold"
+            className="btn-flame whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold"
           >
             {t("nav.start")}
           </Link>

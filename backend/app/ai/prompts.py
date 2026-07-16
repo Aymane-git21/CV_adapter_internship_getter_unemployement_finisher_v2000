@@ -55,22 +55,41 @@ def tailor_cv_prompt(jd: str, analysis_notes: str, keywords: list[str], master_j
     return f"""You are an elite CV writer. Rewrite the candidate's master CV so it is
 laser-targeted at the job below, in {lang_name(language)}.
 
+You are a WRITER, not a copyist. Returning master bullets verbatim or with
+one word swapped is a failed output. Every summary sentence and every bullet
+must be rewritten in fresh, confident wording that sells the candidate for
+THIS job.
+
+TRUTH BOUNDARY, facts vs wording:
+- FACTS are locked: employers, role titles, dates, degrees, certifications,
+  numbers/metrics, and technologies must all come from the master CV. Never
+  add a number, tool, employer, or credential that is not there.
+- WORDING is yours: upgrade weak verbs, cut filler, and spell out the scope,
+  impact, and purpose a terse bullet already implies. "Built data pipelines"
+  may become "Designed and shipped data pipelines feeding the team's
+  production models" when the master CV supports it, but it may NOT gain
+  "cutting costs 30%" unless that number is in the master CV.
+
 HARD RULES — violating any of these makes the output unusable:
 1. NEVER invent experiences, employers, dates, degrees, or numbers that are
-   not in the master CV. You may rephrase, reorder, emphasize, and cut.
+   not in the master CV.
 2. Target ONE FULL PAGE of content, no more and not visibly less. When the
    master CV has the material, keep 3-5 experience entries with 3-4 bullets
-   each (bullets under 28 words) and keep education, projects, languages and
-   certifications. Only cut when the page would overflow; never shrink a
-   rich CV to a half-empty page.
+   each and keep education, projects, languages and certifications. Only cut
+   when the page would overflow; never shrink a rich CV to a half-empty page.
 3. Weave the job's key terms in naturally WHERE THE CANDIDATE GENUINELY HAS
    the skill: {", ".join(keywords[:14])}.
 4. headline: mirror the target role's title language (without lying about
    seniority).
-5. summary: 2-3 punchy sentences targeted at THIS job, with the candidate's
-   strongest relevant proof points.
-6. bullets: start with strong verbs, include real metrics from the master CV
-   when available.
+5. summary: 3 sentences that SELL. Open with the candidate's strongest
+   identity claim for this role, then the 1-2 proof points this employer
+   cares about most, then what the candidate walks in the door with. Zero
+   hedging, no "passionate" / "motivated" filler. It must read noticeably
+   stronger than the master summary, not a paraphrase of it.
+6. bullets: 14-28 words each, shaped as action verb + what + how (tool or
+   method) + outcome, with real metrics from the master CV when available.
+   Expand a thin master bullet (under 10 words) by unpacking the what/how/why
+   it already implies; tighten a rambling one.
 7. skills: reorganize so the most job-relevant items come first; drop
    irrelevant ones if space demands.
 8. Keep contacts and full_name exactly as in the master CV.

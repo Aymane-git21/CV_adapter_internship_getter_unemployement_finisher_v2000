@@ -37,7 +37,7 @@ cd frontend; npm run build        # tsc + vite
 
 ## Deploy
 
-`docs/deploy.md` is the authoritative guide. Short version: Docker image = node build stage + python:3.12-slim + typst binary (~250 MB total); deploy with `gcloud run deploy cvglowup --source .` plus Secret Manager refs for `SECRET_KEY`, `GEMINI_API_KEY`, `DATABASE_URL`. GitHub Actions: `ci.yml` on every push, `deploy.yml` on manual dispatch / `v*` tags (needs `GCP_SA_KEY` secret + `GCP_PROJECT_ID` variable).
+**All deploys go through the zero-downtime protocol**: `python ops/deploy.py deploy` (gate tests -> `--no-traffic` candidate -> smoke on tagged URL -> traffic promote -> prod smoke with auto-rollback). Rollback: `python ops/deploy.py rollback` (traffic shift, seconds, no build). `ops/README.md` documents the protocol; runtime env/secrets/resources are declared at the top of `ops/deploy.py` (manual `gcloud run services update` changes get wiped on next deploy — change the script). Smoke checks use `/api/healthz` (DB ping); plain `/healthz` is intercepted by Google's edge on *.run.app and never reaches the app. GitHub Actions: `ci.yml` on every push, `deploy.yml` on manual dispatch / `v*` tags, `rollback.yml` on dispatch (need `GCP_SA_KEY` secret + `GCP_PROJECT_ID` variable). Docker image = node build stage + python:3.12-slim + typst binary (~250 MB); secrets are `SECRET_KEY`, `GEMINI_API_KEY`, `DATABASE_URL` in Secret Manager.
 
 ## Gotchas
 

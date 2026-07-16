@@ -176,6 +176,26 @@
   out
 }
 
+// Contact line that never strands a lone item on a wrapped line: when the
+// items overflow the available width, split them into two balanced rows
+// instead of letting the last item orphan.
+#let contact-row(pairs, accent, text-fill: muted, size: 8.9pt, gap: 0.85em) = {
+  let items = pairs.map(((kind, value)) => box(contact-item(
+    kind, value, color: accent, text-fill: text-fill, size: size,
+  )))
+  layout(avail => context {
+    let one-line = items.join(h(gap))
+    if items.len() < 3 or measure(one-line).width <= avail.width {
+      one-line
+    } else {
+      let split = calc.ceil(items.len() / 2)
+      items.slice(0, split).join(h(gap))
+      linebreak()
+      items.slice(split).join(h(gap))
+    }
+  })
+}
+
 // Invisible end-of-content anchor. Zero layout footprint (place() takes the
 // element out of the flow); the backend queries <cvg-end> to measure how much
 // of the page the content fills (typstsvc.renderer.measure_fill).

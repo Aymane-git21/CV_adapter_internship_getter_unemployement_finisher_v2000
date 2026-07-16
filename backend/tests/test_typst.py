@@ -86,6 +86,33 @@ async def test_density_fallback_squeezes_long_cv():
     assert result.density_used in ("tight", "xtight")
 
 
+@pytest.mark.parametrize("template", ["onyx", "classic", "compact"])
+async def test_contact_row_overflow_splits_not_crashes(template):
+    """contact-row balances overflowing contact lines into two rows; both the
+    overflow branch (long values) and the single-line branch (short values)
+    must compile to one page."""
+    settings = {"template": template, "accent": "#0F62FE", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": "fr"}
+    long_data = _cv_data()
+    long_data["contacts"] = {
+        "email": "aymanemerbouh03.professional@gmail.com",
+        "phone": "+33 6 12 34 56 78",
+        "location": "Toulouse, Occitanie, France",
+        "linkedin": "linkedin.com/in/aymane-merbouh-prompt-engineering",
+        "github": "github.com/aymane-merbouh",
+        "website": "cvglowup-portfolio-1057358093.europe-west1.run.app",
+    }
+    result, _ = await renderer.compile_document("cv", template, long_data, settings, fmt="svg")
+    assert result.ok, result.diagnostics
+    assert result.pages == 1
+
+    short_data = _cv_data()
+    short_data["contacts"] = {"email": "a@b.fr", "location": "Paris"}
+    result2, _ = await renderer.compile_document("cv", template, short_data, settings, fmt="svg")
+    assert result2.ok, result2.diagnostics
+    assert result2.pages == 1
+
+
 def _sparse_cv() -> dict:
     """A thin CV that condenses at the top of the page at scale 1.0."""
     data = _cv_data()

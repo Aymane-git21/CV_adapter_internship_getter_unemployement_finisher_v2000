@@ -43,10 +43,7 @@
     }
     if pairs.len() > 0 {
       v(4.5pt, weak: true)
-      let items = pairs.map(((kind, value)) => box(contact-item(
-        kind, value, color: accent, text-fill: muted, size: p.small,
-      )))
-      items.join(h(0.75em))
+      contact-row(pairs, accent, text-fill: muted, size: p.small, gap: 0.75em)
     }
   }
   if photo != none {

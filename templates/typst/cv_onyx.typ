@@ -22,18 +22,22 @@
     row-gutter: 2.4pt,
     text(size: p.base, weight: 600, fill: ink, left-main),
     text(size: p.small, weight: 500, fill: muted, number-type: "lining", right-main),
-    text(size: p.small, weight: 500, fill: rgb(accent).darken(6%), left-sub),
+    text(size: p.small, weight: 500, style: "italic", fill: muted, left-sub),
     text(size: p.small, fill: faint, right-sub),
   )
 }
 
-#let _bullets(items, accent, p) = {
-  for b in items {
-    v(p.bullet-gap, weak: true)
+// Between-entry separation gets a fixed bonus on top of the density gap so
+// entry boundaries stay visibly wider than the line gaps inside an entry.
+#let _entry-sep(p) = v(p.entry-gap + 2pt, weak: true)
+
+#let _bullets(items, p) = {
+  for (i, b) in items.enumerate() {
+    v(if i == 0 { p.bullet-gap + 1.6pt } else { p.bullet-gap }, weak: true)
     grid(
       columns: (8pt, 1fr),
       column-gutter: 3pt,
-      text(size: p.small, fill: rgb(accent), baseline: -0.06em, "▸"),
+      text(size: p.small * 0.9, fill: muted, baseline: -0.09em, "▸"),
       text(size: p.base, fill: ink.lighten(8%), b),
     )
   }
@@ -58,10 +62,7 @@
     }
     if pairs.len() > 0 {
       v(5.5pt, weak: true)
-      let items = pairs.map(((kind, value)) => box(contact-item(
-        kind, value, color: accent, text-fill: muted, size: p.small,
-      )))
-      items.join(h(0.85em))
+      contact-row(pairs, accent, text-fill: muted, size: p.small)
     }
   }
   if photo != none {
@@ -89,7 +90,7 @@
   if experience.len() > 0 {
     _section(label-for(settings, "experience"), accent, p)
     for (i, job) in experience.enumerate() {
-      if i > 0 { v(p.entry-gap, weak: true) }
+      if i > 0 { _entry-sep(p) }
       _entry-head(
         getstr(job, "title"),
         getstr(job, "company"),
@@ -97,7 +98,7 @@
         getstr(job, "location"),
         accent, p,
       )
-      _bullets(job.at("bullets", default: ()), accent, p)
+      _bullets(job.at("bullets", default: ()), p)
     }
   }
 
@@ -106,7 +107,7 @@
   if projects.len() > 0 {
     _section(label-for(settings, "projects"), accent, p)
     for (i, proj) in projects.enumerate() {
-      if i > 0 { v(p.entry-gap * 0.75, weak: true) }
+      if i > 0 { _entry-sep(p) }
       grid(
         columns: (1fr, auto),
         column-gutter: 8pt,
@@ -114,8 +115,9 @@
         text(size: p.small, font: "IBM Plex Mono", fill: faint, getstr(proj, "tech")),
       )
       if has(proj.at("description", default: none)) {
-        v(1.6pt, weak: true)
-        text(size: p.base, fill: ink.lighten(8%), proj.description)
+        // Same marker treatment as experience bullets so both sections share
+        // one left edge and rhythm.
+        _bullets((proj.description,), p)
       }
     }
   }
@@ -125,7 +127,7 @@
   if education.len() > 0 {
     _section(label-for(settings, "education"), accent, p)
     for (i, ed) in education.enumerate() {
-      if i > 0 { v(p.entry-gap, weak: true) }
+      if i > 0 { _entry-sep(p) }
       _entry-head(
         getstr(ed, "degree"),
         getstr(ed, "school"),

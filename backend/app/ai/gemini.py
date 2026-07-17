@@ -164,11 +164,15 @@ class GeminiProvider:
 
     async def edit_source(self, source: str, instruction: str) -> str:
         text: str = await self._generate(prompts.edit_source_prompt(source, instruction))
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text
-            if text.rstrip().endswith("```"):
-                text = text.rstrip()[:-3]
-        return text.strip() + "\n"
+        return _strip_fences(text)
+
+    async def repair_source(self, source: str, diagnostics: str) -> str:
+        text: str = await self._generate(prompts.repair_source_prompt(source, diagnostics))
+        return _strip_fences(text)
+
+    async def edit_message(self, text: str, instruction: str) -> str:
+        out: str = await self._generate(prompts.edit_message_prompt(text, instruction))
+        return out.strip()
 
     async def validate_key(self) -> bool:
         try:
@@ -183,6 +187,14 @@ class GeminiProvider:
             return True
         except Exception:
             return False
+
+
+def _strip_fences(text: str) -> str:
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3]
+    return text.strip() + "\n"
 
 
 def _json_dump(model: BaseModel) -> str:

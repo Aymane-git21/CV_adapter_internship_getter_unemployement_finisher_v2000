@@ -163,3 +163,56 @@ async def test_config_public(client):
     assert cfg["ai_mode"] == "offline"
     assert {t["id"] for t in cfg["templates"]} == {"onyx", "classic", "compact"}
     assert any(p["key"] == "plus" for p in cfg["plans"])
+
+
+async def test_chat_source_edit_repair_round(client, monkeypatch):
+    """A source-mode chat edit that does not compile gets ONE repair round
+    with the compiler diagnostics; if the repair compiles it is applied,
+    otherwise the edit is rejected with diagnostics."""
+    from backend.app.ai.fake import FakeProvider
+
+    await _register(client)
+    r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})
+    cv_id = r.json()["id"]
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "master_cv_id": cv_id, "language": "en"},
+    )
+    snap = await _wait_job(client, r.json()["jobs"][0])
+    assert snap["status"] == "completed", snap.get("error")
+    cv_doc = next(d for d in snap["documents"] if d["kind"] == "cv")
+
+    r = await client.get(f"/api/documents/{cv_doc['id']}")
+    good_source = r.json()["source"]
+    r = await client.post(f"/api/documents/{cv_doc['id']}/compile", json={"source": good_source})
+    assert r.json()["saved"] and r.json()["mode"] == "source"
+
+    async def broken_edit(self, source, instruction):
+        return "#broken("
+
+    async def broken_repair(self, source, diagnostics):
+        assert "error" in diagnostics.lower()
+        return "#still_broken("
+
+    async def good_repair(self, source, diagnostics):
+        return good_source
+
+    # Edit and repair both broken -> rejected with diagnostics.
+    monkeypatch.setattr(FakeProvider, "edit_source", broken_edit)
+    monkeypatch.setattr(FakeProvider, "repair_source", broken_repair)
+    r = await client.post(f"/api/documents/{cv_doc['id']}/chat", json={"message": "make it pop"})
+    assert r.status_code == 200
+    assert r.json()["ok"] is False and r.json()["diagnostics"]
+
+    # Repair succeeds -> edit applied and recompiled.
+    monkeypatch.setattr(FakeProvider, "repair_source", good_repair)
+    r = await client.post(f"/api/documents/{cv_doc['id']}/chat", json={"message": "make it pop"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True and body["svgs"]
+
+    # Message docs route through the plain-text editor, not the Typst one.
+    msg_doc = next(d for d in snap["documents"] if d["kind"] == "message")
+    r = await client.post(f"/api/documents/{msg_doc['id']}/chat", json={"message": "shorter"})
+    assert r.status_code == 200
+    assert "[edited: shorter]" in r.json()["text_content"]

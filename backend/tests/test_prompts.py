@@ -23,6 +23,24 @@ def test_tailor_prompt_keeps_truth_and_style_rails():
     assert "French" in p
 
 
+def test_source_prompts_carry_typst_primer():
+    p = prompts.edit_source_prompt("SRC", "make headings blue")
+    assert "TYPST IS NOT LATEX" in p
+    assert 'single-element array MUST be ("a",)' in p
+    assert "SETTINGS KNOBS" in p
+    assert "DATA KEYS" in p
+    r = prompts.repair_source_prompt("SRC", "error: unclosed delimiter")
+    assert "COMPILER ERRORS" in r
+    assert "SMALLEST" in r
+    assert "TYPST IS NOT LATEX" in r
+
+
+def test_message_edit_prompt_is_plain_text():
+    m = prompts.edit_message_prompt("hello recruiter", "make it shorter")
+    assert "typst" not in m.lower()
+    assert "700" in m
+
+
 def test_bullet_novelty_scores_copy_vs_fresh():
     master = ["Built the evaluation harness that gates every prompt change in CI."]
     verbatim = metrics.bullet_novelty(master[0], master)

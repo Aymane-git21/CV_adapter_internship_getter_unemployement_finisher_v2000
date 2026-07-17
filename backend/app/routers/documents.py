@@ -169,8 +169,8 @@ async def chat_edit(
 
     try:
         if doc.kind == "message":
-            new_text = await provider.edit_source(doc.text_content or "", body.message)
-            doc.text_content = new_text.replace("// edit requested:", "").strip()[:5000]
+            new_text = await provider.edit_message(doc.text_content or "", body.message)
+            doc.text_content = new_text.strip()[:5000]
             await db.commit()
             return {"ok": True, "text_content": doc.text_content, "reply": "Done, message updated."}
 
@@ -192,6 +192,10 @@ async def chat_edit(
         else:
             new_source = await provider.edit_source(doc.source or "", body.message)
             result = await renderer.compile_source(new_source, photo=photo, fmt="svg")
+            if not result.ok:
+                # One repair round: hand the compiler errors back to the model.
+                new_source = await provider.repair_source(new_source, result.diagnostics)
+                result = await renderer.compile_source(new_source, photo=photo, fmt="svg")
             if not result.ok:
                 return {
                     "ok": False,

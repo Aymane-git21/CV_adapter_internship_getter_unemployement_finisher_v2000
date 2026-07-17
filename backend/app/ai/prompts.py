@@ -1,5 +1,6 @@
 """All prompts in one place. Every generation call uses structured output
 (response_schema), so prompts focus on quality, not output formatting."""
+from . import typst_ref
 
 LANG_NAMES = {"en": "English", "fr": "French", "de": "German"}
 
@@ -191,13 +192,17 @@ CURRENT LETTER (JSON):
 
 
 def edit_source_prompt(source: str, instruction: str) -> str:
-    return f"""You are editing a Typst document (typst.app markup language, NOT LaTeX).
-Apply the instruction and return the COMPLETE updated source file, nothing else.
+    return f"""You are editing a Typst document. Apply the instruction and return the
+COMPLETE updated source file, nothing else.
 
-Rules:
-- Keep the #import line and overall structure intact unless asked otherwise.
-- Only valid Typst syntax; data lives in the `data` dict literal.
-- Strings use double quotes; escape inner quotes as \\".
+{typst_ref.TYPST_PRIMER}
+
+RULES:
+- Change only what the instruction requires; keep everything else intact.
+- Keep the #import line and the final #render(...) call unless the
+  instruction requires changing them (e.g. switching template).
+- The result must compile: balance every parenthesis and bracket, keep
+  single-element arrays as ("x",), keep strings double-quoted.
 
 INSTRUCTION: {instruction}
 
@@ -206,3 +211,32 @@ CURRENT SOURCE:
 {source}
 ```
 Return only the raw updated source (no fences)."""
+
+
+def repair_source_prompt(source: str, diagnostics: str) -> str:
+    return f"""The Typst source below fails to compile. Fix it with the SMALLEST
+possible change and return the COMPLETE corrected source, nothing else.
+Do not rewrite or restructure anything the errors do not require.
+
+{typst_ref.TYPST_PRIMER}
+
+COMPILER ERRORS:
+{diagnostics}
+
+SOURCE:
+```typst
+{source}
+```
+Return only the raw corrected source (no fences)."""
+
+
+def edit_message_prompt(text: str, instruction: str) -> str:
+    return f"""You are editing a short outreach message (plain text, no markup).
+Apply the instruction and return ONLY the complete updated message text.
+Keep it under 700 characters, keep real facts unchanged, never use an em
+dash (—); use a comma, colon, or period instead.
+
+INSTRUCTION: {instruction}
+
+CURRENT MESSAGE:
+{text}"""

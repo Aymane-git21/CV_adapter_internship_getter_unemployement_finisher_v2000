@@ -174,6 +174,14 @@ class FakeProvider:
         await self._tick()
         return source + f"\n// edit requested: {instruction[:80]}\n"
 
+    async def repair_source(self, source: str, diagnostics: str) -> str:
+        await self._tick()
+        return source
+
+    async def edit_message(self, text: str, instruction: str) -> str:
+        await self._tick()
+        return (text + f" [edited: {instruction[:60]}]").strip()
+
     async def validate_key(self) -> bool:
         await self._tick()
         return True

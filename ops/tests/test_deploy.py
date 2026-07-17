@@ -187,6 +187,7 @@ def test_check_health():
 def test_check_config_happy():
     payload = {
         "ai_mode": "gemini",
+        "billing_enabled": True,
         "templates": [{"id": "onyx"}, {"id": "classic"}, {"id": "compact"}],
         "plans": [{"key": "free"}, {"key": "plus"}, {"key": "pro"}],
     }
@@ -196,6 +197,7 @@ def test_check_config_happy():
 def test_check_config_catches_offline_ai_in_prod():
     payload = {
         "ai_mode": "offline",
+        "billing_enabled": True,
         "templates": [{"id": "onyx"}, {"id": "classic"}],
         "plans": [{"key": "free"}, {"key": "plus"}, {"key": "pro"}],
     }
@@ -204,8 +206,33 @@ def test_check_config_catches_offline_ai_in_prod():
 
 
 def test_check_config_catches_missing_plans():
-    payload = {"ai_mode": "gemini", "templates": [{"id": "onyx"}, {"id": "classic"}], "plans": []}
+    payload = {
+        "ai_mode": "gemini",
+        "billing_enabled": True,
+        "templates": [{"id": "onyx"}, {"id": "classic"}],
+        "plans": [],
+    }
     assert any("plans" in p for p in check_config(payload))
+
+
+def test_check_config_catches_disabled_billing():
+    payload = {
+        "ai_mode": "gemini",
+        "billing_enabled": False,
+        "templates": [{"id": "onyx"}, {"id": "classic"}, {"id": "compact"}],
+        "plans": [{"key": "free"}, {"key": "plus"}, {"key": "pro"}],
+    }
+    assert any("billing_enabled" in p for p in check_config(payload))
+    assert check_config(payload, require_billing=False) == []
+
+
+def test_deploy_args_carry_stripe_config():
+    args = " ".join(deploy_args("cand-abc123abc123"))
+    assert "STRIPE_PRICE_PLUS=price_" in args
+    assert "STRIPE_PRICE_PRO=price_" in args
+    assert "PUBLIC_BASE_URL=https://cvglowup.com" in args
+    assert "STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest" in args
+    assert "STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest" in args
 
 
 def test_check_index():

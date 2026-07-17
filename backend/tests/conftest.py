@@ -10,6 +10,12 @@ os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["ENV"] = "dev"
 _db_path = Path(tempfile.gettempdir()) / f"cvg_test_{uuid.uuid4().hex}.db"
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_db_path}"
+# Billing: dummy values so billing_enabled is deterministically true in tests,
+# isolated from any real keys in the developer's .env. Stripe calls are mocked.
+os.environ["STRIPE_SECRET_KEY"] = "sk_test_dummy"
+os.environ["STRIPE_PRICE_PLUS"] = "price_test_plus"
+os.environ["STRIPE_PRICE_PRO"] = "price_test_pro"
+os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_testsecret"
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402

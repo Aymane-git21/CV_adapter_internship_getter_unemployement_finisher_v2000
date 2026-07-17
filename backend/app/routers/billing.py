@@ -1,5 +1,6 @@
 """Stripe billing: Checkout, customer portal, webhooks. Fully env-gated —
 without Stripe keys the endpoints respond 501 and the frontend hides paid CTAs."""
+import json
 import logging
 from typing import Annotated
 
@@ -88,10 +89,13 @@ async def stripe_webhook(request: Request, db: Annotated[AsyncSession, Depends(g
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
     try:
-        event = stripe.Webhook.construct_event(payload, sig, settings.stripe_webhook_secret)
+        stripe.Webhook.construct_event(payload, sig, settings.stripe_webhook_secret)
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid webhook signature.") from exc
 
+    # Work on plain dicts: stripe-python 15.x StripeObject dropped dict-style
+    # .get(), which crashed this handler on every event.
+    event = json.loads(payload)
     etype = event["type"]
     obj = event["data"]["object"]
 

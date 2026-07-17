@@ -51,11 +51,18 @@ SERVICE = os.environ.get("CVG_SERVICE", "cvglowup")
 ENV_VARS = {
     "GEMINI_USE_VERTEX": "1",
     "GCP_PROJECT": PROJECT,
+    # Stripe: non-secret config. Price IDs come from ops/stripe_setup.py; re-run
+    # it against live keys and update these when leaving test mode.
+    "STRIPE_PRICE_PLUS": "price_1TuBYDCrTIUbpkXZZhbbETTG",
+    "STRIPE_PRICE_PRO": "price_1TuBYECrTIUbpkXZK521Jifd",
+    "PUBLIC_BASE_URL": "https://cvglowup.com",
 }
 SECRETS = {
     "SECRET_KEY": "SECRET_KEY:latest",
     "DATABASE_URL": "DATABASE_URL:latest",
     "GEMINI_API_KEY": "GEMINI_API_KEY:latest",
+    "STRIPE_SECRET_KEY": "STRIPE_SECRET_KEY:latest",
+    "STRIPE_WEBHOOK_SECRET": "STRIPE_WEBHOOK_SECRET:latest",
 }
 MEMORY = "512Mi"
 CPU = "1"
@@ -199,11 +206,15 @@ def check_health(payload: dict) -> list[str]:
     return problems
 
 
-def check_config(payload: dict, require_gemini: bool = True) -> list[str]:
+def check_config(payload: dict, require_gemini: bool = True, require_billing: bool = True) -> list[str]:
     problems = []
     mode = payload.get("ai_mode")
     if require_gemini and mode != "gemini":
         problems.append(f"/api/config ai_mode={mode!r}, prod must run gemini (key/Vertex misconfigured?)")
+    if require_billing and payload.get("billing_enabled") is not True:
+        problems.append(
+            "/api/config billing_enabled is not true (Stripe secrets/price env vars missing?)"
+        )
     template_ids = {t.get("id") for t in payload.get("templates", [])}
     if not {"onyx", "classic"} <= template_ids:
         problems.append(f"/api/config templates missing: {sorted(template_ids)}")

@@ -32,6 +32,7 @@ outputs/
 instance/
 .compile/
 master_cv.md
+aymane_cv.typ
 *.db
 *.sqlite3
 

@@ -1,29 +1,35 @@
-import { LogOut } from "lucide-react";
+import { Globe, LogOut } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import logoUrl from "../assets/CVglowup_logo.svg";
-import { LANGS, useI18n } from "../i18n";
+import { LANGS, useI18n, type Lang } from "../i18n";
 import { useSession } from "../store";
 import { byokStore } from "../api";
+
+const LANG_LABELS: Record<Lang, string> = { en: "English", fr: "Français", de: "Deutsch" };
 
 function QuotaPill({ dark }: { dark: boolean }) {
   const me = useSession((s) => s.me);
   const { t } = useI18n();
   if (!me) return null;
   if (byokStore.get()) {
-    return (
-      <span className="hidden rounded-full border border-ok-400/30 bg-ok-950 px-2.5 py-1 font-mono text-[11px] text-ok-400 sm:inline">
-        {t("quota.byok")}
-      </span>
-    );
+    return <span className="hidden text-[12.5px] text-ok-400 sm:inline">{t("quota.byok")}</span>;
   }
   if (!me.authenticated) return null;
+  const left = me.quota.remaining_today;
+  // Nudge exactly when the limit becomes tangible, never before.
+  const low = me.plan !== "pro" && left <= Math.max(1, Math.floor(me.quota.daily_limit * 0.15));
   return (
     <span
-      className={`hidden rounded-full border px-2.5 py-1 font-mono text-[11px] sm:inline ${
-        dark ? "border-white/15 bg-white/5 text-[#f5ede2]/70" : "border-black/10 glass-panel text-text/70"
+      className={`hidden items-center gap-2 whitespace-nowrap text-[12.5px] sm:inline-flex ${
+        dark ? "text-[#f5ede2]/60" : "text-text/60"
       }`}
     >
-      {me.quota.remaining_today}/{me.quota.daily_limit} {t("quota.left")}
+      {left}/{me.quota.daily_limit} {t("quota.left")}
+      {low && (
+        <Link to="/pricing" className="font-semibold text-flame-500 hover:text-flame-400">
+          {t("quota.upgrade")}
+        </Link>
+      )}
     </span>
   );
 }
@@ -31,30 +37,26 @@ function QuotaPill({ dark }: { dark: boolean }) {
 function LangSwitch({ dark }: { dark: boolean }) {
   const { lang, setLang } = useI18n();
   return (
-    <div
-      className={`flex items-center rounded-full border p-0.5 ${
-        dark ? "border-white/15 bg-white/5" : "border-black/10 glass-panel"
+    <label
+      className={`flex cursor-pointer items-center gap-1.5 text-[13px] ${
+        dark ? "text-[#f5ede2]/70 hover:text-[#f5ede2]" : "text-text/70 hover:text-text"
       }`}
-      role="group"
-      aria-label="Language"
+      title="Language"
     >
-      {LANGS.map((l) => (
-        <button
-          key={l}
-          onClick={() => setLang(l)}
-          aria-pressed={lang === l}
-          className={`rounded-full px-2 py-0.5 font-mono text-[10.5px] uppercase transition-colors ${
-            lang === l
-              ? "bg-primary text-white shadow-sm"
-              : dark
-                ? "text-[#f5ede2]/60 hover:text-[#f5ede2]"
-                : "text-text/60 hover:text-text"
-          }`}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
+      <Globe size={14} aria-hidden className="opacity-70" />
+      <select
+        value={lang}
+        onChange={(e) => setLang(e.target.value as Lang)}
+        aria-label="Language"
+        className="cursor-pointer appearance-none bg-transparent text-[13px] text-inherit outline-none"
+      >
+        {LANGS.map((l) => (
+          <option key={l} value={l} className="text-text">
+            {LANG_LABELS[l]}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

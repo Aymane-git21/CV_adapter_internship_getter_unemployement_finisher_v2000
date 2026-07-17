@@ -382,6 +382,9 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
               <span className="font-mono text-xs opacity-80">×{jds.filter((j) => j.trim()).length}</span>
             )}
           </button>
+          {!authed && (
+            <p className="text-center text-xs leading-relaxed text-text/60">{t("auth.guestNote")}</p>
+          )}
         </aside>
       </div>
     </div>

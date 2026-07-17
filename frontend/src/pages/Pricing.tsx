@@ -14,11 +14,12 @@ const copy = {
     perMonth: "/month",
     free: "Free",
     current: "Current plan",
-    upgrade: "Upgrade",
+    upgrade: "Get {plan}",
+    cancelAnytime: "Cancel anytime.",
     soon: "Online payment opens soon. Email us to upgrade early.",
     manage: "Manage subscription",
     login: "Log in to upgrade",
-    start: "Start",
+    start: "Start free",
     byokTitle: "Bring your own key",
     byokPrice: "Free, unlimited",
     byokBody: "Paste your own Gemini API key (Google gives one free at aistudio.google.com) and generate without daily limits, every template unlocked. The key never leaves your browser except to call Gemini for your own requests.",
@@ -26,6 +27,7 @@ const copy = {
     rows: {
       daily: "generations / day",
       parallel: "job postings in parallel",
+      parallelOne: "job posting at a time",
       templates: "templates",
       editing: "Live editor, source & chat",
       letters: "CV + cover letter + outreach",
@@ -38,11 +40,12 @@ const copy = {
     perMonth: "/mois",
     free: "Gratuit",
     current: "Plan actuel",
-    upgrade: "Passer au plan",
+    upgrade: "Passer à {plan}",
+    cancelAnytime: "Annulable à tout moment.",
     soon: "Le paiement en ligne arrive. Écrivez-nous pour un accès anticipé.",
     manage: "Gérer l'abonnement",
     login: "Connectez-vous pour évoluer",
-    start: "Commencer",
+    start: "Commencer gratuitement",
     byokTitle: "Votre propre clé API",
     byokPrice: "Gratuit, illimité",
     byokBody: "Collez votre clé API Gemini (gratuite sur aistudio.google.com) et générez sans limite quotidienne, tous les modèles débloqués. La clé ne quitte votre navigateur que pour appeler Gemini.",
@@ -50,6 +53,7 @@ const copy = {
     rows: {
       daily: "générations / jour",
       parallel: "offres en parallèle",
+      parallelOne: "offre à la fois",
       templates: "modèles",
       editing: "Éditeur live, source & chat",
       letters: "CV + lettre + message",
@@ -62,11 +66,12 @@ const copy = {
     perMonth: "/Monat",
     free: "Kostenlos",
     current: "Aktueller Plan",
-    upgrade: "Upgraden",
+    upgrade: "{plan} holen",
+    cancelAnytime: "Jederzeit kündbar.",
     soon: "Online-Zahlung startet bald. Schreiben Sie uns für ein frühes Upgrade.",
     manage: "Abo verwalten",
     login: "Zum Upgraden anmelden",
-    start: "Loslegen",
+    start: "Kostenlos starten",
     byokTitle: "Eigener API-Schlüssel",
     byokPrice: "Kostenlos, unbegrenzt",
     byokBody: "Fügen Sie Ihren eigenen Gemini-API-Schlüssel ein (kostenlos bei aistudio.google.com) und generieren Sie ohne Tageslimits, alle Vorlagen freigeschaltet. Der Schlüssel verlässt Ihren Browser nur, um Gemini für Ihre eigenen Anfragen aufzurufen.",
@@ -74,6 +79,7 @@ const copy = {
     rows: {
       daily: "Generierungen / Tag",
       parallel: "Stellen parallel",
+      parallelOne: "Stelle auf einmal",
       templates: "Vorlagen",
       editing: "Live-Editor, Quelltext & Chat",
       letters: "Lebenslauf + Anschreiben + Nachricht",
@@ -141,7 +147,7 @@ export default function Pricing() {
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />
                   <span><strong className="text-text">{p.daily >= 1000 ? "∞" : p.daily}</strong> {c.rows.daily}</span></li>
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />
-                  <span><strong className="text-text">{p.parallel}</strong> {c.rows.parallel}</span></li>
+                  <span><strong className="text-text">{p.parallel}</strong> {p.parallel === 1 ? c.rows.parallelOne : c.rows.parallel}</span></li>
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />
                   <span><strong className="text-text">{p.templates.length}</strong> {c.rows.templates}</span></li>
                 <li className="flex gap-2"><Check size={15} className="mt-0.5 shrink-0 text-ok-400" />{c.rows.editing}</li>
@@ -159,15 +165,22 @@ export default function Pricing() {
                   {c.manage}
                 </button>
               ) : config?.billing_enabled ? (
-                <button
-                  onClick={() => void checkout(p.key)}
-                  disabled={busy !== ""}
-                  className={`w-full rounded-lg py-2.5 text-[14px] font-semibold transition ${
-                    highlight ? "btn-flame" : "border border-ink-600 text-text hover:border-primary"
-                  } disabled:opacity-50`}
-                >
-                  {busy === p.key ? "…" : me?.authenticated ? c.upgrade : c.login}
-                </button>
+                <>
+                  <button
+                    onClick={() => void checkout(p.key)}
+                    disabled={busy !== ""}
+                    className={`w-full rounded-lg py-2.5 text-[14px] font-semibold transition ${
+                      highlight ? "btn-flame" : "border border-ink-600 text-text hover:border-primary"
+                    } disabled:opacity-50`}
+                  >
+                    {busy === p.key
+                      ? "…"
+                      : me?.authenticated
+                        ? c.upgrade.replace("{plan}", p.label)
+                        : c.login}
+                  </button>
+                  <p className="mt-2 text-center text-xs text-text/50">{c.cancelAnytime}</p>
+                </>
               ) : (
                 <a
                   href="mailto:hello@cvglowup.com?subject=Upgrade"

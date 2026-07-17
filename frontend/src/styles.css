@@ -79,13 +79,13 @@ body {
   background: color-mix(in srgb, var(--color-flame-400) 35%, transparent);
 }
 
-/* Mono eyebrow label */
+/* Section label — plain sans, normal case, product register. No color so
+   Tailwind utilities (e.g. text-danger on compile errors) can set it. */
 .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.006em;
 }
 
 /* Flame gradient text — headlines only */

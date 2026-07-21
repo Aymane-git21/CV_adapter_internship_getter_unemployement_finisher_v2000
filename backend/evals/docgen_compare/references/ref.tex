@@ -1,0 +1,77 @@
+% Reference CV, hand-written LaTeX baseline for the docgen comparison bench.
+% Compiles standalone with Tectonic (XeTeX engine). One A4 page, no assets.
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=1.3cm]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{accent}{HTML}{0F62FE}
+\definecolor{dim}{HTML}{5A5A5A}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt}
+
+\titleformat{\section}{\normalsize\bfseries\color{accent}}{}{0pt}{\MakeUppercase}[\vspace{-7pt}{\color{accent!50}\rule{\textwidth}{0.6pt}}]
+\titlespacing*{\section}{0pt}{9pt}{4pt}
+
+\newcommand{\entry}[3]{\textbf{#1} \textperiodcentered{} #2 \hfill {\color{dim}\small #3}\par}
+
+\setlist[itemize]{leftmargin=1.1em,itemsep=1pt,topsep=2pt,parsep=0pt,label=\textcolor{accent}{\textbullet}}
+
+\begin{document}
+
+{\LARGE\bfseries Alex Martin}\par\vspace{1pt}
+{\color{accent}\bfseries Machine Learning Engineer — LLM Systems \& MLOps}\par\vspace{1pt}
+{\small\color{dim} alex.martin@example.com \textperiodcentered{} +33 6 12 34 56 78 \textperiodcentered{} Paris, France \textperiodcentered{} linkedin.com/in/alex-martin-ml \textperiodcentered{} github.com/alexmartin-ml \textperiodcentered{} alexmartin.dev}
+
+\section{Summary}
+ML engineer with 4 years of experience taking LLM and computer-vision systems from prototype to production. Designed RAG platforms serving 40k daily queries, cut inference costs by 35\%, and led the MLOps practice for a 12-person data team. Looking to build AI products that survive contact with real users.
+
+\section{Experience}
+\entry{Machine Learning Engineer}{Lumina AI}{Paris, France \textperiodcentered{} Jan 2024 -- Present}
+\begin{itemize}
+  \item Architected the retrieval-augmented generation platform behind the flagship assistant: hybrid BM25 + dense retrieval, reranking, and grounded citation checks serving 40k queries/day at p95 \textless{} 900 ms.
+  \item Cut LLM serving costs 35\% by routing between fine-tuned small models and frontier APIs based on query complexity scoring.
+  \item Built the evaluation harness (LLM-as-judge + golden sets) that gates every prompt and model change in CI.
+\end{itemize}
+\vspace{3pt}
+\entry{Data Scientist}{Nexa Retail Group}{Lille, France \textperiodcentered{} Sep 2021 -- Dec 2023}
+\begin{itemize}
+  \item Shipped demand-forecasting models (gradient boosting, hierarchical reconciliation) covering 1,200 stores, reducing stockouts 18\%.
+  \item Industrialized the feature pipeline on Spark + Airflow; training-to-deploy time fell from 3 weeks to 2 days.
+  \item Mentored two junior data scientists and ran the team's paper-reading group.
+\end{itemize}
+\vspace{3pt}
+\entry{Research Intern — Computer Vision}{INRIA}{Grenoble, France \textperiodcentered{} Feb 2021 -- Aug 2021}
+\begin{itemize}
+  \item Implemented self-supervised pretraining (SimCLR variants) for defect detection on industrial imagery; +9 mAP over the supervised baseline with 10x less labeled data.
+\end{itemize}
+
+\section{Education}
+\entry{MSc Computer Science — Machine Learning}{Université Grenoble Alpes}{Grenoble \textperiodcentered{} 2019 -- 2021}
+\begin{itemize}
+  \item Thesis: contrastive pretraining for industrial vision. Graduated with highest honors.
+\end{itemize}
+\vspace{3pt}
+\entry{BSc Mathematics \& Computer Science}{Université de Lille}{Lille \textperiodcentered{} 2016 -- 2019}
+
+\section{Skills}
+\textbf{ML \& LLM:} PyTorch, RAG, fine-tuning (LoRA), evaluation, vLLM, embeddings\par
+\textbf{Data \& Infra:} Python, SQL, Spark, Airflow, Kafka, Postgres\par
+\textbf{MLOps \& Cloud:} Docker, Kubernetes, GCP (Vertex, Cloud Run), CI/CD, monitoring \& drift
+
+\section{Projects}
+\textbf{OpenRecruit} \textperiodcentered{} FastAPI, React, Typst \hfill\par
+Open-source CV tailoring tool: structured generation with schema-enforced LLM output and millisecond document rendering.\par\vspace{2pt}
+\textbf{GPU cost dashboard} \textperiodcentered{} Grafana, Prometheus\par
+Real-time per-team GPU utilization and cost attribution adopted by 3 squads.
+
+\section{Languages \& Certifications}
+\textbf{Languages:} French (native), English (C1), Spanish (B1)\par
+\textbf{Certifications:} GCP Professional ML Engineer, Google Cloud, 2024\par
+\textbf{Interests:} Trail running, Chess (1800 ELO), Synthesizers
+
+\end{document}

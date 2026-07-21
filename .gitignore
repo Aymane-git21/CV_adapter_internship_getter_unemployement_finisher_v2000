@@ -46,6 +46,10 @@ aymane_cv.typ
 /*.log
 /*.pdf
 
+# --- Docgen comparison bench (local toolchains + run artifacts) ---
+.tools/
+backend/evals/docgen_compare/results/
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db

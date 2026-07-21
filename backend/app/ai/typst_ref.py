@@ -56,4 +56,7 @@ Lengths: 10pt, 1.2em, 2cm. Colors: rgb("#RRGGBB").
 
 MARKUP MODE (only inside [...] content blocks, NOT inside "strings"):
   *bold*  _italic_  special chars # $ * _ ` @ < > escape with backslash: C\\#
+  TRAP: after #variable an underscore is EATEN INTO the identifier, so
+  _#company_ fails with "unclosed delimiter" (parses as #company_ ).
+  Terminate interpolation with ; ( _#company;_ ) or use #emph[#company].
 """

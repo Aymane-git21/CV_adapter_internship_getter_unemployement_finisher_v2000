@@ -32,6 +32,7 @@ The single most important rule: **Gemini outputs structured JSON (`CVData`, `Cov
 - `#set page(paper: "a4", margin: (x: 1.2cm, y: 1.2cm))`, `#set text(font: "Inter", size: 10pt, lang: "fr")`.
 - Grid/columns: `#grid(columns: (1fr, auto), ...)` replaces `tabular*` hacks.
 - Escaping: only a handful of special chars (`# $ * _ @ \``); when rendering user strings from JSON they arrive as Typst *strings* in code mode, so **no escaping is needed at all** — never string-concatenate user text into markup, always pass it as data.
+- Interpolation trap (top AI-authoring failure per the docgen bench): after `#variable` an underscore is eaten into the identifier, so `_#company_` dies with "unclosed delimiter" (parses as `#company_`). Terminate with `;` (`_#company;_`) or use `#emph[#company]`.
 - Images: `#image("photo.jpg", width: 3cm)`. Round photo: clip with `#box(clip: true, radius: 50%, image(...))`.
 - Icons: use a bundled icon font (e.g. Font Awesome via `#text(font: "Font Awesome 7 Free", "\u{f095}")`) or inline SVGs — fontawesome5 LaTeX package does not exist here.
 - Page fitting: `#set page(height: auto)` gives the standalone-class cropping behavior of the legacy CV.tex; for strict one-page A4, keep fixed height and expose font-size/spacing knobs the generator can tighten.

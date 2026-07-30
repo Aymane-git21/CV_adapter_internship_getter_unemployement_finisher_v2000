@@ -23,6 +23,25 @@ def test_tailor_prompt_keeps_truth_and_style_rails():
     assert "French" in p
 
 
+def test_tailor_prompt_intensity_mandates():
+    levels = ("reshape", "minor", "major", "max_ats")
+    p = {
+        lv: prompts.tailor_cv_prompt("JD", "notes", ["python"], "{}", "en", rewrite_intensity=lv)
+        for lv in levels
+    }
+    # Default (5 positional args, today's call shape) must reproduce "major".
+    assert prompts.tailor_cv_prompt("JD", "notes", ["python"], "{}", "en") == p["major"]
+    assert "not a copyist" in p["major"]
+    assert "not a copyist" in p["max_ats"]
+    for lv in levels:
+        assert "FACTS are locked" in p[lv]
+    assert [lv for lv in levels if "EDITOR, not a writer" in p[lv]] == ["reshape"]
+    assert [lv for lv in levels if "MAXIMIZE ATS COVERAGE" in p[lv]] == ["max_ats"]
+    # Unknown level falls back to the default mandate.
+    bad = prompts.tailor_cv_prompt("JD", "notes", ["python"], "{}", "en", rewrite_intensity="turbo")
+    assert bad == p["major"]
+
+
 def test_source_prompts_carry_typst_primer():
     p = prompts.edit_source_prompt("SRC", "make headings blue")
     assert "TYPST IS NOT LATEX" in p

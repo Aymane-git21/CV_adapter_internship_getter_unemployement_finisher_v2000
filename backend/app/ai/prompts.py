@@ -52,14 +52,43 @@ Rules:
 """
 
 
-def tailor_cv_prompt(jd: str, analysis_notes: str, keywords: list[str], master_json: str, language: str) -> str:
-    return f"""You are an elite CV writer. Rewrite the candidate's master CV so it is
-laser-targeted at the job below, in {lang_name(language)}.
-
-You are a WRITER, not a copyist. Returning master bullets verbatim or with
+_INTENSITY_MANDATES: dict[str, str] = {
+    "reshape": """You are an EDITOR, not a writer: do NOT rewrite the wording. Every summary
+sentence and every bullet keeps the candidate's own phrasing, apart from
+minimal grammar fixes. Your job is structure only: reorder sections and
+bullets so the most job-relevant come first, group skills sensibly, and trim
+redundancy. Where a rule below asks for rewritten or stronger wording, this
+mandate wins: the original phrasing stays.""",
+    "minor": """Make MINOR changes only: keep most of the candidate's phrasing. Reorder
+content for relevance, tighten wording, and surface skills already present
+in the master CV that match the role. Do not restructure roles and do not
+write new bullets. Where a rule below asks for fully rewritten wording, this
+mandate wins: stay close to the original.""",
+    "major": """You are a WRITER, not a copyist. Returning master bullets verbatim or with
+one word swapped is a failed output. Every summary sentence and every bullet
+must be rewritten in fresh, confident wording that sells the candidate for
+THIS job.""",
+    "max_ats": """You are a WRITER, not a copyist. Returning master bullets verbatim or with
 one word swapped is a failed output. Every summary sentence and every bullet
 must be rewritten in fresh, confident wording that sells the candidate for
 THIS job.
+
+MAXIMIZE ATS COVERAGE: every keyword from the list below that the master CV
+truthfully supports must appear VERBATIM, or via its standard alias. Mirror
+the job post's terminology and retitle skill groups to standard names. A
+keyword with no support in the master CV must NOT appear.""",
+}
+
+
+def tailor_cv_prompt(
+    jd: str, analysis_notes: str, keywords: list[str], master_json: str, language: str,
+    rewrite_intensity: str = "major",
+) -> str:
+    mandate = _INTENSITY_MANDATES.get(rewrite_intensity, _INTENSITY_MANDATES["major"])
+    return f"""You are an elite CV writer. Rewrite the candidate's master CV so it is
+laser-targeted at the job below, in {lang_name(language)}.
+
+{mandate}
 
 TRUTH BOUNDARY, facts vs wording:
 - FACTS are locked: employers, role titles, dates, degrees, certifications,

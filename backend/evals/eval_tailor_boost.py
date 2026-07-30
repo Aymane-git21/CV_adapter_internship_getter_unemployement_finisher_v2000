@@ -1,8 +1,10 @@
 """Periodic eval, paid lane (a few flash calls per run).
 
 Measures whether tailor_cv actually REWRITES and boosts the CV instead of
-transcribing the master, while inventing zero numbers. All scoring is
-deterministic (backend/evals/metrics.py); only the generation is latent.
+transcribing the master, while inventing zero numbers. Also runs an
+intensity matrix (reshape/major/max_ats) and asserts the novelty and
+ATS-score orderings between levels. All scoring is deterministic
+(backend/evals/metrics.py); only the generation is latent.
 
 Run: python -m backend.evals.eval_tailor_boost [runs]
 Exit 0 = pass (or no key configured, printed as SKIPPED), 1 = fail.
@@ -12,6 +14,7 @@ import json
 import sys
 from pathlib import Path
 
+from backend.app import ats
 from backend.app.ai import get_provider
 from backend.app.config import get_settings
 from backend.app.schemas import CVData
@@ -79,6 +82,36 @@ async def run_once(provider, master: CVData) -> bool:
     return bool(ok)
 
 
+async def run_intensity_matrix(provider, master: CVData) -> bool:
+    """Generate at three intensity levels and assert the orderings:
+    novelty(reshape) < novelty(major) <= novelty(max_ats) and
+    ATS after-score(max_ats) >= after-score(major) >= after-score(reshape)."""
+    analysis = await provider.analyze(JD, master.plain_text(), "en")
+    master_bullets = [b for job in master.experience for b in job.bullets]
+
+    novelty: dict[str, float] = {}
+    after: dict[str, int] = {}
+    for level in ("reshape", "major", "max_ats"):
+        tailored = await provider.tailor_cv(JD, analysis, master, "en", level)
+        bullets = [b for job in tailored.experience for b in job.bullets]
+        assert bullets, f"tailored CV ({level}) has no bullets"
+        novelties = [metrics.bullet_novelty(b, master_bullets) for b in bullets]
+        novelty[level] = sum(novelties) / len(novelties)
+        after[level] = ats.score(analysis.keywords, tailored.plain_text())["score"]
+        print(f"  {level}: mean novelty {novelty[level]:.2f}, ATS after {after[level]}%")
+
+    ok = True
+    ok &= _check("novelty ordering",
+                 novelty["reshape"] < novelty["major"] <= novelty["max_ats"],
+                 f"reshape {novelty['reshape']:.2f} < major {novelty['major']:.2f}"
+                 f" <= max_ats {novelty['max_ats']:.2f}")
+    ok &= _check("ATS after-score ordering",
+                 after["max_ats"] >= after["major"] >= after["reshape"],
+                 f"max_ats {after['max_ats']}% >= major {after['major']}%"
+                 f" >= reshape {after['reshape']}%")
+    return bool(ok)
+
+
 async def main() -> int:
     settings = get_settings()
     if not settings.ai_enabled:
@@ -93,8 +126,10 @@ async def main() -> int:
         print(f"run {i + 1}/{runs}")
         if await run_once(provider, master):
             passed += 1
-    print(f"\n{passed}/{runs} runs passed")
-    return 0 if passed == runs else 1
+    print("intensity matrix")
+    matrix_ok = await run_intensity_matrix(provider, master)
+    print(f"\n{passed}/{runs} runs passed; intensity matrix {'passed' if matrix_ok else 'failed'}")
+    return 0 if passed == runs and matrix_ok else 1
 
 
 if __name__ == "__main__":

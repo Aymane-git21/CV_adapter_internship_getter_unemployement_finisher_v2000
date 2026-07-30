@@ -135,10 +135,14 @@ class GeminiProvider:
             contents = prompts.parse_cv_prompt(language) + "\n\nCV TEXT:\n" + (raw_text or "")
         return await self._generate(contents, schema=CVData)
 
-    async def tailor_cv(self, jd: str, analysis: JobAnalysis, master: CVData, language: str) -> CVData:
+    async def tailor_cv(
+        self, jd: str, analysis: JobAnalysis, master: CVData, language: str,
+        rewrite_intensity: str = "major",
+    ) -> CVData:
         keywords = [k.term for k in analysis.keywords]
         prompt = prompts.tailor_cv_prompt(
-            jd, analysis.notes, keywords, master.model_dump_json(indent=1), language
+            jd, analysis.notes, keywords, master.model_dump_json(indent=1), language,
+            rewrite_intensity=rewrite_intensity,
         )
         tailored: CVData = await self._generate(prompt, schema=CVData)
         # Contacts and identity are not the model's to change.

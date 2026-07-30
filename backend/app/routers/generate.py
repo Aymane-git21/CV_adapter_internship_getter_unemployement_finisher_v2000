@@ -83,6 +83,11 @@ async def generate(
 
     # ---- Create job rows, then spawn ------------------------------------------
     language = body.language if body.language in ("en", "fr", "de") else "en"
+    intensity = (
+        body.rewrite_intensity
+        if body.rewrite_intensity in ("reshape", "minor", "major", "max_ats")
+        else "major"
+    )
     job_ids: list[str] = []
     for jd in jds:
         job = Job(
@@ -100,7 +105,7 @@ async def generate(
     for jid in job_ids:
         spawn_job(
             jid, master_data, body.photo_id, body.template, body.accent, body.show_photo, byok,
-            guest_hash=guest_hash,
+            intensity, guest_hash=guest_hash,
         )
     return {"jobs": job_ids}
 

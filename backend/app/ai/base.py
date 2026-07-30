@@ -18,7 +18,10 @@ class AIProvider(Protocol):
 
     async def parse_cv(self, raw_text: str | None, pdf_bytes: bytes | None, language: str) -> CVData: ...
 
-    async def tailor_cv(self, jd: str, analysis: JobAnalysis, master: CVData, language: str) -> CVData: ...
+    async def tailor_cv(
+        self, jd: str, analysis: JobAnalysis, master: CVData, language: str,
+        rewrite_intensity: str = "major",
+    ) -> CVData: ...
 
     async def write_letter(
         self, jd: str, analysis: JobAnalysis, cv: CVData, language: str

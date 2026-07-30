@@ -88,12 +88,17 @@ class FakeProvider:
             skills=[SkillGroup(category="Skills", items=skills or ["communication"])],
         )
 
-    async def tailor_cv(self, jd: str, analysis: JobAnalysis, master: CVData, language: str) -> CVData:
+    async def tailor_cv(
+        self, jd: str, analysis: JobAnalysis, master: CVData, language: str,
+        rewrite_intensity: str = "major",
+    ) -> CVData:
         await self._tick()
         tailored = master.model_copy(deep=True)
         terms = [k.term for k in analysis.keywords][:8]
         if terms:
             tailored.skills = [SkillGroup(category="Key match", items=terms)] + tailored.skills
+        if rewrite_intensity == "reshape":
+            return tailored
         target = analysis.job_title if analysis.job_title != "Job Application" else "this role"
         prefix = {"fr": "Profil ciblé : ", "de": "Zielprofil: "}.get(language, "Targeted profile: ")
         tailored.summary = f"{prefix}{target}. {master.summary}"[:500]

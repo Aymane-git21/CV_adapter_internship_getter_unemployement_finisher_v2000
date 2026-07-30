@@ -74,11 +74,15 @@ def spawn_job(
     accent: str,
     show_photo: bool,
     byok_key: str | None,
+    rewrite_intensity: str = "major",
     guest_hash: str | None = None,
 ) -> None:
     """Fire-and-forget; all state lands in the DB."""
     asyncio.create_task(
-        _run_job_safely(job_id, master_data, photo_id, template, accent, show_photo, byok_key, guest_hash)
+        _run_job_safely(
+            job_id, master_data, photo_id, template, accent, show_photo, byok_key,
+            rewrite_intensity, guest_hash,
+        )
     )
 
 
@@ -98,6 +102,7 @@ async def _run_job(
     accent: str,
     show_photo: bool,
     byok_key: str | None,
+    rewrite_intensity: str = "major",
     guest_hash: str | None = None,
 ) -> None:
     async with session_factory()() as db:
@@ -105,7 +110,9 @@ async def _run_job(
         if job is None:
             return
         try:
-            await _pipeline(db, job, master_data, photo_id, template, accent, show_photo, byok_key)
+            await _pipeline(
+                db, job, master_data, photo_id, template, accent, show_photo, byok_key, rewrite_intensity
+            )
         except AIError as exc:
             job.status = "failed"
             job.error = str(exc)
@@ -132,6 +139,7 @@ async def _pipeline(
     accent: str,
     show_photo: bool,
     byok_key: str | None,
+    rewrite_intensity: str = "major",
 ) -> None:
     provider = get_provider(byok_key)
     language = job.language
@@ -151,7 +159,7 @@ async def _pipeline(
     )
 
     await _emit(db, job, "generate", "Tailoring CV, cover letter and outreach in parallel…", 30)
-    cv_task = provider.tailor_cv(job.job_description, analysis, master, language)
+    cv_task = provider.tailor_cv(job.job_description, analysis, master, language, rewrite_intensity)
     letter_task = provider.write_letter(job.job_description, analysis, master, language)
     msg_task = provider.outreach(job.job_description, analysis, master, language)
     tailored, letter, message = await asyncio.gather(cv_task, letter_task, msg_task)

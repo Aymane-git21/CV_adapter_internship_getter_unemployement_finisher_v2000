@@ -41,7 +41,7 @@ async def test_full_flow(client):
     r = await client.post(
         "/api/generate",
         json={"job_descriptions": [SAMPLE_JD], "master_cv_id": cv_id, "language": "en",
-              "template": "onyx", "accent": "#0F62FE"},
+              "template": "onyx", "accent": "#0F62FE", "rewrite_intensity": "max_ats"},
     )
     assert r.status_code == 200, r.text
     job_id = r.json()["jobs"][0]
@@ -135,6 +135,34 @@ async def test_guest_flow_and_limit(client):
     )
     assert r.status_code == 429
     assert r.json()["detail"]["code"] == "guest_limit"
+
+
+async def test_generate_bad_intensity_falls_back(client):
+    await _register(client)
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "cv_text": SAMPLE_CV_TEXT, "language": "en",
+              "template": "onyx", "rewrite_intensity": "turbo"},
+    )
+    assert r.status_code == 200, r.text
+    snap = await _wait_job(client, r.json()["jobs"][0])
+    assert snap["status"] == "completed", snap.get("error")
+
+
+async def test_fake_tailor_respects_reshape_intensity():
+    from backend.app.ai.fake import FakeProvider
+
+    provider = FakeProvider()
+    master = await provider.parse_cv(SAMPLE_CV_TEXT, None, "en")
+    analysis = await provider.analyze(SAMPLE_JD, master.plain_text(), "en")
+
+    reshaped = await provider.tailor_cv(SAMPLE_JD, analysis, master, "en", "reshape")
+    assert reshaped.summary == master.summary
+    assert reshaped.skills[0].category == "Key match"
+
+    rewritten = await provider.tailor_cv(SAMPLE_JD, analysis, master, "en")
+    assert rewritten.summary != master.summary
+    assert rewritten.summary.startswith("Targeted profile: ")
 
 
 async def test_validation_errors(client):

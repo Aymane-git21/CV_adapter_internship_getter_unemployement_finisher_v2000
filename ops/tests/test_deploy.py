@@ -238,3 +238,17 @@ def test_deploy_args_carry_stripe_config():
 def test_check_index():
     assert check_index('<html><div id="root"></div><title>CV Glowup</title></html>') == []
     assert check_index("<html>Error</html>") != []
+
+
+def test_latexc_wiring_joins_env_and_secrets_when_enabled(monkeypatch):
+    """CVG_LATEXC_URL flips the app's env/secret set; unset (the default in
+    every other test) leaves the pinned sets untouched."""
+    import ops.deploy as deploy
+
+    monkeypatch.setitem(deploy.ENV_VARS, "LATEXC_URL", "https://latexc.example.run.app")
+    monkeypatch.setitem(deploy.SECRETS, "LATEXC_TOKEN", "LATEXC_TOKEN:latest")
+    args = deploy.deploy_args("cand-abc1234")
+    env = args[args.index("--set-env-vars") + 1]
+    sec = args[args.index("--set-secrets") + 1]
+    assert "LATEXC_URL=https://latexc.example.run.app" in env
+    assert "LATEXC_TOKEN=LATEXC_TOKEN:latest" in sec

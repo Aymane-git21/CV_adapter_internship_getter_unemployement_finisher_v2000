@@ -117,3 +117,45 @@ Legacy `cv_text` can be re-imported by users via Settings → Master CVs.
   and regenerated on demand.
 - Typst compiles are capped by `COMPILE_CONCURRENCY` (default 4 per instance);
   generation jobs by `JOB_CONCURRENCY` (default 6 per instance).
+
+## 6. latexc — the warm LaTeX compile service
+
+Second Cloud Run service (`cvglowup-latexc`, services/latexc/). Deployed and
+controlled by `ops/latexc.py`, never by hand. Full details in
+services/latexc/README.md and docs/plans/2026-07-30-page-mode-and-latex-compiler.md.
+
+One-time setup (run as project owner):
+
+```bash
+# shared bearer token between the app and latexc
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+gcloud secrets create LATEXC_TOKEN --replication-policy automatic
+printf '%s' '<paste the token>' | gcloud secrets versions add LATEXC_TOKEN --data-file=-
+gcloud secrets add-iam-policy-binding LATEXC_TOKEN \
+  --member "serviceAccount:$(gcloud projects describe $PROJECT_ID --format 'value(projectNumber)')-compute@developer.gserviceaccount.com" \
+  --role roles/secretmanager.secretAccessor
+
+# after the first `python ops/latexc.py deploy`: let the app service flip
+# min-instances (warmup endpoint + idle reaper)
+gcloud run services add-iam-policy-binding cvglowup-latexc --region $REGION \
+  --member "serviceAccount:$(gcloud projects describe $PROJECT_ID --format 'value(projectNumber)')-compute@developer.gserviceaccount.com" \
+  --role roles/run.developer
+```
+
+Rollout order:
+
+1. `python ops/latexc.py deploy` — ships the service dark (min-instances 0,
+   nothing points at it). Smoke includes a real probe compile.
+2. Redeploy the app with the wiring knob:
+   `CVG_LATEXC_URL=<url from ops/latexc.py status> python ops/deploy.py deploy`.
+   `/api/config` now reports `latex_enabled: true`; the studio offers the
+   compiler to plus/pro accounts.
+3. Warmth: a user enabling LaTeX calls `/api/latex/warmup` (min-instances 1).
+   It stays warm until `python ops/latexc.py off` (manual) or the idle reaper
+   (`LATEXC_IDLE_OFF_MINUTES`, default 240; 0 = manual off only).
+4. `python ops/latexc.py status` shows warmth + the idle cost estimate
+   (~$8/month warm, $0 off). `rollback` shifts traffic back in seconds.
+
+CI: `.github/workflows/deploy-latexc.yml` runs the same deploy on manual
+dispatch; the `latexc` job in ci.yml builds the image and runs the container
+test suite (real TeX) on every push to main.

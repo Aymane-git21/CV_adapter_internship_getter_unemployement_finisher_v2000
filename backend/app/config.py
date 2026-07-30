@@ -71,6 +71,14 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     adsense_client: str = ""
 
+    # LaTeX compile service (services/latexc). Feature stays dark until both
+    # LATEXC_URL and LATEXC_TOKEN are set.
+    latexc_url: str = ""
+    latexc_token: str = ""
+    latexc_service: str = "cvglowup-latexc"
+    latexc_region: str = "europe-west1"
+    latexc_idle_off_minutes: int = 240  # 0 disables the idle reaper (manual off only)
+
     @property
     def is_prod(self) -> bool:
         return self.env == "prod"
@@ -120,6 +128,10 @@ class Settings(BaseSettings):
     @property
     def billing_enabled(self) -> bool:
         return bool(self.stripe_secret_key and self.stripe_price_plus and self.stripe_price_pro)
+
+    @property
+    def latex_enabled(self) -> bool:
+        return bool(self.latexc_url and self.latexc_token)
 
 
 @lru_cache

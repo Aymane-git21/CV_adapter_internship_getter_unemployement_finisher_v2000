@@ -14,7 +14,7 @@ from sqlalchemy import text
 
 from .config import get_settings
 from .db import dispose_db, init_db, session_factory
-from .routers import account, auth, billing, cvs, documents, generate
+from .routers import account, auth, billing, cvs, documents, generate, latex
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("cvglowup")
@@ -42,13 +42,21 @@ async def lifespan(app: FastAPI):
     await init_db()
     settings = get_settings()
     log.info(
-        "cvglowup up — env=%s ai=%s billing=%s typst=%s",
+        "cvglowup up — env=%s ai=%s billing=%s latex=%s typst=%s",
         settings.env,
         "gemini" if settings.ai_enabled else "offline-fake",
         settings.billing_enabled,
+        settings.latex_enabled,
         settings.typst_command,
     )
+    reaper = None
+    if settings.latex_enabled and settings.is_prod and settings.latexc_idle_off_minutes > 0:
+        import asyncio
+
+        reaper = asyncio.create_task(latex.idle_reaper())
     yield
+    if reaper is not None:
+        reaper.cancel()
     await dispose_db()
 
 
@@ -100,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(generate.router)
     app.include_router(documents.router)
     app.include_router(billing.router)
+    app.include_router(latex.router)
 
     @app.get("/healthz")
     async def healthz():

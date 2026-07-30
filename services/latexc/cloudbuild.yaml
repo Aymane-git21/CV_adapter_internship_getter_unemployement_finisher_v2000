@@ -1,0 +1,6 @@
+# Repo-root context so the Dockerfile can COPY templates/typst/fonts.
+# Invoked by ops/latexc.py deploy with _IMAGE substituted.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "services/latexc/Dockerfile", "-t", "${_IMAGE}", "."]
+images: ["${_IMAGE}"]

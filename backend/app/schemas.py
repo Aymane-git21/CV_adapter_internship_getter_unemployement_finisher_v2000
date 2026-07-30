@@ -125,6 +125,7 @@ class DocSettings(BaseModel):
     font_scale: float = 1.0
     lang: str = "en"
     page_mode: str = "paged"  # paged | continuous
+    compiler: str = "typst"  # typst | latex
 
 
 # ---------------------------------------------------------------------------

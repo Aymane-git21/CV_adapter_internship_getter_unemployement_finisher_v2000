@@ -24,3 +24,9 @@ outputs/
 instance/
 templates/.compile/
 master_cv.md
+# bench tooling + outputs: ~500 MB of vendored quarto/tectonic and result PDFs
+# that ballooned the Cloud Build upload to 695 MiB (2026-07-30)
+.tools/
+backend/evals/docgen_compare/results/
+skill-observations/
+*.tsbuildinfo

@@ -13,27 +13,27 @@ function ScoreCard({ ctl }: { ctl: DocController }) {
     <div className="border-b border-black/10 glass-panel/60 px-4 py-2.5">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <span className="eyebrow">{t("studio.score.title")}</span>
-        <span className="font-mono text-[13px]">
+        <span className="text-[15px] font-semibold tabular-nums">
           <span className="text-text/50">{doc.score_before}%</span>
           <span className="mx-1.5 text-text/50">→</span>
-          <span className="font-semibold text-ok-400">{doc.score_after}%</span>
+          <span className="font-bold text-ok-400">{doc.score_after}%</span>
         </span>
         {missing.length > 0 ? (
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-[10.5px] uppercase tracking-wider text-text/50">
+            <span className="text-[12px] font-semibold text-text/60">
               {t("studio.score.missing")}:
             </span>
             {missing.slice(0, 5).map((k) => (
-              <span key={k} className="rounded-full border border-signal-500/25 bg-signal-950 px-2 py-0.5 font-mono text-[10.5px] text-danger">
+              <span key={k} className="rounded-full border border-signal-500/25 bg-signal-950 px-2 py-0.5 text-[12px] font-medium text-danger">
                 {k}
               </span>
             ))}
             {missing.length > 5 && (
-              <span className="font-mono text-[10.5px] text-text/50">+{missing.length - 5}</span>
+              <span className="text-[12px] font-medium text-text/50">+{missing.length - 5}</span>
             )}
           </span>
         ) : (
-          <span className="font-mono text-[11px] text-ok-400">{t("studio.score.none")}</span>
+          <span className="text-[12px] font-medium text-ok-400">{t("studio.score.none")}</span>
         )}
       </div>
     </div>
@@ -74,7 +74,7 @@ export function Preview({ ctl }: { ctl: DocController }) {
           </button>
           <button
             onClick={() => setZoom(1)}
-            className="rounded px-2 py-1 font-mono text-[11px] text-text/70 hover:glass-panel hover:text-text"
+            className="rounded px-2 py-1 text-[12px] font-medium tabular-nums text-text/70 hover:glass-panel hover:text-text"
           >
             {zoom === 1 ? t("studio.preview.fit") : `${Math.round(zoom * 100)}%`}
           </button>
@@ -90,7 +90,7 @@ export function Preview({ ctl }: { ctl: DocController }) {
         <div className="flex items-center gap-2">
           <a
             href={`/api/documents/${doc.id}/source.typ`}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-mono text-[11px] text-text/70 hover:glass-panel hover:text-text"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-text/70 hover:glass-panel hover:text-text"
             title={t("studio.download.typ")}
           >
             <FileCode2 size={13} /> .typ

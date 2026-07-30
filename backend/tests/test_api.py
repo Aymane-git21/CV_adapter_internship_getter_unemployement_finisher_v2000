@@ -329,3 +329,33 @@ async def test_chat_source_edit_repair_round(client, monkeypatch):
     r = await client.post(f"/api/documents/{msg_doc['id']}/chat", json={"message": "shorter"})
     assert r.status_code == 200
     assert "[edited: shorter]" in r.json()["text_content"]
+
+
+async def test_page_mode_continuous_roundtrip(client):
+    """PUT settings.page_mode=continuous -> single tall page; junk value -> coerced."""
+    await _register(client)
+    r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})
+    cv_id = r.json()["id"]
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "master_cv_id": cv_id, "language": "en",
+              "template": "onyx", "accent": "#0F62FE"},
+    )
+    assert r.status_code == 200, r.text
+    snap = await _wait_job(client, r.json()["jobs"][0])
+    assert snap["status"] == "completed", snap.get("error")
+    cv_doc = next(d for d in snap["documents"] if d["kind"] == "cv")
+
+    doc = (await client.get(f"/api/documents/{cv_doc['id']}")).json()
+    new_settings = {**doc["settings"], "page_mode": "continuous"}
+    r = await client.put(f"/api/documents/{cv_doc['id']}", json={"settings": new_settings})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["settings"]["page_mode"] == "continuous"
+    assert body["svgs"] and len(body["svgs"]) == 1
+    assert 'page_mode: "continuous"' in body["source"]
+
+    junk = {**body["settings"], "page_mode": "sideways"}
+    r = await client.put(f"/api/documents/{cv_doc['id']}", json={"settings": junk})
+    assert r.status_code == 200, r.text
+    assert r.json()["settings"]["page_mode"] == "paged"

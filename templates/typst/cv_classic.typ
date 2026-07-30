@@ -26,7 +26,12 @@
   let p = density-params(settings)
   let accent = settings.at("accent", default: "#1C3B5A")
 
-  set page(paper: "a4", margin: (x: p.margin-x + 0.25cm, top: p.margin-y, bottom: p.margin-y))
+  let continuous = settings.at("page_mode", default: "paged") == "continuous"
+  set page(
+    width: 21cm,
+    height: if continuous { auto } else { 29.7cm },
+    margin: (x: p.margin-x + 0.25cm, top: p.margin-y, bottom: p.margin-y),
+  )
   set text(font: "IBM Plex Serif", size: p.base, fill: ink, lang: settings.at("lang", default: "en"))
   set par(leading: p.leading, justify: true, spacing: p.par-gap)
 

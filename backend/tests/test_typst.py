@@ -1,6 +1,7 @@
 """Golden compile tests — every template must compile the rich fixture to a
 single page, and the source-mode roundtrip must hold."""
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -211,3 +212,42 @@ def test_typst_literal_escaping():
     assert '\\"hi\\"' in src
     assert "\\n" in src
     assert "true" in src and "none" in src
+
+
+# ---- page mode: continuous single auto-height page -------------------------
+
+
+@pytest.mark.parametrize("template", ["onyx", "classic", "compact"])
+async def test_continuous_mode_renders_one_tall_page(template):
+    data = _cv_data()
+    data["experience"] = data["experience"] * 4  # would overflow A4
+    settings = {"template": template, "accent": "#C2551B", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": "en",
+                "page_mode": "continuous"}
+    result, source = await renderer.compile_document(
+        "cv", template, data, settings, fmt="svg", fit_one_page=False)
+    assert result.ok, result.diagnostics
+    assert result.pages == 1
+    m = re.search(r'height="([0-9.]+)pt"', result.svgs[0])
+    assert m and float(m.group(1)) > 841.89, "page did not grow past A4"
+    assert result.density_used == "normal", "fit loop ran despite continuous mode"
+
+
+async def test_continuous_letter_compiles():
+    settings = {"template": "classic", "accent": "#1C3B5A", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": "en",
+                "page_mode": "continuous"}
+    result, _ = await renderer.compile_document(
+        "letter", "classic", _letter_data(), settings, fmt="svg", fit_one_page=False)
+    assert result.ok, result.diagnostics
+    assert result.pages == 1
+
+
+async def test_paged_default_keeps_exact_a4_height():
+    # page_mode absent entirely (old stored settings) must keep fixed A4 pages
+    settings = {"template": "onyx", "accent": "#0F62FE", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": "en"}
+    result, _ = await renderer.compile_document("cv", "onyx", _cv_data(), settings, fmt="svg")
+    assert result.ok and result.pages == 1
+    m = re.search(r'height="([0-9.]+)pt"', result.svgs[0])
+    assert m and abs(float(m.group(1)) - 841.89) < 0.5, "A4 height drifted with page_mode absent"

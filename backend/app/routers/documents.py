@@ -94,13 +94,16 @@ async def update_document(
         doc.mode = "data"
     if body.settings is not None:
         new_settings = body.settings.model_dump()
+        if new_settings.get("page_mode") not in ("paged", "continuous"):
+            new_settings["page_mode"] = "paged"
         doc.template_id = new_settings.get("template", doc.template_id)
         doc.settings = new_settings
 
     photo = await _photo_bytes(db, doc)
     if doc.mode == "data":
         result, source = await renderer.compile_document(
-            doc.kind, doc.template_id, doc.data or {}, doc.settings or {}, photo=photo, fmt="svg"
+            doc.kind, doc.template_id, doc.data or {}, doc.settings or {}, photo=photo, fmt="svg",
+            fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
         )
         if not result.ok:
             raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
@@ -184,7 +187,8 @@ async def chat_edit(
                 edited = await provider.edit_letter_data(current, body.message, lang)
             doc.data = edited.model_dump()
             result, source = await renderer.compile_document(
-                doc.kind, doc.template_id, doc.data, doc.settings or {}, photo=photo, fmt="svg"
+                doc.kind, doc.template_id, doc.data, doc.settings or {}, photo=photo, fmt="svg",
+                fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
             )
             if not result.ok:
                 raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})

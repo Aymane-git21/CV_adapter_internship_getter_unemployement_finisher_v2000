@@ -34,6 +34,7 @@ export interface LetterData {
 export interface DocSettings {
   template: string; accent: string; density: string;
   show_photo: boolean; font_scale: number; lang: string;
+  page_mode: string;
 }
 
 export interface JobEvent { ts: string; step: string; message: string; pct: number }

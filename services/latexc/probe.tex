@@ -1,0 +1,17 @@
+% Boot prewarm probe: exercises fontspec + IBM Plex + xcolor + hyperref so
+% the first real compile after any deploy or scale-up is already warm.
+\documentclass{article}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\setmainfont{IBM Plex Sans}
+\newfontfamily\probemono{IBM Plex Mono}
+\definecolor{cvaccent}{HTML}{C2551B}
+\pagestyle{empty}
+\begin{document}
+{\color{cvaccent}\rule{\linewidth}{1.1pt}}
+
+Warm boot probe. \textbf{Bold}, \textit{italic}, {\probemono mono}, and a
+\href{https://example.com}{link}.
+\end{document}

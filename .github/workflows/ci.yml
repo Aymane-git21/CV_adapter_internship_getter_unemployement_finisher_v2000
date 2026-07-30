@@ -74,6 +74,14 @@ jobs:
       - name: Build latexc image
         run: docker build -f services/latexc/Dockerfile -t latexc:ci .
       - name: Container test suite (real TeX Live)
-        run: docker run --rm -e LATEXC_TOKEN=ci-token latexc:ci python -m pytest /srv/latexc/tests -q
+        # On failure the pytest summary is surfaced as annotations, which are
+        # readable through the public API without auth (job logs are not).
+        run: |
+          set -o pipefail
+          if ! docker run --rm -e LATEXC_TOKEN=ci-token latexc:ci python -m pytest /srv/latexc/tests -q 2>&1 | tee pytest-out.txt; then
+            grep -E "^(FAILED|ERROR)" pytest-out.txt | head -8 | while IFS= read -r line; do echo "::error title=latexc::${line}"; done
+            tail -2 pytest-out.txt | while IFS= read -r line; do echo "::error title=latexc-tail::${line}"; done
+            exit 1
+          fi
       - name: Report image size
         run: docker images latexc:ci --format "latexc image size {{.Size}}"

@@ -76,7 +76,7 @@ async def _compile(inp: LatexCompileIn) -> LatexCompileOut:
     async with _doc_locks[inp.doc_id]:
         cached = cache.load_cached(pdir, key)
         if cached is not None:
-            pdir.touch()  # bump LRU
+            os.utime(pdir)  # bump LRU mtime (Path.touch() raises on dirs)
             return LatexCompileOut(
                 ok=True, cache="hit", pages=cached["pages"],
                 pdf_b64=base64.b64encode(cached["pdf"]).decode(),

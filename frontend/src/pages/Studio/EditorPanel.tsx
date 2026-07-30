@@ -40,8 +40,8 @@ export function EditorPanel({ ctl }: { ctl: DocController }) {
               role="tab"
               aria-selected={tab === tb}
               onClick={() => setTab(tb)}
-              className={`px-3 py-2 font-mono text-[11px] uppercase tracking-wider transition-colors ${
-                tab === tb ? "text-text" : "text-text/50 hover:text-text/70"
+              className={`border-b-2 px-3.5 py-2.5 text-[13px] font-semibold transition-colors ${
+                tab === tb ? "border-flame-500 text-text" : "border-transparent text-text/60 hover:text-text"
               }`}
             >
               {labels[tb]}

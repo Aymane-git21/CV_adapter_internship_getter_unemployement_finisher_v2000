@@ -81,7 +81,7 @@ export function ChatPanel({ ctl }: { ctl: DocController }) {
         {busy && (
           <div className="flex items-center gap-2.5 pl-9 text-text/50">
             <Loader2 size={13} className="animate-spin" />
-            <span className="font-mono text-[11px]">editing…</span>
+            <span className="font-mono text-[11px]">{t("studio.chat.busy")}</span>
           </div>
         )}
         <div ref={endRef} />

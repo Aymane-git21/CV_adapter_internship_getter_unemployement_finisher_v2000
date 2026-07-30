@@ -40,31 +40,71 @@ function JobTab({ job, active, onSelect, onClose }: {
   );
 }
 
+const STEP_STAGE: Record<string, number> = {
+  analyze: 1,
+  analyzed: 1,
+  generate: 2,
+  generated: 2,
+  render: 3,
+  done: 4,
+};
+
 function ProgressView({ job }: { job: JobSnapshot }) {
   const { t } = useI18n();
   const last = job.events.at(-1);
   const pct = last?.pct ?? 0;
+  const stage = job.events.reduce((max, ev) => Math.max(max, STEP_STAGE[ev.step] ?? max), 1);
+  const stages = [
+    { n: 1, label: t("studio.progress.analyze") },
+    { n: 2, label: t("studio.progress.generate") },
+    { n: 3, label: t("studio.progress.render") },
+    { n: 4, label: t("studio.progress.done") },
+  ];
   return (
     <div className="grid h-full place-items-center p-6">
-      <div className="w-full max-w-lg">
-        <p className="eyebrow mb-2">{job.title ?? t("studio.generating")}</p>
+      <div className="w-full max-w-2xl">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <p className="eyebrow">{t("studio.progress.title")}</p>
+          <span className="text-[12px] font-semibold tabular-nums text-text/60">{pct}%</span>
+        </div>
         <div className="mb-5 h-1 overflow-hidden rounded-full glass-panel">
           <div
             className="h-full rounded-full bg-primary transition-all duration-700"
             style={{ width: `${Math.max(4, pct)}%` }}
           />
         </div>
-        <div className="space-y-2.5 rounded-lg border border-black/10 glass-panel p-4 font-mono text-xs">
-          {job.events.map((ev, i) => (
-            <div key={i} className="flex items-start gap-2.5">
-              {i === job.events.length - 1 && job.status === "running" ? (
-                <Loader2 size={13} className="mt-px shrink-0 animate-spin text-primary/80" />
-              ) : (
-                <CheckCircle2 size={13} className="mt-px shrink-0 text-ok-400" />
-              )}
-              <span className="text-text/70">{ev.message}</span>
-            </div>
-          ))}
+        <div className="grid gap-6 sm:grid-cols-[1fr_200px]">
+          <div className="space-y-3 self-start rounded-lg border border-black/10 glass-panel p-4">
+            {stages.map((s) => (
+              <div key={s.n} className="flex items-start gap-2.5">
+                {s.n < stage ? (
+                  <CheckCircle2 size={13} className="mt-px shrink-0 text-ok-400" />
+                ) : s.n === stage ? (
+                  <Loader2 size={13} className="mt-px shrink-0 animate-spin text-primary" />
+                ) : (
+                  <span className="mt-px grid size-[13px] shrink-0 place-items-center text-text/30">
+                    <span className="size-1.5 rounded-full bg-current" />
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className={`text-[13px] ${s.n <= stage ? "text-text" : "text-text/40"}`}>{s.label}</p>
+                  {s.n === stage && last && (
+                    <p className="mt-0.5 truncate font-mono text-[11px] text-text/50">{last.message}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="sheet mx-auto aspect-[1/1.414] w-full max-w-[200px] p-5 sm:mx-0 sm:max-w-none">
+            <div className="skeleton-shimmer mb-4 h-4 w-1/2" />
+            <div className="skeleton-shimmer mb-5 h-2 w-1/3" />
+            <div className="skeleton-shimmer mb-2.5 h-2 w-full" />
+            <div className="skeleton-shimmer mb-2.5 h-2 w-5/6" />
+            <div className="skeleton-shimmer mb-5 h-2 w-2/3" />
+            <div className="skeleton-shimmer mb-2.5 h-2 w-full" />
+            <div className="skeleton-shimmer mb-2.5 h-2 w-3/4" />
+            <div className="skeleton-shimmer h-2 w-1/2" />
+          </div>
         </div>
         <AdSlot slot="studio-progress" className="mt-6" />
       </div>

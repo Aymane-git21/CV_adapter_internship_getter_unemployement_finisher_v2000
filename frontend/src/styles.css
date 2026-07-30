@@ -214,6 +214,18 @@ body {
   height: auto;
 }
 
+/* Skeleton bars for the generating preview sheet */
+@keyframes shimmer {
+  from { background-position: 100% 50%; }
+  to { background-position: 0% 50%; }
+}
+.skeleton-shimmer {
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(35, 35, 35, 0.08) 25%, rgba(35, 35, 35, 0.16) 37%, rgba(35, 35, 35, 0.08) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
 /* Scrollbars */
 * {
   scrollbar-width: thin;
@@ -231,6 +243,7 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

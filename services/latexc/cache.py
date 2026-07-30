@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .contract import LatexCompileIn
 
+
 def _max_projects() -> int:
     return int(os.environ.get("LATEXC_MAX_PROJECTS", "40"))
 

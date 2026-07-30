@@ -93,7 +93,7 @@ def log_tail(pdir: Path, main: str, fallback: str) -> str:
 
 
 def first_error_line(log: str) -> str | None:
-    m = re.search(r"^(?:! (.+)|.+?:\d+: (.+))$", log, re.M)
+    m = re.search(r"^(?:! (.+)|.+?:\d+: (.+))$", log, re.MULTILINE)
     if not m:
         if "timed out" in log:
             return log.splitlines()[0][:200] if log else None
@@ -120,7 +120,7 @@ async def pdf_pages(pdir: Path, pdf_name: str) -> int:
     code, out = await _run(["pdfinfo", pdf_name], pdir, _tex_env(pdir), 20)
     if code != 0:
         raise CompileError(f"pdfinfo failed: {out[:200]}")
-    m = re.search(r"^Pages:\s+(\d+)", out, re.M)
+    m = re.search(r"^Pages:\s+(\d+)", out, re.MULTILINE)
     if not m:
         raise CompileError("pdfinfo gave no page count")
     return int(m.group(1))

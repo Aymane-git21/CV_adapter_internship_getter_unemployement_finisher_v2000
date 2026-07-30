@@ -287,14 +287,22 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
 
           <div>
             <p className="eyebrow mb-3">{t("studio.intensity.title")}</p>
-            <div className="inline-flex gap-1 rounded-lg border border-black/10 glass-panel p-1">
+            <div className="space-y-2">
               {(["reshape", "minor", "major", "max_ats"] as const).map((lvl) => (
-                <button key={lvl} className={seg(intensity === lvl)} onClick={() => setIntensity(lvl)}>
-                  {t(`studio.intensity.${lvl}`)}
+                <button
+                  key={lvl}
+                  onClick={() => setIntensity(lvl)}
+                  className={`block w-full rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
+                    intensity === lvl
+                      ? "border-flame-500 bg-flame-950"
+                      : "border-black/10 glass-panel hover:border-ink-600"
+                  }`}
+                >
+                  <span className="block text-[13px] font-medium">{t(`studio.intensity.${lvl}`)}</span>
+                  <span className="block text-[11px] text-text/50">{t(`studio.intensity.${lvl}.desc`)}</span>
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[12px] text-text/60">{t(`studio.intensity.${intensity}.desc`)}</p>
           </div>
 
           <div>

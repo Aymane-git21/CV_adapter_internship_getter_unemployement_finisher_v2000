@@ -22,6 +22,22 @@ const typstMode = StreamLanguage.define({
   languageData: { commentTokens: { line: "//" } },
 });
 
+const texMode = StreamLanguage.define({
+  token(stream: StringStream): string | null {
+    if (stream.match("%")) {
+      stream.skipToEnd();
+      return "comment";
+    }
+    if (stream.match(/\\[a-zA-Z@]+/)) return "keyword";
+    if (stream.match(/\\[^a-zA-Z]/)) return "string";
+    if (stream.match(/[{}[\]]/)) return "bracket";
+    if (stream.match(/\b\d+(\.\d+)?(pt|em|ex|cm|mm|in)?\b/)) return "number";
+    stream.next();
+    return null;
+  },
+  languageData: { commentTokens: { line: "%" } },
+});
+
 export function SourceEditor({ ctl }: { ctl: DocController }) {
   const { t } = useI18n();
   const { doc, diagnostics, editSource } = ctl;
@@ -34,7 +50,7 @@ export function SourceEditor({ ctl }: { ctl: DocController }) {
           value={doc.source ?? ""}
           height="100%"
           theme="dark"
-          extensions={[typstMode]}
+          extensions={[(doc.settings.compiler ?? "typst") === "latex" ? texMode : typstMode]}
           onChange={(value) => editSource(value)}
           basicSetup={{
             lineNumbers: true,

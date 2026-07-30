@@ -35,6 +35,7 @@ export interface DocSettings {
   template: string; accent: string; density: string;
   show_photo: boolean; font_scale: number; lang: string;
   page_mode: string;
+  compiler: string;
 }
 
 export interface JobEvent { ts: string; step: string; message: string; pct: number }
@@ -64,6 +65,7 @@ export interface DocumentPayload {
 export interface Quota {
   plan: string; label: string; daily_limit: number; used_today: number;
   remaining_today: number; parallel: number; templates: string[];
+  latex: boolean;
 }
 
 export interface Me {
@@ -78,7 +80,7 @@ export interface PlanMeta {
 }
 export interface AppConfig {
   billing_enabled: boolean; google_client_id: string | null; adsense_client: string | null;
-  ai_mode: "gemini" | "offline"; byok_enabled: boolean;
+  ai_mode: "gemini" | "offline"; byok_enabled: boolean; latex_enabled: boolean;
   templates: TemplateMeta[]; plans: PlanMeta[]; all_templates: string[];
 }
 
@@ -202,6 +204,12 @@ export const api = {
   billingCheckout: (plan: string) =>
     request<{ url: string }>("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) }),
   billingPortal: () => request<{ url: string }>("/api/billing/portal", { method: "POST" }),
+
+  latexWarmup: () =>
+    request<{ warm: boolean; starting: boolean }>("/api/latex/warmup", { method: "POST" }),
+  latexStatus: () => request<{ enabled: boolean; warm: boolean }>("/api/latex/status"),
+  latexEndSession: (docId: string) =>
+    request<unknown>(`/api/latex/session/${docId}/end`, { method: "POST" }),
 };
 
 export function jobEvents(jobId: string, onSnapshot: (s: JobSnapshot) => void): () => void {

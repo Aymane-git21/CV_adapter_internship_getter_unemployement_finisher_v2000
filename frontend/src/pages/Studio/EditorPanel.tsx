@@ -66,7 +66,14 @@ export function EditorPanel({ ctl }: { ctl: DocController }) {
       <div className="min-h-0 flex-1">
         {tab === "content" && <ContentEditor ctl={ctl} />}
         {tab === "source" && !isMessage && <SourceEditor ctl={ctl} />}
-        {tab === "chat" && <ChatPanel ctl={ctl} />}
+        {tab === "chat" &&
+          ((doc.settings?.compiler ?? "typst") === "latex" && doc.mode === "source" ? (
+            <div className="p-4 text-[12.5px] leading-relaxed text-text/60">
+              {t("studio.chat.latexsource")}
+            </div>
+          ) : (
+            <ChatPanel ctl={ctl} />
+          ))}
       </div>
     </div>
   );

@@ -110,6 +110,10 @@ async def compile_latex(pdir: Path, main: str, timeout_s: int) -> tuple[bool, st
         "-halt-on-error",
         "-file-line-error",
         "-no-shell-escape",
+        # -g forces a run even when latexmk considers outputs current: we only
+        # get here when the content key CHANGED (the hit cache short-circuits
+        # true no-ops), and without it a deleted include serves a stale PDF.
+        "-g",
         main,
     ]
     code, out = await _run(cmd, pdir, _tex_env(pdir), timeout_s)

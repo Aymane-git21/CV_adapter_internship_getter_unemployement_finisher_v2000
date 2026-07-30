@@ -64,6 +64,15 @@ SECRETS = {
     "STRIPE_SECRET_KEY": "STRIPE_SECRET_KEY:latest",
     "STRIPE_WEBHOOK_SECRET": "STRIPE_WEBHOOK_SECRET:latest",
 }
+
+# LaTeX compile service wiring (services/latexc, ops/latexc.py). Set
+# CVG_LATEXC_URL to the stable service URL printed by `python ops/latexc.py
+# status` to enable the feature; unset keeps it dark. The token secret must
+# exist first (docs/deploy.md, latexc section).
+LATEXC_URL = os.environ.get("CVG_LATEXC_URL", "")
+if LATEXC_URL:
+    ENV_VARS["LATEXC_URL"] = LATEXC_URL
+    SECRETS["LATEXC_TOKEN"] = "LATEXC_TOKEN:latest"
 MEMORY = "512Mi"
 CPU = "1"
 CONCURRENCY = "80"

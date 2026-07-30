@@ -34,14 +34,25 @@ async def test_creates_missing_user_on_plan(db):
     assert verify_password("s3cret-pw", user.password_hash)
 
 
-async def test_upgrades_existing_user_and_resets_password(db):
+async def test_upgrade_keeps_existing_password_by_default(db):
     email = "grant-existing@example.com"
     await apply([email], "free", {email: "old-pw"})
-    results = await apply([email], "pro", {email: "new-pw"})
+    results = await apply([email], "pro", {email: "new-pw"})  # generated pw, not explicit
 
     assert results == [(email, "updated", "pro")]
     user = await _fetch(email)
     assert user.plan == "pro"
+    assert verify_password("old-pw", user.password_hash), "upgrade must not reset the login"
+    assert not verify_password("new-pw", user.password_hash)
+
+
+async def test_upgrade_resets_password_when_explicitly_asked(db):
+    email = "grant-reset@example.com"
+    await apply([email], "free", {email: "old-pw"})
+    results = await apply([email], "pro", {email: "new-pw"}, set_password=True)
+
+    assert results == [(email, "updated", "pro")]
+    user = await _fetch(email)
     assert verify_password("new-pw", user.password_hash)
     assert not verify_password("old-pw", user.password_hash)
 

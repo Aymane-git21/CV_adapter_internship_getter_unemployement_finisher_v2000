@@ -54,8 +54,12 @@ def fetch_prod_database_url() -> str:
     return url
 
 
-async def apply(emails: list[str], plan: str, passwords: dict[str, str]) -> list[tuple[str, str, str]]:
-    """Upsert each email at `plan`, setting its password. Returns (email, action, plan)."""
+async def apply(
+    emails: list[str], plan: str, passwords: dict[str, str], set_password: bool = False
+) -> list[tuple[str, str, str]]:
+    """Upsert each email at `plan`. New accounts always get their password set;
+    existing accounts keep theirs unless set_password (an explicit --password)
+    is given — upgrading a plan must not silently reset a login."""
     from sqlalchemy import select
 
     from backend.app.db import dispose_db, init_db, session_factory
@@ -73,7 +77,8 @@ async def apply(emails: list[str], plan: str, passwords: dict[str, str]) -> list
                 user = User(email=email)
                 db.add(user)
                 action = "created"
-            user.password_hash = hash_password(passwords[email])
+            if action == "created" or set_password:
+                user.password_hash = hash_password(passwords[email])
             user.plan = plan
             results.append((email, action, plan))
         await db.commit()
@@ -96,12 +101,13 @@ def main(argv: list[str] | None = None) -> int:
     emails = [e.strip().lower() for e in args.emails]
     passwords = {e: (args.password or generate_password()) for e in emails}
 
-    results = asyncio.run(apply(emails, args.plan, passwords))
+    results = asyncio.run(apply(emails, args.plan, passwords, set_password=args.password is not None))
 
     target = "PRODUCTION" if args.prod else "local"
     print(f"target: {target}")
     for email, action, plan in results:
-        print(f"  {action:<8} {email:<32} plan={plan}  password={passwords[email]}")
+        pw = passwords[email] if (action == "created" or args.password is not None) else "(kept)"
+        print(f"  {action:<8} {email:<32} plan={plan}  password={pw}")
     return 0
 
 

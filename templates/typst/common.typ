@@ -87,25 +87,31 @@
 #let density-params(settings) = {
   let density = settings.at("density", default: "normal")
   let scale = settings.at("font_scale", default: 1.0)
+  // Spacing rhythm: inter-bullet gap ~0.45em so list items read as separate
+  // thoughts (leading + gap ≈ 1.7x the intra-bullet line gap), entries one
+  // visible step wider than bullets, sections one step wider than entries.
+  // Retuned 2026-07-28 after the "crammed page with an empty bottom" report:
+  // the old normal bullet-gap (2.2pt) was barely above the line gap, so
+  // bullets fused into a block while fill stopped at 0.82.
   let p = if density == "tight" {
     (
       base: 9.4pt, small: 8.4pt, name: 21.5pt, headline: 10.6pt, h: 9.2pt,
-      leading: 0.56em, par-gap: 0.5em,
-      sect-above: 8.5pt, sect-below: 4.5pt, entry-gap: 5pt, bullet-gap: 1.6pt,
+      leading: 0.58em, par-gap: 0.54em,
+      sect-above: 10pt, sect-below: 5pt, entry-gap: 6.5pt, bullet-gap: 3.2pt,
       margin-y: 0.95cm, margin-x: 1.05cm, photo: 2.15cm,
     )
   } else if density == "xtight" {
     (
       base: 8.9pt, small: 8pt, name: 20pt, headline: 10pt, h: 8.7pt,
-      leading: 0.5em, par-gap: 0.42em,
-      sect-above: 6.5pt, sect-below: 3.5pt, entry-gap: 3.8pt, bullet-gap: 1.1pt,
+      leading: 0.52em, par-gap: 0.46em,
+      sect-above: 7.5pt, sect-below: 4pt, entry-gap: 4.6pt, bullet-gap: 2.2pt,
       margin-y: 0.85cm, margin-x: 0.95cm, photo: 2cm,
     )
   } else {
     (
       base: 10pt, small: 8.9pt, name: 23.5pt, headline: 11.4pt, h: 9.8pt,
-      leading: 0.62em, par-gap: 0.58em,
-      sect-above: 11pt, sect-below: 6pt, entry-gap: 7pt, bullet-gap: 2.2pt,
+      leading: 0.65em, par-gap: 0.62em,
+      sect-above: 13pt, sect-below: 6.5pt, entry-gap: 9pt, bullet-gap: 4.6pt,
       margin-y: 1.1cm, margin-x: 1.15cm, photo: 2.4cm,
     )
   }

@@ -157,12 +157,38 @@ async def test_fill_pass_respects_already_full_pages():
     result, source = await renderer.compile_document("cv", "onyx", data, settings, fmt="svg")
     assert result.ok
     assert result.pages == 1
-    if base_fill >= 0.80:
+    if base_fill >= renderer._FILL_MIN:
         assert result.font_scale_used == 1.0
     else:
         assert result.font_scale_used > 1.0
         final_fill = await renderer.measure_fill(source)
         assert final_fill is not None and final_fill > base_fill
+
+
+def test_density_spacing_rhythm_keeps_bullets_separated():
+    """Guards the 2026-07 "crammed page" regression: at every density the
+    visual gap BETWEEN bullets (leading + bullet-gap) must be clearly larger
+    than the line gap INSIDE a wrapped bullet (leading alone), and the
+    hierarchy bullet < entry < section must hold. With the old constants
+    (normal bullet-gap 2.2pt vs 6.2pt line gap, ratio 1.35) bullets fused
+    into a wall of text; the retune keeps the ratio >= 1.45."""
+    import re
+
+    from backend.app.config import get_settings
+
+    src = (get_settings().templates_dir / "typst" / "common.typ").read_text(encoding="utf-8")
+    rows = re.findall(
+        r"base: ([\d.]+)pt.*?leading: ([\d.]+)em.*?"
+        r"sect-above: ([\d.]+)pt, sect-below: [\d.]+pt, "
+        r"entry-gap: ([\d.]+)pt, bullet-gap: ([\d.]+)pt",
+        src,
+        re.S,
+    )
+    assert len(rows) == 3, "expected the three density parameter sets"
+    for base, leading, sect_above, entry_gap, bullet_gap in ((float(v) for v in r) for r in rows):
+        line_gap = leading * base
+        assert (line_gap + bullet_gap) / line_gap >= 1.45, "bullets fuse with wrapped lines"
+        assert bullet_gap < entry_gap < sect_above, "spacing hierarchy inverted"
 
 
 async def test_measure_fill_orders_documents():

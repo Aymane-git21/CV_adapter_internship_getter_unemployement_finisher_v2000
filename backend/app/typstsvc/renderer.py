@@ -28,8 +28,8 @@ _DENSITIES = ["normal", "tight", "xtight"]
 
 # A4 page height in pt; fill = content-end y / page height.
 _PAGE_H_PT = 841.89
-_FILL_MIN = 0.80     # below this the page reads visibly empty -> scale up
-_FILL_TARGET = 0.92  # aim the content end here when upscaling
+_FILL_MIN = 0.88     # below this the page reads visibly empty -> scale up
+_FILL_TARGET = 0.95  # aim the content end here when upscaling
 _MAX_FONT_SCALE = 1.5
 
 _semaphore: asyncio.Semaphore | None = None

@@ -80,6 +80,9 @@ class Job(Base):
     analysis: Mapped[dict | None] = mapped_column(JSON, default=None)
     events: Mapped[list] = mapped_column(JSON, default=list)
     error: Mapped[str | None] = mapped_column(Text, default=None)
+    # Inputs needed to re-run this job (master_data, photo_id, template, accent,
+    # show_photo). NULL on rows created before retry support.
+    gen_params: Mapped[dict | None] = mapped_column(JSON, default=None)
     byok: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)

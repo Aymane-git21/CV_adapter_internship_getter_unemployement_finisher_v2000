@@ -38,12 +38,23 @@ async def get_db() -> AsyncIterator[AsyncSession]:
         yield session
 
 
+def _ensure_columns(conn) -> None:
+    """Minimal in-place migration: create_all only creates missing tables, so
+    columns added to existing tables are ALTERed here (SQLite and Postgres)."""
+    from sqlalchemy import inspect, text
+
+    cols = {c["name"] for c in inspect(conn).get_columns("jobs")}
+    if "gen_params" not in cols:
+        conn.execute(text("ALTER TABLE jobs ADD COLUMN gen_params JSON"))
+
+
 async def init_db() -> None:
     from . import models  # noqa: F401  (register tables)
 
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_ensure_columns)
 
 
 async def dispose_db() -> None:

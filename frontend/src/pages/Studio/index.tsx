@@ -72,20 +72,40 @@ function ProgressView({ job }: { job: JobSnapshot }) {
   );
 }
 
-function FailedView({ job, onClose }: { job: JobSnapshot; onClose: () => void }) {
+function FailedView({ job, onRetry, onClose }: {
+  job: JobSnapshot; onRetry: () => Promise<void>; onClose: () => void;
+}) {
   const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   return (
     <div className="grid h-full place-items-center p-6">
       <div className="max-w-md text-center">
         <XCircle size={32} className="mx-auto mb-3 text-danger" />
         <h2 className="mb-2 font-sans text-lg font-semibold">{t("studio.failed")}</h2>
-        <p className="mb-5 text-sm text-text/70">{job.error}</p>
-        <button
-          onClick={onClose}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
-        >
-          {t("studio.retry")}
-        </button>
+        <p className="mb-5 text-sm text-text/70">{retryError ?? job.error}</p>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => {
+              setBusy(true);
+              setRetryError(null);
+              onRetry()
+                .catch((e) => setRetryError(e instanceof Error ? e.message : String(e)))
+                .finally(() => setBusy(false));
+            }}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
+          >
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            {t("studio.retry")}
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-md border border-black/10 px-4 py-2 text-sm text-text/70 hover:glass-panel hover:text-text"
+          >
+            {t("studio.close")}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -158,6 +178,7 @@ export default function Studio() {
   const activeJobId = useStudio((s) => s.activeJobId);
   const setActive = useStudio((s) => s.setActive);
   const closeJob = useStudio((s) => s.closeJob);
+  const retryJob = useStudio((s) => s.retryJob);
   const restoreTabs = useStudio((s) => s.restoreTabs);
   const [showNew, setShowNew] = useState(false);
 
@@ -200,7 +221,11 @@ export default function Studio() {
         {showNewPanel ? (
           <NewJobPanel onLaunched={() => setShowNew(false)} />
         ) : !activeJob ? null : activeJob.status === "failed" ? (
-          <FailedView job={activeJob} onClose={() => closeJob(activeJob.id)} />
+          <FailedView
+            job={activeJob}
+            onRetry={() => retryJob(activeJob.id)}
+            onClose={() => closeJob(activeJob.id)}
+          />
         ) : activeJob.status !== "completed" ? (
           <ProgressView job={activeJob} />
         ) : (

@@ -165,6 +165,91 @@ async def test_config_public(client):
     assert any(p["key"] == "plus" for p in cfg["plans"])
 
 
+async def test_retry_failed_job(client, monkeypatch):
+    """A failed job is retried in place: same id, quota re-charged, docs produced."""
+    from backend.app.ai.base import AIError
+    from backend.app.ai.fake import FakeProvider
+
+    await _register(client)
+    r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})
+    cv_id = r.json()["id"]
+
+    real_analyze = FakeProvider.analyze
+
+    async def exploding_analyze(self, jd, cv_text, language):
+        raise AIError("model melted")
+
+    monkeypatch.setattr(FakeProvider, "analyze", exploding_analyze)
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "master_cv_id": cv_id, "language": "en"},
+    )
+    assert r.status_code == 200, r.text
+    job_id = r.json()["jobs"][0]
+    snap = await _wait_job(client, job_id)
+    assert snap["status"] == "failed"
+    assert "model melted" in snap["error"]
+
+    # The failed attempt was refunded.
+    me = await client.get("/api/auth/me")
+    assert me.json()["quota"]["used_today"] == 0
+
+    # Retry with the provider healthy again: same job id, fresh run.
+    monkeypatch.setattr(FakeProvider, "analyze", real_analyze)
+    r = await client.post(f"/api/jobs/{job_id}/retry")
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == job_id
+    assert r.json()["status"] == "queued"
+    assert r.json()["error"] is None
+    assert r.json()["events"] == []
+
+    snap = await _wait_job(client, job_id)
+    assert snap["status"] == "completed", snap.get("error")
+    assert {d["kind"] for d in snap["documents"]} == {"cv", "letter", "message"}
+    me = await client.get("/api/auth/me")
+    assert me.json()["quota"]["used_today"] == 1
+
+    # A completed job cannot be retried.
+    r = await client.post(f"/api/jobs/{job_id}/retry")
+    assert r.status_code == 409
+
+
+async def test_retry_guards(client, monkeypatch):
+    """Retry 404s on unknown jobs and is owner-only for account jobs."""
+    from backend.app.ai.base import AIError
+    from backend.app.ai.fake import FakeProvider
+
+    r = await client.post("/api/jobs/doesnotexist/retry")
+    assert r.status_code == 404
+
+    await _register(client)
+    r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})
+    cv_id = r.json()["id"]
+
+    async def exploding_analyze(self, jd, cv_text, language):
+        raise AIError("boom")
+
+    monkeypatch.setattr(FakeProvider, "analyze", exploding_analyze)
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "master_cv_id": cv_id, "language": "en"},
+    )
+    assert r.status_code == 200, r.text
+    job_id = r.json()["jobs"][0]
+    snap = await _wait_job(client, job_id)
+    assert snap["status"] == "failed"
+
+    # Anonymous caller cannot retry an account-owned job.
+    await client.post("/api/auth/logout")
+    r = await client.post(f"/api/jobs/{job_id}/retry")
+    assert r.status_code == 403
+
+    # Neither can a different user.
+    await _register(client)
+    r = await client.post(f"/api/jobs/{job_id}/retry")
+    assert r.status_code == 403
+
+
 async def test_chat_source_edit_repair_round(client, monkeypatch):
     """A source-mode chat edit that does not compile gets ONE repair round
     with the compiler diagnostics; if the repair compiles it is applied,

@@ -41,6 +41,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
   const [uploading, setUploading] = useState(false);
 
   const [docLang, setDocLang] = useState(lang);
+  const [intensity, setIntensity] = useState<"reshape" | "minor" | "major" | "max_ats">("major");
   const [template, setTemplate] = useState("onyx");
   const [accent, setAccent] = useState("#0F62FE");
   const [photoId, setPhotoId] = useState<string | null>(null);
@@ -83,6 +84,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
         master_cv_id: cvMode === "saved" ? savedCvId : cvMode === "upload" ? (uploadedCv?.id ?? null) : null,
         cv_text: cvMode === "paste" ? cvText : null,
         language: docLang,
+        rewrite_intensity: intensity,
         template,
         accent,
         show_photo: !!photoId,
@@ -281,6 +283,18 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <p className="eyebrow mb-3">{t("studio.intensity.title")}</p>
+            <div className="inline-flex gap-1 rounded-lg border border-black/10 glass-panel p-1">
+              {(["reshape", "minor", "major", "max_ats"] as const).map((lvl) => (
+                <button key={lvl} className={seg(intensity === lvl)} onClick={() => setIntensity(lvl)}>
+                  {t(`studio.intensity.${lvl}`)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[12px] text-text/60">{t(`studio.intensity.${intensity}.desc`)}</p>
           </div>
 
           <div>

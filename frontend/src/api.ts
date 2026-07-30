@@ -178,6 +178,7 @@ export const api = {
     job_descriptions: string[]; master_cv_id?: number | null; cv_text?: string | null;
     language: string; template: string; accent: string; show_photo: boolean;
     photo_id?: string | null; save_master?: boolean;
+    rewrite_intensity?: "reshape" | "minor" | "major" | "max_ats";
   }) => request<{ jobs: string[] }>("/api/generate", { method: "POST", body: JSON.stringify(body) }),
 
   job: (id: string) => request<JobSnapshot>(`/api/jobs/${id}`),

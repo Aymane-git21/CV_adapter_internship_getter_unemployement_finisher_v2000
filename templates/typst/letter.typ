@@ -12,7 +12,12 @@
     "IBM Plex Sans"
   }
 
-  set page(paper: "a4", margin: (x: 2.1cm, top: 1.7cm, bottom: 1.7cm))
+  let continuous = settings.at("page_mode", default: "paged") == "continuous"
+  set page(
+    width: 21cm,
+    height: if continuous { auto } else { 29.7cm },
+    margin: (x: 2.1cm, top: 1.7cm, bottom: 1.7cm),
+  )
   set text(font: family, size: 10.6pt, fill: ink, lang: settings.at("lang", default: "en"))
   set par(leading: 0.68em, justify: true, spacing: 0.9em)
 

@@ -12,6 +12,9 @@ Design notes:
   the page empty are retried with a larger font_scale until the page reads
   full. Underfull detection asks Typst itself (`typst query` on an appended
   end-of-content marker) instead of guessing from the SVG.
+- Continuous page mode (settings.page_mode == "continuous") is compiled with
+  fit_one_page=False by all callers; the fit loop and measure_fill are
+  A4-only by design.
 """
 import asyncio
 import json

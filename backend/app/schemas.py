@@ -124,6 +124,7 @@ class DocSettings(BaseModel):
     show_photo: bool = False
     font_scale: float = 1.0
     lang: str = "en"
+    page_mode: str = "paged"  # paged | continuous
 
 
 # ---------------------------------------------------------------------------

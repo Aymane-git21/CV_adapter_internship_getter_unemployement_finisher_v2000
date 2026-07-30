@@ -197,10 +197,12 @@ async def _pipeline(
     ).model_dump()
 
     cv_result, cv_source = await renderer.compile_document(
-        "cv", template, tailored.model_dump(), doc_settings, photo=photo_bytes, fmt="pdf"
+        "cv", template, tailored.model_dump(), doc_settings, photo=photo_bytes, fmt="pdf",
+        fit_one_page=doc_settings.get("page_mode") != "continuous",
     )
     letter_result, letter_source = await renderer.compile_document(
-        "letter", template, letter.model_dump(), doc_settings, photo=None, fmt="pdf"
+        "letter", template, letter.model_dump(), doc_settings, photo=None, fmt="pdf",
+        fit_one_page=doc_settings.get("page_mode") != "continuous",
     )
     if not cv_result.ok or not letter_result.ok:
         diag = cv_result.diagnostics or letter_result.diagnostics

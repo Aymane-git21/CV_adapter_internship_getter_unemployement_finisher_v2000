@@ -182,6 +182,7 @@ export const api = {
   }) => request<{ jobs: string[] }>("/api/generate", { method: "POST", body: JSON.stringify(body) }),
 
   job: (id: string) => request<JobSnapshot>(`/api/jobs/${id}`),
+  retryJob: (id: string) => request<JobSnapshot>(`/api/jobs/${id}/retry`, { method: "POST" }),
 
   document: (id: string) => request<DocumentPayload>(`/api/documents/${id}`),
   updateDocument: (id: string, body: { data?: object; settings?: DocSettings; text_content?: string }) =>

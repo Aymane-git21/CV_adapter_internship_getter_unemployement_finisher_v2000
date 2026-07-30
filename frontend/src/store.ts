@@ -60,6 +60,7 @@ interface StudioState {
   restoreTabs: () => Promise<void>;
   openJobs: (ids: string[]) => void;
   closeJob: (id: string) => void;
+  retryJob: (id: string) => Promise<void>;
   setActive: (jobId: string, kind?: DocKind) => void;
   setActiveKind: (kind: DocKind) => void;
   watchJob: (id: string) => void;
@@ -118,6 +119,12 @@ export const useStudio = create<StudioState>((set, get) => ({
         activeJobId: st.activeJobId === id ? (order.at(-1) ?? null) : st.activeJobId,
       };
     });
+  },
+
+  retryJob: async (id) => {
+    const snap = await api.retryJob(id); // throws ApiError on quota/ownership refusals
+    set((st) => ({ jobs: { ...st.jobs, [id]: snap } }));
+    get().watchJob(id);
   },
 
   setActive: (jobId, kind) =>

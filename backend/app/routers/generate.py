@@ -88,6 +88,14 @@ async def generate(
         if body.rewrite_intensity in ("reshape", "minor", "major", "max_ats")
         else "major"
     )
+    gen_params = {
+        "master_data": master_data,
+        "photo_id": body.photo_id,
+        "template": body.template,
+        "accent": body.accent,
+        "show_photo": body.show_photo,
+        "intensity": intensity,
+    }
     job_ids: list[str] = []
     for jd in jds:
         job = Job(
@@ -97,6 +105,7 @@ async def generate(
             job_description=jd,
             byok=byok is not None,
             events=[],
+            gen_params=gen_params,
         )
         db.add(job)
         job_ids.append(job.id)
@@ -122,6 +131,50 @@ async def _load_snapshot(job_id: str) -> dict | None:
                 .scalars().all()
             )
         return job_snapshot(job, docs)
+
+
+@router.post("/jobs/{job_id}/retry")
+async def retry_job(
+    job_id: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User | None, Depends(get_current_user)],
+    byok: Annotated[str | None, Depends(get_byok_key)],
+):
+    """Re-run a failed job in place with its original inputs (same job id)."""
+    job = await db.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.user_id is not None and (user is None or user.id != job.user_id):
+        raise HTTPException(status_code=403, detail="This job belongs to another account.")
+    if job.status != "failed":
+        raise HTTPException(status_code=409, detail="Only failed jobs can be retried.")
+    params = job.gen_params
+    if not params:
+        raise HTTPException(
+            status_code=409,
+            detail="This job predates retry support. Start a new generation instead.",
+        )
+
+    guest_hash = guest_key_hash(request) if job.user_id is None else None
+    await check_quota(
+        db, user if job.user_id is not None else None, guest_hash, 1,
+        byok is not None, params["template"],
+    )
+
+    job.status = "queued"
+    job.error = None
+    job.events = []
+    job.finished_at = None
+    job.byok = byok is not None
+    await db.commit()
+
+    spawn_job(
+        job.id, params["master_data"], params.get("photo_id"), params["template"],
+        params.get("accent", "#0F62FE"), bool(params.get("show_photo")), byok,
+        params.get("intensity", "major"), guest_hash=guest_hash,
+    )
+    return job_snapshot(job)
 
 
 @router.get("/jobs/{job_id}")

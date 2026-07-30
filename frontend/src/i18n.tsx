@@ -81,6 +81,7 @@ export const dict = {
     "studio.guest.cta": "Create a free account to keep your documents and generate more.",
     "studio.failed": "Generation failed",
     "studio.retry": "Try again",
+    "studio.close": "Close",
     // content editor
     "ed.identity": "Identity",
     "ed.fullName": "Full name",
@@ -188,6 +189,7 @@ export const dict = {
     "studio.guest.cta": "Créez un compte gratuit pour conserver vos documents et en générer plus.",
     "studio.failed": "Échec de la génération",
     "studio.retry": "Réessayer",
+    "studio.close": "Fermer",
     "ed.identity": "Identité",
     "ed.fullName": "Nom complet",
     "ed.headline": "Titre",
@@ -292,6 +294,7 @@ export const dict = {
     "studio.guest.cta": "Erstellen Sie ein kostenloses Konto, um Ihre Dokumente zu behalten und mehr zu generieren.",
     "studio.failed": "Generierung fehlgeschlagen",
     "studio.retry": "Erneut versuchen",
+    "studio.close": "Schließen",
     "ed.identity": "Identität",
     "ed.fullName": "Vollständiger Name",
     "ed.headline": "Titel",

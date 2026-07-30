@@ -24,6 +24,7 @@ async def public_config():
         "adsense_client": settings.adsense_client or None,
         "ai_mode": "gemini" if settings.ai_enabled else "offline",
         "byok_enabled": True,
+        "latex_enabled": settings.latex_enabled,
         "templates": [
             {"id": "onyx", "label": "Onyx", "vibe": "Modern · Sans", "default_accent": "#0F62FE"},
             {"id": "classic", "label": "Classic", "vibe": "Traditional · Serif", "default_accent": "#1C3B5A"},

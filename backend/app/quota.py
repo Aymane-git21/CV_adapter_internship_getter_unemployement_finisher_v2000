@@ -19,13 +19,14 @@ class Plan:
     parallel: int
     templates: tuple[str, ...]
     price_eur: float
+    latex: bool = False  # access to the warm LaTeX compiler (services/latexc)
 
 
 PLANS: dict[str, Plan] = {
     "guest": Plan("guest", "Guest", 1, 1, ("onyx",), 0),
     "free": Plan("free", "Free", 3, 1, ("onyx", "classic"), 0),
-    "plus": Plan("plus", "Plus", 30, 3, tuple(ALL_TEMPLATES), 5.0),
-    "pro": Plan("pro", "Pro", 1000, 10, tuple(ALL_TEMPLATES), 12.0),
+    "plus": Plan("plus", "Plus", 30, 3, tuple(ALL_TEMPLATES), 5.0, latex=True),
+    "pro": Plan("pro", "Pro", 1000, 10, tuple(ALL_TEMPLATES), 12.0, latex=True),
 }
 
 # Bring-your-own-key: the user pays Gemini directly, so daily caps don't apply.
@@ -159,4 +160,5 @@ def quota_snapshot(user: User | None) -> dict:
         "remaining_today": max(0, plan.daily - used),
         "parallel": plan.parallel,
         "templates": list(plan.templates),
+        "latex": plan.latex,
     }

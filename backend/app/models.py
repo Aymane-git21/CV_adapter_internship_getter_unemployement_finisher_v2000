@@ -101,7 +101,7 @@ class Document(Base):
     template_id: Mapped[str] = mapped_column(String(32), default="onyx")
     settings: Mapped[dict] = mapped_column(JSON, default=dict)
     data: Mapped[dict | None] = mapped_column(JSON, default=None)  # CVData / LetterData
-    source: Mapped[str | None] = mapped_column(Text, default=None)  # Typst source
+    source: Mapped[str | None] = mapped_column(Text, default=None)  # Typst or LaTeX source, per settings.compiler
     mode: Mapped[str] = mapped_column(String(8), default="data")  # data | source
     text_content: Mapped[str | None] = mapped_column(Text, default=None)  # message kind
     photo_id: Mapped[str | None] = mapped_column(String(32), default=None)
@@ -111,6 +111,16 @@ class Document(Base):
     keywords: Mapped[dict | None] = mapped_column(JSON, default=None)  # {matched, missing}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class LatexActivity(Base):
+    """Single row (id=1): timestamp of the last successful LaTeX compile.
+    Drives the idle reaper that scales the warm latexc service down."""
+
+    __tablename__ = "latex_activity"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    last_compile_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class FeedbackEntry(Base):

@@ -8,10 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..ai import get_provider
 from ..ai.base import AIError
+from ..config import get_settings
 from ..db import get_db
 from ..models import Document, Photo, User
+from ..quota import plan_for
 from ..schemas import ChatIn, CompileIn, CVData, DocumentUpdateIn, LetterData
 from ..security import get_byok_key, get_current_user
+from ..texsvc.activity import touch_latex_activity
+from ..texsvc.client import compile_tex
+from ..texsvc.tex_onyx import render_tex
 from ..typstsvc import renderer
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -28,6 +33,10 @@ async def _get_doc(db: AsyncSession, doc_id: str, user: User | None) -> Document
     if doc.user_id is not None and (user is None or user.id != doc.user_id):
         raise HTTPException(status_code=404, detail="Document not found.")
     return doc
+
+
+def _is_latex(doc: Document) -> bool:
+    return (doc.settings or {}).get("compiler") == "latex"
 
 
 async def _photo_bytes(db: AsyncSession, doc: Document) -> bytes | None:
@@ -67,7 +76,13 @@ async def get_document(
     doc = await _get_doc(db, doc_id, user)
     svgs = None
     if include_svg and doc.kind != "message" and doc.source:
-        result = await renderer.compile_source(doc.source, photo=await _photo_bytes(db, doc), fmt="svg")
+        if _is_latex(doc):
+            result, _ = await compile_tex(doc.id, doc.source)
+            if result.ok:
+                await touch_latex_activity(db)
+                await db.commit()
+        else:
+            result = await renderer.compile_source(doc.source, photo=await _photo_bytes(db, doc), fmt="svg")
         if result.ok:
             svgs = result.svgs
     return _doc_payload(doc, svgs)
@@ -96,25 +111,53 @@ async def update_document(
         new_settings = body.settings.model_dump()
         if new_settings.get("page_mode") not in ("paged", "continuous"):
             new_settings["page_mode"] = "paged"
+        if new_settings.get("compiler") not in ("typst", "latex"):
+            new_settings["compiler"] = "typst"
+        if new_settings["compiler"] == "latex":
+            if (
+                not get_settings().latex_enabled
+                or doc.kind != "cv"
+                or new_settings.get("template") != "onyx"
+            ):
+                new_settings["compiler"] = "typst"  # silent coercion: unsupported combo
+            elif not plan_for(user).latex:
+                raise HTTPException(
+                    status_code=403,
+                    detail={"code": "latex_locked", "message": "The LaTeX compiler requires a higher plan."},
+                )
+            else:
+                new_settings["page_mode"] = "paged"  # continuous is Typst-only (v1)
+                new_settings["show_photo"] = False  # no photo in the LaTeX template (v1)
         doc.template_id = new_settings.get("template", doc.template_id)
         doc.settings = new_settings
 
     photo = await _photo_bytes(db, doc)
     if doc.mode == "data":
-        result, source = await renderer.compile_document(
-            doc.kind, doc.template_id, doc.data or {}, doc.settings or {}, photo=photo, fmt="svg",
-            fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
-        )
+        if _is_latex(doc):
+            result, source = await compile_tex(doc.id, render_tex(doc.data or {}, doc.settings or {}))
+        else:
+            result, source = await renderer.compile_document(
+                doc.kind, doc.template_id, doc.data or {}, doc.settings or {}, photo=photo, fmt="svg",
+                fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
+            )
         if not result.ok:
             raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
         doc.source = source
-        doc.settings = {
-            **(doc.settings or {}),
-            "density": result.density_used,
-            "font_scale": result.font_scale_used,
-        }
+        if _is_latex(doc):
+            await touch_latex_activity(db)
+        else:
+            doc.settings = {
+                **(doc.settings or {}),
+                "density": result.density_used,
+                "font_scale": result.font_scale_used,
+            }
     else:
-        result = await renderer.compile_source(doc.source or "", photo=photo, fmt="svg")
+        if _is_latex(doc):
+            result, _ = await compile_tex(doc.id, doc.source or "")
+            if result.ok:
+                await touch_latex_activity(db)
+        else:
+            result = await renderer.compile_source(doc.source or "", photo=photo, fmt="svg")
         if not result.ok:
             raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
     doc.pdf = None  # invalidate cache
@@ -137,10 +180,16 @@ async def compile_document(
     source = body.source if body.source is not None else (doc.source or "")
     if len(source) > _MAX_SOURCE:
         raise HTTPException(status_code=413, detail="Source too large.")
-    if re.search(r"^\s*#?import\s+\"(?!/typst/)", source, re.M):
-        raise HTTPException(status_code=422, detail="Imports outside /typst/ are not allowed.")
-
-    result = await renderer.compile_source(source, photo=await _photo_bytes(db, doc), fmt="svg")
+    if _is_latex(doc):
+        if re.search(r"\\write18", source):
+            raise HTTPException(status_code=422, detail="Shell escape is not allowed.")
+        result, _ = await compile_tex(doc.id, source)
+        if result.ok:
+            await touch_latex_activity(db)
+    else:
+        if re.search(r"^\s*#?import\s+\"(?!/typst/)", source, re.M):
+            raise HTTPException(status_code=422, detail="Imports outside /typst/ are not allowed.")
+        result = await renderer.compile_source(source, photo=await _photo_bytes(db, doc), fmt="svg")
     saved = False
     if body.source is not None and result.ok:
         doc.source = body.source
@@ -177,6 +226,16 @@ async def chat_edit(
             await db.commit()
             return {"ok": True, "text_content": doc.text_content, "reply": "Done, message updated."}
 
+        if doc.mode == "source" and _is_latex(doc):
+            # The AI never writes LaTeX: no chat edits, no repair round on raw .tex.
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "chat_source_latex",
+                    "message": "Chat editing is unavailable while hand-editing LaTeX source.",
+                },
+            )
+
         photo = await _photo_bytes(db, doc)
         if doc.mode == "data":
             schema = CVData if doc.kind == "cv" else LetterData
@@ -186,10 +245,15 @@ async def chat_edit(
             else:
                 edited = await provider.edit_letter_data(current, body.message, lang)
             doc.data = edited.model_dump()
-            result, source = await renderer.compile_document(
-                doc.kind, doc.template_id, doc.data, doc.settings or {}, photo=photo, fmt="svg",
-                fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
-            )
+            if _is_latex(doc):
+                result, source = await compile_tex(doc.id, render_tex(doc.data, doc.settings or {}))
+                if result.ok:
+                    await touch_latex_activity(db)
+            else:
+                result, source = await renderer.compile_document(
+                    doc.kind, doc.template_id, doc.data, doc.settings or {}, photo=photo, fmt="svg",
+                    fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
+                )
             if not result.ok:
                 raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
             doc.source = source
@@ -232,9 +296,14 @@ async def download_pdf(
     if doc.kind == "message":
         raise HTTPException(status_code=422, detail="Messages are plain text. Use copy instead.")
     if doc.pdf is None:
-        result = await renderer.compile_source(
-            doc.source or "", photo=await _photo_bytes(db, doc), fmt="pdf"
-        )
+        if _is_latex(doc):
+            result, _ = await compile_tex(doc.id, doc.source or "")
+            if result.ok:
+                await touch_latex_activity(db)
+        else:
+            result = await renderer.compile_source(
+                doc.source or "", photo=await _photo_bytes(db, doc), fmt="pdf"
+            )
         if not result.ok:
             raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
         doc.pdf = result.pdf
@@ -255,10 +324,26 @@ async def download_source(
     user: Annotated[User | None, Depends(get_current_user)],
 ):
     doc = await _get_doc(db, doc_id, user)
-    if not doc.source:
-        raise HTTPException(status_code=404, detail="No source available.")
+    if not doc.source or _is_latex(doc):
+        raise HTTPException(status_code=404, detail="No Typst source available.")
     return Response(
         content=doc.source,
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{doc.kind}-{doc.id[:8]}.typ"'},
+    )
+
+
+@router.get("/{doc_id}/source.tex")
+async def download_source_tex(
+    doc_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User | None, Depends(get_current_user)],
+):
+    doc = await _get_doc(db, doc_id, user)
+    if not doc.source or not _is_latex(doc):
+        raise HTTPException(status_code=404, detail="No LaTeX source available.")
+    return Response(
+        content=doc.source,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{doc.kind}-{doc.id[:8]}.tex"'},
     )

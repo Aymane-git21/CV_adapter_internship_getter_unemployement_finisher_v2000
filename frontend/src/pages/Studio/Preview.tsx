@@ -2,6 +2,7 @@
 import { Download, FileCode2, Loader2, Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "../../i18n";
+import { SettingsPopover } from "./SettingsPopover";
 import type { DocController } from "./useDocument";
 
 function ScoreCard({ ctl }: { ctl: DocController }) {
@@ -85,6 +86,8 @@ export function Preview({ ctl }: { ctl: DocController }) {
           >
             <Plus size={13} />
           </button>
+          <span className="mx-1 h-4 w-px bg-black/10" />
+          <SettingsPopover ctl={ctl} />
           {syncing && <Loader2 size={12} className="ml-2 animate-spin text-primary/80" />}
         </div>
         <div className="flex items-center gap-2">

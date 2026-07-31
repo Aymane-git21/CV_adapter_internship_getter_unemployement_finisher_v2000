@@ -182,6 +182,7 @@ export const api = {
     language: string; template: string; accent: string; show_photo: boolean;
     photo_id?: string | null; save_master?: boolean;
     rewrite_intensity?: "reshape" | "minor" | "major" | "max_ats";
+    compiler?: "typst" | "latex";
   }) => request<{ jobs: string[] }>("/api/generate", { method: "POST", body: JSON.stringify(body) }),
 
   job: (id: string) => request<JobSnapshot>(`/api/jobs/${id}`),
@@ -204,6 +205,12 @@ export const api = {
   billingCheckout: (plan: string) =>
     request<{ url: string }>("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) }),
   billingPortal: () => request<{ url: string }>("/api/billing/portal", { method: "POST" }),
+
+  templateSource: async (name: string): Promise<string> => {
+    const r = await fetch(`/api/templates/typst/${name}`, { credentials: "same-origin" });
+    if (!r.ok) throw new Error(`Template ${name} not found`);
+    return r.text();
+  },
 
   latexWarmup: () =>
     request<{ warm: boolean; starting: boolean }>("/api/latex/warmup", { method: "POST" }),

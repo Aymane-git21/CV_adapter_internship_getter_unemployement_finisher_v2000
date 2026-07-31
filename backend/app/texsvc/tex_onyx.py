@@ -270,5 +270,9 @@ def render_tex(data: dict, settings: dict) -> str:
             joined = esc("  ·  ").join(esc(it) for it in cv.interests)
             out.append(rf"\noindent{{\szsmall\color{{cvmuted}}{joined}}}\par")
 
+    # One-page fill probe: \pagetotal/\pagegoal of the last page, typed into
+    # the log at end of document. texsvc.client parses the CVGFILL line for
+    # the fit loop; absent or malformed reads as None (fail open).
+    out.append(r"\AtEndDocument{\typeout{CVGFILL:\the\pagetotal/\the\pagegoal}}")
     out.append(r"\end{document}")
     return "\n".join(out) + "\n"

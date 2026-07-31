@@ -42,6 +42,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
 
   const [docLang, setDocLang] = useState(lang);
   const [intensity, setIntensity] = useState<"reshape" | "minor" | "major" | "max_ats">("major");
+  const [compiler, setCompiler] = useState<"typst" | "latex">("typst");
   const [template, setTemplate] = useState("onyx");
   const [accent, setAccent] = useState("#0F62FE");
   const [photoId, setPhotoId] = useState<string | null>(null);
@@ -85,6 +86,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
         cv_text: cvMode === "paste" ? cvText : null,
         language: docLang,
         rewrite_intensity: intensity,
+        compiler,
         template,
         accent,
         show_photo: !!photoId,
@@ -314,7 +316,11 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
                   <button
                     key={tpl.id}
                     disabled={locked}
-                    onClick={() => { setTemplate(tpl.id); setAccent(tpl.default_accent); }}
+                    onClick={() => {
+                      setTemplate(tpl.id);
+                      setAccent(tpl.default_accent);
+                      if (tpl.id !== "onyx") setCompiler("typst");
+                    }}
                     className={`flex w-full items-center justify-between rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
                       template === tpl.id
                         ? "border-flame-500 bg-flame-950"
@@ -333,6 +339,39 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
               })}
             </div>
           </div>
+
+          {config?.latex_enabled && (
+            <div>
+              <p className="eyebrow mb-3">{t("studio.compiler.title")}</p>
+              <div className="space-y-2">
+                {(["typst", "latex"] as const).map((c) => {
+                  const locked = c === "latex" && (!me?.quota.latex || template !== "onyx");
+                  return (
+                    <button
+                      key={c}
+                      disabled={locked}
+                      onClick={() => setCompiler(c)}
+                      className={`flex w-full items-center justify-between rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
+                        compiler === c
+                          ? "border-flame-500 bg-flame-950"
+                          : "border-black/10 glass-panel hover:border-ink-600"
+                      } ${locked ? "opacity-45" : ""}`}
+                    >
+                      <span>
+                        <span className="block text-[13px] font-medium">{t(`studio.compiler.${c}`)}</span>
+                        <span className="block text-[11px] text-text/50">
+                          {c === "latex" && locked
+                            ? t(!me?.quota.latex ? "studio.compiler.latex.locked" : "studio.compiler.latex.onyxonly")
+                            : t(`studio.compiler.${c}.desc`)}
+                        </span>
+                      </span>
+                      {locked && <Lock size={13} className="shrink-0 text-text/50" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="eyebrow mb-3">{t("studio.accent")}</p>

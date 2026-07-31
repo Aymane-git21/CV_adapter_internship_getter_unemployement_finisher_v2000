@@ -1,4 +1,5 @@
 import base64
+import re
 
 from .conftest import b64, compile_body, probe_source
 
@@ -28,6 +29,22 @@ async def test_compile_probe_cold_then_hit_then_warm(client):
     out3 = r.json()
     assert out3["ok"] and out3["cache"] == "warm"
     assert out3["pdf_b64"] != out["pdf_b64"]
+
+
+async def test_fill_probe_line_lands_in_log(client):
+    # tex_onyx appends this AtEndDocument probe; the backend fit loop parses
+    # CVGFILL:<pagetotal>/<pagegoal> from log_tail. Pin that the log actually
+    # carries it end to end through latexmk.
+    probed = probe_source().replace(
+        r"\begin{document}",
+        "\\AtEndDocument{\\typeout{CVGFILL:\\the\\pagetotal/\\the\\pagegoal}}\n\\begin{document}",
+    )
+    r = await client.post("/v1/compile", json=compile_body("doc-fill", probed))
+    out = r.json()
+    assert out["ok"], out.get("error_line") or out.get("log_tail")
+    m = re.search(r"CVGFILL:([0-9.]+)pt/([0-9.]+)pt", out["log_tail"])
+    assert m, "probe line missing from log tail"
+    assert float(m.group(2)) > 0
 
 
 async def test_compile_error_reports_line(client):

@@ -9,7 +9,6 @@ from sqlalchemy import select
 from backend.app.config import get_settings
 from backend.app.db import session_factory
 from backend.app.models import User
-from backend.app.routers import documents as documents_router
 from backend.app.typstsvc.renderer import CompileResult
 
 from .conftest import SAMPLE_CV_TEXT, SAMPLE_JD, unique_email
@@ -25,11 +24,20 @@ def latex_env(monkeypatch):
 
     calls = {"n": 0}
 
-    async def fake_compile_tex(doc_id: str, tex_source: str):
+    async def fake_compile_tex_measured(doc_id: str, tex_source: str):
+        # One page at a healthy fill: the fit loop settles on the first attempt.
         calls["n"] += 1
-        return CompileResult(ok=True, pages=1, pdf=b"%PDF-fake", svgs=[FAKE_SVG]), tex_source
+        return (
+            CompileResult(ok=True, pages=1, pdf=b"%PDF-fake", svgs=[FAKE_SVG]),
+            tex_source,
+            0.95,
+        )
 
-    monkeypatch.setattr(documents_router, "compile_tex", fake_compile_tex)
+    # The single choke point: the compile_tex wrapper, the fit loop, and the
+    # job pipeline all route through client.compile_tex_measured.
+    monkeypatch.setattr(
+        "backend.app.texsvc.client.compile_tex_measured", fake_compile_tex_measured
+    )
     return calls
 
 
@@ -184,6 +192,59 @@ async def test_latex_disabled_without_service_url(client):
     r = await client.put(f"/api/documents/{doc['id']}", json={"settings": _to_latex(full["settings"])})
     assert r.status_code == 200
     assert r.json()["settings"]["compiler"] == "typst"
+
+
+async def test_generation_with_latex_compiler(client, latex_env):
+    email = unique_email()
+    await _register(client, email)
+    await _upgrade(email, "pro")
+    r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})
+    cv_id = r.json()["id"]
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "master_cv_id": cv_id, "language": "en",
+              "template": "onyx", "accent": "#C2551B", "compiler": "latex"},
+    )
+    assert r.status_code == 200, r.text
+    job_id = r.json()["jobs"][0]
+    for _ in range(120):
+        snap = (await client.get(f"/api/jobs/{job_id}")).json()
+        if snap["status"] in ("completed", "failed"):
+            break
+        await asyncio.sleep(0.4)
+    assert snap["status"] == "completed", snap.get("error")
+    cv = next(d for d in snap["documents"] if d["kind"] == "cv")
+    letter = next(d for d in snap["documents"] if d["kind"] == "letter")
+
+    full = (await client.get(f"/api/documents/{cv['id']}")).json()
+    assert full["settings"]["compiler"] == "latex"
+    assert full["source"].startswith("\\documentclass")
+    assert full["svgs"] == [FAKE_SVG]
+
+    lfull = (await client.get(f"/api/documents/{letter['id']}")).json()
+    assert lfull["settings"].get("compiler", "typst") == "typst", "letters stay on typst"
+
+
+async def test_generation_latex_downgrades_for_free_plan(client, latex_env):
+    await _register(client)  # free plan
+    r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})
+    cv_id = r.json()["id"]
+    r = await client.post(
+        "/api/generate",
+        json={"job_descriptions": [SAMPLE_JD], "master_cv_id": cv_id, "language": "en",
+              "template": "onyx", "accent": "#C2551B", "compiler": "latex"},
+    )
+    assert r.status_code == 200, r.text
+    job_id = r.json()["jobs"][0]
+    for _ in range(120):
+        snap = (await client.get(f"/api/jobs/{job_id}")).json()
+        if snap["status"] in ("completed", "failed"):
+            break
+        await asyncio.sleep(0.4)
+    assert snap["status"] == "completed", snap.get("error")
+    cv = next(d for d in snap["documents"] if d["kind"] == "cv")
+    full = (await client.get(f"/api/documents/{cv['id']}")).json()
+    assert full["settings"].get("compiler", "typst") == "typst", "silent downgrade for free plan"
 
 
 async def test_config_and_me_expose_latex(client, latex_env):

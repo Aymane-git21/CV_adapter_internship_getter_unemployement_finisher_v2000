@@ -186,6 +186,7 @@ class GenerateIn(BaseModel):
     cv_text: str | None = None  # inline paste (guests / first-time)
     language: str = "en"
     rewrite_intensity: str = "major"  # reshape | minor | major | max_ats
+    compiler: str = "typst"  # typst | latex (latex: plus/pro + onyx, silent fallback)
     template: str = "onyx"
     accent: str = "#0F62FE"
     show_photo: bool = False

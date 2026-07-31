@@ -16,7 +16,7 @@ from ..schemas import ChatIn, CompileIn, CVData, DocumentUpdateIn, LetterData
 from ..security import get_byok_key, get_current_user
 from ..texsvc.activity import touch_latex_activity
 from ..texsvc.client import compile_tex
-from ..texsvc.tex_onyx import render_tex
+from ..texsvc.fit import compile_tex_fitted
 from ..typstsvc import renderer
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -134,7 +134,7 @@ async def update_document(
     photo = await _photo_bytes(db, doc)
     if doc.mode == "data":
         if _is_latex(doc):
-            result, source = await compile_tex(doc.id, render_tex(doc.data or {}, doc.settings or {}))
+            result, source = await compile_tex_fitted(doc.id, doc.data or {}, doc.settings or {})
         else:
             result, source = await renderer.compile_document(
                 doc.kind, doc.template_id, doc.data or {}, doc.settings or {}, photo=photo, fmt="svg",
@@ -145,12 +145,12 @@ async def update_document(
         doc.source = source
         if _is_latex(doc):
             await touch_latex_activity(db)
-        else:
-            doc.settings = {
-                **(doc.settings or {}),
-                "density": result.density_used,
-                "font_scale": result.font_scale_used,
-            }
+        # Both engines settle density/font_scale one-page fits now.
+        doc.settings = {
+            **(doc.settings or {}),
+            "density": result.density_used,
+            "font_scale": result.font_scale_used,
+        }
     else:
         if _is_latex(doc):
             result, _ = await compile_tex(doc.id, doc.source or "")
@@ -246,7 +246,7 @@ async def chat_edit(
                 edited = await provider.edit_letter_data(current, body.message, lang)
             doc.data = edited.model_dump()
             if _is_latex(doc):
-                result, source = await compile_tex(doc.id, render_tex(doc.data, doc.settings or {}))
+                result, source = await compile_tex_fitted(doc.id, doc.data, doc.settings or {})
                 if result.ok:
                     await touch_latex_activity(db)
             else:

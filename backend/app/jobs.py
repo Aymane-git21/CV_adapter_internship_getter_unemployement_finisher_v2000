@@ -19,6 +19,7 @@ from .config import get_settings
 from .db import session_factory
 from .models import Document, Job, Photo
 from .schemas import CVData, DocSettings, JobAnalysis, LetterData
+from .texsvc.fit import compile_tex_fitted
 from .typstsvc import renderer
 
 log = logging.getLogger(__name__)
@@ -75,13 +76,14 @@ def spawn_job(
     show_photo: bool,
     byok_key: str | None,
     rewrite_intensity: str = "major",
+    compiler: str = "typst",
     guest_hash: str | None = None,
 ) -> None:
     """Fire-and-forget; all state lands in the DB."""
     asyncio.create_task(
         _run_job_safely(
             job_id, master_data, photo_id, template, accent, show_photo, byok_key,
-            rewrite_intensity, guest_hash,
+            rewrite_intensity, compiler, guest_hash,
         )
     )
 
@@ -94,6 +96,21 @@ async def _run_job_safely(*args) -> None:
             log.exception("job runner crashed")
 
 
+async def _ensure_latex_warm() -> None:
+    """Fire-and-forget prewarm; a failure only costs the render step the cold
+    start it would have paid anyway."""
+    from .routers.latex import set_min_instances
+    from .texsvc import client as latexc_client
+
+    try:
+        if await latexc_client.service_status():
+            return
+        if get_settings().is_prod:
+            await set_min_instances(1)
+    except Exception:
+        log.warning("latex prewarm failed", exc_info=True)
+
+
 async def _run_job(
     job_id: str,
     master_data: dict,
@@ -103,6 +120,7 @@ async def _run_job(
     show_photo: bool,
     byok_key: str | None,
     rewrite_intensity: str = "major",
+    compiler: str = "typst",
     guest_hash: str | None = None,
 ) -> None:
     async with session_factory()() as db:
@@ -111,7 +129,8 @@ async def _run_job(
             return
         try:
             await _pipeline(
-                db, job, master_data, photo_id, template, accent, show_photo, byok_key, rewrite_intensity
+                db, job, master_data, photo_id, template, accent, show_photo, byok_key,
+                rewrite_intensity, compiler,
             )
         except AIError as exc:
             job.status = "failed"
@@ -140,10 +159,15 @@ async def _pipeline(
     show_photo: bool,
     byok_key: str | None,
     rewrite_intensity: str = "major",
+    compiler: str = "typst",
 ) -> None:
     provider = get_provider(byok_key)
     language = job.language
     master = CVData.model_validate(master_data)
+    if compiler == "latex":
+        # Boot the warm compiler DURING the AI phase so the render step at the
+        # end hits a live service instead of paying the cold start itself.
+        asyncio.create_task(_ensure_latex_warm())
 
     job.status = "running"
     await _emit(db, job, "analyze", "Scanning the job description like a recruiter would…", 8)
@@ -184,7 +208,8 @@ async def _pipeline(
     letter.signature = master.full_name
 
     # ---- Render & compile -----------------------------------------------------
-    await _emit(db, job, "render", "Typesetting documents (Typst engine)…", 72)
+    engine = "LaTeX" if compiler == "latex" else "Typst"
+    await _emit(db, job, "render", f"Typesetting documents ({engine} engine)…", 72)
     photo_bytes: bytes | None = None
     if show_photo and photo_id:
         photo = await db.get(Photo, photo_id)
@@ -196,10 +221,19 @@ async def _pipeline(
         show_photo=bool(photo_bytes), lang=language,
     ).model_dump()
 
-    cv_result, cv_source = await renderer.compile_document(
-        "cv", template, tailored.model_dump(), doc_settings, photo=photo_bytes, fmt="pdf",
-        fit_one_page=doc_settings.get("page_mode") != "continuous",
-    )
+    cv_id = uuid.uuid4().hex
+    if compiler == "latex":
+        # The .tex port has no photo (v1); the letter stays on the Typst lane.
+        cv_settings_in = {**doc_settings, "compiler": "latex", "show_photo": False}
+        cv_result, cv_source = await compile_tex_fitted(
+            cv_id, tailored.model_dump(), cv_settings_in
+        )
+    else:
+        cv_settings_in = doc_settings
+        cv_result, cv_source = await renderer.compile_document(
+            "cv", template, tailored.model_dump(), doc_settings, photo=photo_bytes, fmt="pdf",
+            fit_one_page=doc_settings.get("page_mode") != "continuous",
+        )
     letter_result, letter_source = await renderer.compile_document(
         "letter", template, letter.model_dump(), doc_settings, photo=None, fmt="pdf",
         fit_one_page=doc_settings.get("page_mode") != "continuous",
@@ -209,14 +243,14 @@ async def _pipeline(
         raise AIError(f"Document rendering failed: {diag[:300]}")
 
     cv_settings = {
-        **doc_settings,
+        **cv_settings_in,
         "density": cv_result.density_used,
         "font_scale": cv_result.font_scale_used,
     }
     title = f"{analysis.job_title}" + (f" | {analysis.company}" if analysis.company else "")
 
     cv_doc = Document(
-        id=uuid.uuid4().hex, job_id=job.id, user_id=job.user_id, kind="cv",
+        id=cv_id, job_id=job.id, user_id=job.user_id, kind="cv",
         title=title, template_id=template, settings=cv_settings,
         data=tailored.model_dump(), source=cv_source, mode="data",
         photo_id=photo_id if photo_bytes else None, pdf=cv_result.pdf,

@@ -430,6 +430,14 @@ body {
   background: transparent;
   font-size: 13px;
 }
+.cm-shell .cm-tpl-link {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.cm-shell .cm-tpl-link:hover {
+  text-decoration-style: solid;
+}
 .cm-shell .cm-editor.cm-focused {
   outline: none;
 }

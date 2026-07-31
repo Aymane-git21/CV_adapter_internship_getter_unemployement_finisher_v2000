@@ -66,7 +66,7 @@ export function SettingsPopover({ ctl }: { ctl: DocController }) {
         <Settings2 size={13} />
       </button>
       {open && (
-        <div className="glass-panel absolute left-0 top-full z-20 mt-2 w-64 rounded-lg border border-black/10 p-3 shadow-lg">
+        <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-lg border border-black/10 bg-[#FFFDFA] p-3 shadow-xl">
           <p className="eyebrow mb-3">{t("studio.pagemode.title")}</p>
           <div className="space-y-2">
             {MODES.map((m) => {

@@ -2,12 +2,16 @@
 routers dispatch once and stay engine-agnostic."""
 import base64
 import logging
+import re
 
 import httpx
 from services.latexc.contract import CompileFile, LatexCompileIn, LatexCompileOut
 
 from ..config import get_settings
 from ..typstsvc.renderer import CompileResult
+
+# Emitted by tex_onyx's \AtEndDocument probe; values are TeX pt dimens.
+_FILL_RE = re.compile(r"CVGFILL:([0-9.]+)pt/([0-9.]+)pt")
 
 log = logging.getLogger("cvglowup.latexc")
 
@@ -26,7 +30,25 @@ def _http() -> httpx.AsyncClient:
     return _client
 
 
-async def compile_tex(doc_id: str, tex_source: str) -> tuple[CompileResult, str]:
+def _parse_fill(log_tail: str) -> float | None:
+    """Last-page fill ratio from the CVGFILL probe line, None when unusable.
+    A \\pagegoal above 10000pt is maxdimen noise (empty page), not a goal."""
+    m = _FILL_RE.search(log_tail)
+    if not m:
+        return None
+    try:
+        total, goal = float(m.group(1)), float(m.group(2))
+    except ValueError:
+        return None
+    if goal <= 0 or goal > 10_000:
+        return None
+    return min(1.0, total / goal)
+
+
+async def compile_tex_measured(
+    doc_id: str, tex_source: str
+) -> tuple[CompileResult, str, float | None]:
+    """Compile and also report the fill probe (for the one-page fit loop)."""
     body = LatexCompileIn(
         doc_id=doc_id,
         files=[CompileFile(
@@ -43,6 +65,7 @@ async def compile_tex(doc_id: str, tex_source: str) -> tuple[CompileResult, str]
         return (
             CompileResult(ok=False, diagnostics=f"LaTeX service unavailable: {exc}"),
             tex_source,
+            None,
         )
     log.info(
         "latex_compile doc=%s cache=%s ok=%s pages=%s total_ms=%s",
@@ -50,9 +73,18 @@ async def compile_tex(doc_id: str, tex_source: str) -> tuple[CompileResult, str]
     )
     if not out.ok:
         diag = (out.error_line or "LaTeX compile failed") + "\n\n" + out.log_tail[-4000:]
-        return CompileResult(ok=False, diagnostics=diag), tex_source
+        return CompileResult(ok=False, diagnostics=diag), tex_source, None
     pdf = base64.b64decode(out.pdf_b64) if out.pdf_b64 else None
-    return CompileResult(ok=True, pages=out.pages, pdf=pdf, svgs=out.svgs), tex_source
+    return (
+        CompileResult(ok=True, pages=out.pages, pdf=pdf, svgs=out.svgs),
+        tex_source,
+        _parse_fill(out.log_tail),
+    )
+
+
+async def compile_tex(doc_id: str, tex_source: str) -> tuple[CompileResult, str]:
+    result, source, _fill = await compile_tex_measured(doc_id, tex_source)
+    return result, source
 
 
 async def service_status() -> bool:

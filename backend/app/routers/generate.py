@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..ai import get_provider
 from ..ai.base import AIError
+from ..config import get_settings
 from ..db import get_db, session_factory
 from ..jobs import job_snapshot, spawn_job
 from ..models import Document, Job, MasterCV, User
-from ..quota import check_quota
+from ..quota import check_quota, plan_for
 from ..schemas import GenerateIn
 from ..security import get_byok_key, get_current_user, guest_key_hash
 
@@ -88,6 +89,14 @@ async def generate(
         if body.rewrite_intensity in ("reshape", "minor", "major", "max_ats")
         else "major"
     )
+    # Compiler choice at generation time: silent fallback to typst when the
+    # LaTeX lane is dark, the template has no .tex port, or the plan lacks it
+    # (the UI locks the card; only tampering reaches the fallback).
+    compiler = body.compiler if body.compiler in ("typst", "latex") else "typst"
+    if compiler == "latex" and not (
+        get_settings().latex_enabled and body.template == "onyx" and plan_for(user).latex
+    ):
+        compiler = "typst"
     gen_params = {
         "master_data": master_data,
         "photo_id": body.photo_id,
@@ -95,6 +104,7 @@ async def generate(
         "accent": body.accent,
         "show_photo": body.show_photo,
         "intensity": intensity,
+        "compiler": compiler,
     }
     job_ids: list[str] = []
     for jd in jds:
@@ -114,7 +124,7 @@ async def generate(
     for jid in job_ids:
         spawn_job(
             jid, master_data, body.photo_id, body.template, body.accent, body.show_photo, byok,
-            intensity, guest_hash=guest_hash,
+            intensity, compiler, guest_hash=guest_hash,
         )
     return {"jobs": job_ids}
 
@@ -172,7 +182,7 @@ async def retry_job(
     spawn_job(
         job.id, params["master_data"], params.get("photo_id"), params["template"],
         params.get("accent", "#0F62FE"), bool(params.get("show_photo")), byok,
-        params.get("intensity", "major"), guest_hash=guest_hash,
+        params.get("intensity", "major"), params.get("compiler", "typst"), guest_hash=guest_hash,
     )
     return job_snapshot(job)
 

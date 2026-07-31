@@ -49,7 +49,7 @@ _FALLBACK_ACCENT = "C2551B"
 
 # Token-substituted preamble: LaTeX braces stay literal (no f-string braces).
 _PREAMBLE = r"""\documentclass{article}
-\usepackage[a4paper,left=@MX@cm,right=@MX@cm,top=@MY@cm,bottom=@MY@cm]{geometry}
+\usepackage[@PAPER@,left=@MX@cm,right=@MX@cm,top=@MY@cm,bottom=@MY@cm]{geometry}
 \usepackage{fontspec}
 \usepackage{xcolor}
 \usepackage[hidelinks]{hyperref}
@@ -154,12 +154,29 @@ def _contact_line(cv: CVData) -> str:
     return r"\cvsep{}".join(parts)
 
 
-def render_tex(data: dict, settings: dict) -> str:
+# Continuous mode's pass-1 canvas: tall enough for any real CV, under the
+# 200-inch PDF reader convention (508 cm). Pass 2 trims to measured content.
+_CONT_CANVAS = "paperwidth=21cm,paperheight=500cm"
+
+
+def _paper(settings: dict, page_height_pt: float | None) -> str:
+    if (settings or {}).get("page_mode") != "continuous":
+        return "a4paper"
+    if page_height_pt is None:
+        return _CONT_CANVAS  # measuring pass
+    return f"paperwidth=21cm,paperheight={page_height_pt:.2f}pt"
+
+
+def render_tex(data: dict, settings: dict, page_height_pt: float | None = None) -> str:
+    """page_height_pt applies only in continuous page mode: None renders the
+    tall measuring canvas, a value renders the trimmed final page (two-pass,
+    driven by texsvc.fit)."""
     cv = CVData.model_validate(data or {})
     p = _params(settings or {})
     labels = _labels(settings or {})
 
     tokens = {
+        "@PAPER@": _paper(settings, page_height_pt),
         "@MX@": _n(p["margin_x"]), "@MY@": _n(p["margin_y"]),
         "@ACCENT@": _accent_hex(settings or {}),
         "@BASE@": _n(p["base"]), "@BASELS@": _n(p["base"] * (1 + p["leading"])),

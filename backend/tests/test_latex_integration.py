@@ -25,12 +25,14 @@ def latex_env(monkeypatch):
     calls = {"n": 0}
 
     async def fake_compile_tex_measured(doc_id: str, tex_source: str):
-        # One page at a healthy fill: the fit loop settles on the first attempt.
+        # One page at a healthy fill: the fit loop settles on the first attempt,
+        # and continuous mode trims once (total in pt).
         calls["n"] += 1
         return (
             CompileResult(ok=True, pages=1, pdf=b"%PDF-fake", svgs=[FAKE_SVG]),
             tex_source,
             0.95,
+            700.0,
         )
 
     # The single choke point: the compile_tex wrapper, the fit loop, and the
@@ -96,7 +98,8 @@ async def test_latex_flow_for_plus_plan(client, latex_env):
     doc_id = doc["id"]
     full = (await client.get(f"/api/documents/{doc_id}")).json()
 
-    # switch to latex: coercions + tex source + fake svgs served
+    # switch to latex: coercions + tex source + fake svgs served. Continuous
+    # survives (two-pass trim); the photo coercion stays.
     r = await client.put(
         f"/api/documents/{doc_id}",
         json={"settings": {**_to_latex(full["settings"]), "page_mode": "continuous", "show_photo": True}},
@@ -104,11 +107,12 @@ async def test_latex_flow_for_plus_plan(client, latex_env):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["settings"]["compiler"] == "latex"
-    assert body["settings"]["page_mode"] == "paged", "continuous must be coerced off under latex"
+    assert body["settings"]["page_mode"] == "continuous", "latex supports continuous now"
     assert body["settings"]["show_photo"] is False
     assert body["source"].startswith("\\documentclass")
+    assert "paperheight=" in body["source"], "continuous latex source carries the trimmed height"
     assert body["svgs"] == [FAKE_SVG]
-    assert latex_env["n"] >= 1
+    assert latex_env["n"] >= 2, "continuous renders in two passes"
 
     # .tex download exists, .typ semantics preserved for typst docs only
     r = await client.get(f"/api/documents/{doc_id}/source.tex")

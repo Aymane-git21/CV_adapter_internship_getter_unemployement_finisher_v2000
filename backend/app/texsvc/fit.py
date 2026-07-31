@@ -14,7 +14,58 @@ from ..typstsvc.renderer import (
     CompileResult,
 )
 from . import client
+from .tex_onyx import _DENSITIES as _TEX_PARAMS
 from .tex_onyx import render_tex
+
+_CM_TO_PT = 28.3465
+# Covers the final line's depth plus \pagetotal rounding; disappears into the
+# bottom margin visually.
+_TRIM_PAD_PT = 12.0
+
+
+async def compile_tex_document(
+    doc_id: str, data: dict, doc_settings: dict
+) -> tuple[CompileResult, str]:
+    """Engine entry point: fits to one A4 page, or trims an endless page in
+    continuous mode. Mirrors what compile_document does for Typst."""
+    if (doc_settings or {}).get("page_mode") == "continuous":
+        return await compile_tex_continuous(doc_id, data, doc_settings)
+    return await compile_tex_fitted(doc_id, data, doc_settings)
+
+
+async def compile_tex_continuous(
+    doc_id: str, data: dict, doc_settings: dict
+) -> tuple[CompileResult, str]:
+    """Two-pass endless page: pass 1 typesets on a 500 cm canvas and reads the
+    CVGFILL content height from the log; pass 2 recompiles with paperheight
+    trimmed to content + margins. Degenerate cases (probe lost, content past
+    the canvas, pass-2 failure) serve the pass-1 page, which is already laid
+    out correctly, just with trailing whitespace."""
+
+    def _stamp(res: CompileResult) -> CompileResult:
+        res.density_used = (doc_settings or {}).get("density", "normal")
+        try:
+            res.font_scale_used = float((doc_settings or {}).get("font_scale") or 1.0)
+        except (TypeError, ValueError):
+            res.font_scale_used = 1.0
+        return res
+
+    src1 = render_tex(data, doc_settings)
+    res1, _s, _fill, total = await client.compile_tex_measured(doc_id, src1)
+    if not res1.ok:
+        return res1, src1
+    if res1.pages > 1 or total is None:
+        return _stamp(res1), src1
+
+    density = (doc_settings or {}).get("density", "normal")
+    margin_y_cm = _TEX_PARAMS.get(density, _TEX_PARAMS["normal"])["margin_y"]
+    height_pt = total + 2 * margin_y_cm * _CM_TO_PT + _TRIM_PAD_PT
+
+    src2 = render_tex(data, doc_settings, page_height_pt=height_pt)
+    res2, _s2, _f2, _t2 = await client.compile_tex_measured(doc_id, src2)
+    if not res2.ok or res2.pages != 1:
+        return _stamp(res1), src1
+    return _stamp(res2), src2
 
 
 async def compile_tex_fitted(
@@ -34,7 +85,7 @@ async def compile_tex_fitted(
     async def attempt(d: str, s: float) -> tuple[CompileResult, str, float | None]:
         merged = {**doc_settings, "density": d, "font_scale": s}
         src = render_tex(data, merged)
-        res, _src, fill = await client.compile_tex_measured(doc_id, src)
+        res, _src, fill, _total = await client.compile_tex_measured(doc_id, src)
         res.density_used = d
         res.font_scale_used = s
         return res, src, fill

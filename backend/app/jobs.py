@@ -19,7 +19,7 @@ from .config import get_settings
 from .db import session_factory
 from .models import Document, Job, Photo
 from .schemas import CVData, DocSettings, JobAnalysis, LetterData
-from .texsvc.fit import compile_tex_fitted
+from .texsvc.fit import compile_tex_document
 from .typstsvc import renderer
 
 log = logging.getLogger(__name__)
@@ -225,7 +225,7 @@ async def _pipeline(
     if compiler == "latex":
         # The .tex port has no photo (v1); the letter stays on the Typst lane.
         cv_settings_in = {**doc_settings, "compiler": "latex", "show_photo": False}
-        cv_result, cv_source = await compile_tex_fitted(
+        cv_result, cv_source = await compile_tex_document(
             cv_id, tailored.model_dump(), cv_settings_in
         )
     else:

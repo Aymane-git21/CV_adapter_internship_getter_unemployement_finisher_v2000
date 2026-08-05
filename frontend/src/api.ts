@@ -36,6 +36,9 @@ export interface DocSettings {
   show_photo: boolean; font_scale: number; lang: string;
   page_mode: string;
   compiler: string;
+  /* Fit-loop output: the CV still needs a second page at the tightest
+     density and the smallest readable type, so the content has to come down. */
+  overflowed?: boolean;
 }
 
 export interface JobEvent { ts: string; step: string; message: string; pct: number }

@@ -167,6 +167,12 @@ export function Preview({ ctl }: { ctl: DocController }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-6">
+        {doc.settings.overflowed && (
+          <div className="mx-auto mb-3 max-w-[880px] rounded-md border border-signal-500/30 bg-signal-950 p-2.5">
+            <p className="eyebrow mb-1 text-danger">{t("studio.overflow.title")}</p>
+            <p className="text-[12px] leading-relaxed text-danger/90">{t("studio.overflow.body")}</p>
+          </div>
+        )}
         {ctl.diagnostics && (
           <div className="mx-auto mb-3 max-h-32 max-w-[880px] overflow-y-auto rounded-md border border-signal-500/30 bg-signal-950 p-2.5">
             <p className="eyebrow mb-1 text-danger">{t("studio.compile.error")}</p>

@@ -144,11 +144,13 @@ async def update_document(
         doc.source = source
         if _is_latex(doc):
             await touch_latex_activity(db)
-        # Both engines settle density/font_scale one-page fits now.
+        # Both engines settle density/font_scale one-page fits now, and report
+        # when even the tightest setting could not get the CV onto one page.
         doc.settings = {
             **(doc.settings or {}),
             "density": result.density_used,
             "font_scale": result.font_scale_used,
+            "overflowed": result.overflowed,
         }
     else:
         if _is_latex(doc):

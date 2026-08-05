@@ -115,10 +115,12 @@
       margin-y: 1.1cm, margin-x: 1.15cm, photo: 2.4cm,
     )
   }
-  // Type sizes always follow font_scale. When scaling UP (the renderer's
-  // page-fill pass), the fixed pt gaps grow too, so a sparse CV gains
-  // proportional whitespace instead of just bigger letters.
-  let gap-scale = calc.max(scale, 1.0)
+  // Type sizes always follow font_scale, and so do the fixed pt gaps, in both
+  // directions. Scaling UP gives a sparse CV proportional whitespace instead
+  // of just bigger letters; scaling DOWN has to move the gaps too, or the fit
+  // loop's downscale rung does almost nothing, since the gaps are the larger
+  // share of the page.
+  let gap-scale = scale
   (
     base: p.base * scale, small: p.small * scale, name: p.name * scale,
     headline: p.headline * scale, h: p.h * scale,

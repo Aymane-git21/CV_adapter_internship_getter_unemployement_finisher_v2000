@@ -126,6 +126,10 @@ class DocSettings(BaseModel):
     lang: str = "en"
     page_mode: str = "paged"  # paged | continuous
     compiler: str = "typst"  # typst | latex
+    # Fit-loop output, written back like density/font_scale: the CV still runs
+    # past one page at the tightest density and the smallest readable type, so
+    # the content itself has to come down. The studio surfaces this.
+    overflowed: bool = False
 
 
 # ---------------------------------------------------------------------------

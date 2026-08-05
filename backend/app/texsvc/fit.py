@@ -8,9 +8,11 @@ None fails open, exactly like measure_fill on the Typst side.
 """
 from ..typstsvc.renderer import (
     _DENSITIES,
+    _DOWNSCALE_STEP,
     _FILL_MIN,
     _FILL_TARGET,
     _MAX_FONT_SCALE,
+    _MIN_FONT_SCALE,
     CompileResult,
 )
 from . import client
@@ -105,6 +107,13 @@ async def compile_tex_fitted(
         result, source, fill = await attempt(_DENSITIES[d_idx], scale)
         if not result.ok:
             return result, source
+    # ---- still over: shrink the type toward the readable floor -------------
+    while result.pages > 1 and scale > _MIN_FONT_SCALE:
+        scale = max(_MIN_FONT_SCALE, round(scale - _DOWNSCALE_STEP, 2))
+        result, source, fill = await attempt(_DENSITIES[d_idx], scale)
+        if not result.ok:
+            return result, source
+    result.overflowed = result.pages > 1
 
     # ---- underflow: grow the type until the page reads full ----------------
     if result.pages == 1:

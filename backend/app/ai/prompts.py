@@ -103,28 +103,63 @@ TRUTH BOUNDARY, facts vs wording:
 HARD RULES — violating any of these makes the output unusable:
 1. NEVER invent experiences, employers, dates, degrees, or numbers that are
    not in the master CV.
-2. Target ONE FULL PAGE of content, no more and not visibly less. When the
-   master CV has the material, keep 3-5 experience entries with 3-4 bullets
-   each and keep education, projects, languages and certifications. Only cut
-   when the page would overflow; never shrink a rich CV to a half-empty page.
+2. ONE PAGE, and the page has a measured budget. Count CONTENT LINES: every
+   experience bullet plus every project description. Start from 12 and
+   subtract, because the rest of the CV eats the same page:
+     - 1 for each experience entry beyond 3
+     - 1 for each education entry beyond 2
+     - 1 for each skill group beyond 3
+   Hard caps regardless: at most 4 experience entries, at most 3 projects.
+   These come from compiling the real template, where a lean CV carries 15
+   content lines and one with 4 roles, 3 degrees and 4 skill groups carries
+   only 8. Spend what you have where it wins THIS job: 4-5 lines on the most
+   relevant role, 1-2 on the oldest, and drop any project a stronger
+   experience bullet already proves. Cutting is the job, not a failure. Do
+   not pad to reach the budget either: a half-empty page fails just as hard
+   as one that overflows.
 3. Weave the job's key terms in naturally WHERE THE CANDIDATE GENUINELY HAS
    the skill: {", ".join(keywords[:14])}.
 4. headline: mirror the target role's title language (without lying about
-   seniority).
-5. summary: 3 sentences that SELL. Open with the candidate's strongest
+   seniority). Do not promise a specialism the bullets never evidence: if the
+   headline names a domain, something below it must prove the candidate has
+   touched that domain.
+5. summary: 2-3 sentences that SELL. Open with the candidate's strongest
    identity claim for this role, then the 1-2 proof points this employer
-   cares about most, then what the candidate walks in the door with. Zero
-   hedging, no "passionate" / "motivated" filler. It must read noticeably
+   cares about most. At least one concrete anchor (a number, a named system,
+   or a real scale) must appear, taken from the master CV. Zero hedging, no
+   "passionate" / "motivated" / "adaptable" filler. It must read noticeably
    stronger than the master summary, not a paraphrase of it.
-6. bullets: 14-28 words each, shaped as action verb + what + how (tool or
-   method) + outcome, with real metrics from the master CV when available.
-   Expand a thin master bullet (under 10 words) by unpacking the what/how/why
+6. bullets: 14-24 words each, opening with a strong past-tense verb. Length is
+   page budget: a bullet under ~14 words occupies one printed line, a longer
+   one occupies two, so every wasted word costs space a real fact could use.
+   VARY THE
+   SHAPE across the CV: AT MOST HALF the bullets may close on a purpose clause
+   ("to reduce X", "ensuring Y", "enabling Z"); the rest must land on a result,
+   a scale, or the thing itself. Two consecutive bullets may not both close
+   that way, and no two bullets in the same entry may open with the same verb. A bullet that says what was built, at
+   what scale, and what changed beats one that says what it was for. Use real
+   metrics from the master CV wherever they exist; where they do not, state
+   concrete scope (systems, teams, volumes, users) instead, and never invent
+   a number. Expand a thin master bullet (under 10 words) by unpacking what
    it already implies; tighten a rambling one.
-7. skills: reorganize so the most job-relevant items come first; drop
-   irrelevant ones if space demands.
-8. Keep contacts and full_name exactly as in the master CV.
-9. Write every field in {lang_name(language)}.
-10. Never use an em dash (—) in any field. Use a comma, colon, period, or
+7. BANNED WORDING. Do not introduce these words: robust, critical, strict,
+   advanced, comprehensive, cutting-edge, state-of-the-art, seamless,
+   high-integrity, high-availability, production-grade, highly reliable,
+   leverage, spearhead, passionate, dynamic, innovative, synergy. Keep such a
+   word only if the master CV already used it for that fact. Delete any
+   adjective whose removal costs no information: "automated test-gated CI/CD
+   pipelines guaranteeing robust delivery" is worse than "test-gated CI/CD
+   pipelines that cut release time from days to hours".
+8. skills: every item must be defensible. List a skill only when the master
+   CV evidences it, in a bullet, a project, a degree, or its own skills list.
+   Never list a competence the candidate could not be questioned on for five
+   minutes. Reorder so the most job-relevant come first and drop the rest.
+9. education: degree, school, dates and location carry the entry. Add a
+   details line only when it earns the space (a thesis, honours, a genuinely
+   relevant specialism). Never write a generic "studied X, Y and Z" line.
+10. Keep contacts and full_name exactly as in the master CV.
+11. Write every field in {lang_name(language)}.
+12. Never use an em dash (—) in any field. Use a comma, colon, period, or
    " | " instead.
 
 WHAT THIS EMPLOYER CARES ABOUT: {analysis_notes}

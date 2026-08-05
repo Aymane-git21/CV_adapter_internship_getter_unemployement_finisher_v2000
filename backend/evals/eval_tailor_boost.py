@@ -37,6 +37,16 @@ MAX_SUMMARY_JACCARD = 0.60
 SUMMARY_WORDS = (25, 95)
 MIN_KEYWORD_HITS = 5
 
+# The one-page budget is shape-dependent, so it comes from
+# metrics.content_line_budget rather than a constant here: a lean CV carries 15
+# content lines, one with 4 roles / 3 degrees / 4 skill groups only 8. Past its
+# budget the fit loop runs out of levers and the CV really does spill to a
+# second page, so the eval fails rather than shipping it.
+#
+# Some bullets legitimately end on a purpose clause; every one of them doing so
+# is the single-template monotony that reads machine-written.
+MAX_PURPOSE_FRACTION = 0.60
+
 
 def _check(name: str, ok: bool, detail: str) -> bool:
     print(f"  {'PASS' if ok else 'FAIL'}  {name}: {detail}")
@@ -66,6 +76,19 @@ async def run_once(provider, master: CVData) -> bool:
     low_text = tailored_text.lower()
     kw_hits = sum(1 for t in kw_terms if t in low_text)
 
+    master_text = json.dumps(master.model_dump(), ensure_ascii=False)
+    tailored_dump = tailored.model_dump()
+    lines = metrics.content_lines(tailored_dump)
+    budget_lines = metrics.content_line_budget(tailored_dump)
+    filler = metrics.filler_words(tailored_text, master_text)
+    purpose = metrics.purpose_clause_fraction(tailored_bullets)
+    dup_openers = [
+        (job.company, dups)
+        for job in tailored.experience
+        if (dups := metrics.repeated_openers(job.bullets))
+    ]
+    unevidenced = metrics.unevidenced_skills(tailored_dump, master_text)
+
     ok = True
     ok &= _check("mean bullet novelty", mean_novelty >= MIN_MEAN_NOVELTY,
                  f"{mean_novelty:.2f} (min {MIN_MEAN_NOVELTY})")
@@ -78,7 +101,19 @@ async def run_once(provider, master: CVData) -> bool:
     ok &= _check("no fabricated numbers", not fabricated, f"{fabricated or 'none'}")
     ok &= _check("keyword coverage", kw_hits >= MIN_KEYWORD_HITS,
                  f"{kw_hits}/10 top terms (min {MIN_KEYWORD_HITS})")
-    ok &= _check("no em dash", "—" not in tailored_text, "clean" if "—" not in tailored_text else "found")
+    em_dashes = metrics.em_dash_fields(tailored_dump, master_text)
+    ok &= _check("no em dash", not em_dashes, f"{em_dashes or 'clean'}")
+    ok &= _check("one-page budget", lines <= budget_lines,
+                 f"{lines} content lines, budget {budget_lines} for "
+                 f"{len(tailored.experience)} roles / {len(tailored.education)} degrees"
+                 f" / {len(tailored.skills)} skill groups")
+    ok &= _check("no filler adjectives", not filler, f"{filler or 'clean'}")
+    ok &= _check("bullet shape varies", purpose <= MAX_PURPOSE_FRACTION,
+                 f"{purpose:.0%} close on a purpose clause "
+                 f"(max {MAX_PURPOSE_FRACTION:.0%})")
+    ok &= _check("no repeated openers per entry", not dup_openers,
+                 f"{dup_openers or 'clean'}")
+    ok &= _check("skills are evidenced", not unevidenced, f"{unevidenced or 'clean'}")
     return bool(ok)
 
 

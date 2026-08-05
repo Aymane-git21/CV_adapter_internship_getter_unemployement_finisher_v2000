@@ -77,6 +77,35 @@ async def test_fill_probe_missing_fails_open(monkeypatch):
     assert result.font_scale_used == 1.0
 
 
+async def test_overflow_shrinks_type_once_densities_run_out(monkeypatch):
+    """normal/tight/xtight all overflow, then the type steps down 0.96, 0.92,
+    0.90. Before this rung the loop gave up at xtight and served two pages."""
+    outcomes = [(2, None, None)] * 5 + [(1, 0.97, None)]
+    seen = _script(monkeypatch, outcomes)
+    result, _ = await fit.compile_tex_fitted("d6", _cv_data(), dict(_SETTINGS))
+    assert result.ok and result.pages == 1
+    assert result.density_used == "xtight"
+    assert result.font_scale_used == 0.9
+    assert not result.overflowed
+    assert len(seen) == 6
+
+
+async def test_overflow_past_every_lever_is_reported(monkeypatch):
+    """The readable floor is a floor: below it the honest answer is that the
+    content does not fit, not a two-page PDF that pretends it did."""
+    _script(monkeypatch, [(2, None, None)] * 6)
+    result, _ = await fit.compile_tex_fitted("d7", _cv_data(), dict(_SETTINGS))
+    assert result.ok and result.pages == 2
+    assert result.overflowed
+    assert result.font_scale_used == 0.9
+
+
+async def test_fitting_cv_is_never_flagged_as_overflowed(monkeypatch):
+    _script(monkeypatch, [(1, 0.95, None)])
+    result, _ = await fit.compile_tex_fitted("d8", _cv_data(), dict(_SETTINGS))
+    assert result.ok and not result.overflowed
+
+
 async def test_compile_failure_short_circuits(monkeypatch):
     async def fake(doc_id: str, tex: str):
         return CompileResult(ok=False, diagnostics="boom"), tex, None, None

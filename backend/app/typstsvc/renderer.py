@@ -34,6 +34,11 @@ _PAGE_H_PT = 841.89
 _FILL_MIN = 0.88     # below this the page reads visibly empty -> scale up
 _FILL_TARGET = 0.95  # aim the content end here when upscaling
 _MAX_FONT_SCALE = 1.5
+# Last rung of the overflow ladder. 0.9 puts xtight's 8.9pt body at 8.0pt,
+# which is the floor a recruiter can still read comfortably; going further
+# buys page count by making the CV worse, so overflow is reported instead.
+_MIN_FONT_SCALE = 0.9
+_DOWNSCALE_STEP = 0.04
 
 _semaphore: asyncio.Semaphore | None = None
 
@@ -124,6 +129,11 @@ class CompileResult:
     diagnostics: str = ""
     density_used: str = "normal"
     font_scale_used: float = 1.0
+    # True when the CV still spills past one page at the tightest density and
+    # the smallest readable type. The fit loop cannot fix that by itself: the
+    # content is genuinely too long, and the caller has to say so rather than
+    # hand back a two-page CV that looks like it fitted.
+    overflowed: bool = False
 
 
 def _clean_diagnostics(stderr: str, jail: Path) -> str:
@@ -276,6 +286,13 @@ async def compile_document(
             result, source = await attempt(_DENSITIES[d_idx], scale)
             if not result.ok:
                 return result, source
+        # ---- still over: shrink the type toward the readable floor ---------
+        while result.pages > 1 and scale > _MIN_FONT_SCALE:
+            scale = max(_MIN_FONT_SCALE, round(scale - _DOWNSCALE_STEP, 2))
+            result, source = await attempt(_DENSITIES[d_idx], scale)
+            if not result.ok:
+                return result, source
+        result.overflowed = result.pages > 1
 
         # ---- underflow: grow the type until the page reads full ------------
         if result.pages == 1:
@@ -306,5 +323,6 @@ async def compile_document(
         pdf_result.density_used = result.density_used
         pdf_result.font_scale_used = result.font_scale_used
         pdf_result.pages = result.pages
+        pdf_result.overflowed = result.overflowed
         return pdf_result, source
     return result, source

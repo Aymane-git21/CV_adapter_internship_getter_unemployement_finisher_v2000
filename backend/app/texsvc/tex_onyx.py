@@ -57,7 +57,7 @@ _PREAMBLE = r"""\documentclass{article}
 \newfontfamily\cvmono{IBM Plex Mono}
 \definecolor{cvink}{HTML}{16181D}
 \definecolor{cvmuted}{HTML}{5C6470}
-\definecolor{cvfaint}{HTML}{9AA1AB}
+\definecolor{cvfaint}{HTML}{6B7280}
 \definecolor{cvaccent}{HTML}{@ACCENT@}
 \colorlet{cvaccentlight}{cvaccent!55!white}
 \colorlet{cvaccentdark}{cvaccent!96!black}
@@ -68,6 +68,12 @@ _PREAMBLE = r"""\documentclass{article}
 \raggedright
 \hyphenpenalty=10000
 \exhyphenpenalty=10000
+% A wrapped bullet must not split one line across a page break, and a heading
+% must not strand from the entry under it. Section/entry cohesion is handled
+% by the \nobreak pairs in the macros below.
+\widowpenalty=10000
+\clubpenalty=10000
+\displaywidowpenalty=10000
 \newcommand{\szbase}{\fontsize{@BASE@pt}{@BASELS@pt}\selectfont}
 \newcommand{\szsmall}{\fontsize{@SMALL@pt}{@SMALLLS@pt}\selectfont}
 \newcommand{\szmark}{\fontsize{@MARK@pt}{@MARK@pt}\selectfont}
@@ -76,16 +82,34 @@ _PREAMBLE = r"""\documentclass{article}
 \newcommand{\szh}{\fontsize{@H@pt}{@H@pt}\selectfont}
 \newcommand{\cvsection}[1]{\par\vspace{@SECTABOVE@pt}\noindent
 {\szh\bfseries\color{cvink}\addfontfeatures{LetterSpace=10}\MakeUppercase{#1}}\hspace{9pt}{\color{cvaccentlight}\leaders\hrule height 3.2pt depth -2.5pt\hfill\kern0pt}\par
-\vspace{@SECTBELOW@pt}}
-\newcommand{\cventry}[4]{\par\vspace{@ENTRYSEP@pt}\noindent
+\nobreak\vspace{@SECTBELOW@pt}\nobreak}
+% A \nobreak before vertical glue removes the breakpoint AT that glue (a glue
+% only breaks when the item before it is non-discardable). So a head must end
+% with a bare \par: a trailing \nobreak would weld it to whatever comes next,
+% and with no bullets in between that cascades entry -> entry -> section into
+% one unbreakable block. Only \cvbulletfirst and \cvdetail seal their own
+% leading gap, which is what actually keeps a head with the line under it.
+\newcommand{\cventryhead}[4]{\noindent
 {\szbase\bfseries\color{cvink}#1}\hfill{\szsmall\color{cvmuted}#3}\par
-\vspace{2.4pt}\noindent{\szsmall\itshape\color{cvmuted}#2}\hfill{\szsmall\upshape\color{cvfaint}#4}\par}
-\newcommand{\cventryfirst}[4]{\par\noindent
-{\szbase\bfseries\color{cvink}#1}\hfill{\szsmall\color{cvmuted}#3}\par
-\vspace{2.4pt}\noindent{\szsmall\itshape\color{cvmuted}#2}\hfill{\szsmall\upshape\color{cvfaint}#4}\par}
-\newcommand{\cvbullet}[1]{\par\vspace{@BULLETGAP@pt}\noindent\hangindent=11pt\hangafter=1
+\nobreak\vspace{2.4pt}\nobreak\noindent{\szsmall\itshape\color{cvmuted}#2}\hfill{\szsmall\upshape\color{cvfaint}#4}\par}
+\newcommand{\cventry}[4]{\par\vspace{@ENTRYSEP@pt}\cventryhead{#1}{#2}{#3}{#4}}
+\newcommand{\cventryfirst}[4]{\par\cventryhead{#1}{#2}{#3}{#4}}
+\newcommand{\cvprojecthead}[2]{\noindent
+{\szbase\bfseries\color{cvink}#1}\hfill{\szsmall\cvmono\color{cvfaint}#2}\par}
+\newcommand{\cvproject}[2]{\par\vspace{@ENTRYSEP@pt}\cvprojecthead{#1}{#2}}
+\newcommand{\cvprojectfirst}[2]{\par\cvprojecthead{#1}{#2}}
+\newcommand{\cvdetail}[1]{\par\nobreak\vspace{1.8pt}\nobreak\noindent{\szsmall\color{cvmuted}#1}\par}
+\newcommand{\cvbulletbody}[1]{\noindent\hangindent=11pt\hangafter=1
 {\color{cvmuted}\szmark\raisebox{0.06em}{$\bullet$}}\hspace{4pt}{\szbase\color{cvinklight}#1}\par}
-\newcommand{\cvsep}{{\szsmall\color{cvfaint}\enspace·\enspace}}
+\newcommand{\cvbullet}[1]{\par\vspace{@BULLETGAP@pt}\cvbulletbody{#1}}
+\newcommand{\cvbulletfirst}[1]{\par\nobreak\vspace{@BULLETGAP@pt}\nobreak\cvbulletbody{#1}}
+% Separators own the only legal break in a run of items: \nobreak seals the
+% gap before the dot, the trailing \hspace is where the line may wrap. Without
+% that trailing glue an \mbox-ed contact row has no breakpoint at all and runs
+% off the page; with \enspace kerns (the old definition) it had none either,
+% which is why TeX broke inside the phone number instead.
+\newcommand{\cvsep}{\nobreak\hspace{3.4pt}{\color{cvfaint}·}\hspace{3.4pt}}
+\newcommand{\cvdot}{\nobreak\hspace{2.6pt}{\color{cvfaint}·}\hspace{2.6pt}}
 """
 
 
@@ -101,7 +125,11 @@ def _params(settings: dict) -> dict:
     except (TypeError, ValueError):
         scale = 1.0
     scale = min(max(scale, 0.8), 1.5)
-    gap_scale = max(scale, 1.0)
+    # Gaps follow the type in BOTH directions. Clamping them at 1.0 was safe
+    # while nothing ever scaled below 1.0, but it makes the fit loop's
+    # downscale rung nearly inert: fixed pt gaps are ~144pt of an xtight page,
+    # so shrinking glyphs alone barely moves the page count.
+    gap_scale = scale
     for key in ("base", "small", "name", "headline", "h"):
         p[key] = p[key] * scale
     for key in ("sect_above", "sect_below", "entry_gap", "bullet_gap"):
@@ -139,18 +167,36 @@ def _date_range(start: str, end: str) -> str:
     return start or end
 
 
+# A contact value must never be broken mid-way: the spaces inside a phone
+# number are otherwise the only legal breakpoints in the row, which is exactly
+# where TeX used to wrap it. Typst's contact-row boxes each item the same way
+# (common.typ:189). Anything longer than this stays breakable, so a runaway
+# value can never overflow into the margin.
+_NOBREAK_MAX_CHARS = 60
+
+
+def _nobreak(body: str, shown: str) -> str:
+    """body is the LaTeX for one contact item, shown its visible text."""
+    return rf"\mbox{{{body}}}" if len(shown) <= _NOBREAK_MAX_CHARS else body
+
+
 def _contact_line(cv: CVData) -> str:
     c = cv.contacts
     parts: list[str] = []
     if c.location.strip():
-        parts.append(esc(c.location))
+        parts.append(_nobreak(esc(c.location), c.location))
     if c.phone.strip():
-        parts.append(esc(c.phone))
+        parts.append(_nobreak(esc(c.phone), c.phone))
     if c.email.strip():
-        parts.append(rf"\href{{mailto:{_url_arg(c.email)}}}{{{esc(c.email)}}}")
+        parts.append(
+            _nobreak(rf"\href{{mailto:{_url_arg(c.email)}}}{{{esc(c.email)}}}", c.email)
+        )
     for v in (c.linkedin, c.github, c.website):
         if v.strip():
-            parts.append(rf"\href{{{_url_arg(_href(v))}}}{{{esc(_display_url(v))}}}")
+            shown = _display_url(v)
+            parts.append(
+                _nobreak(rf"\href{{{_url_arg(_href(v))}}}{{{esc(shown)}}}", shown)
+            )
     return r"\cvsep{}".join(parts)
 
 
@@ -219,21 +265,18 @@ def render_tex(data: dict, settings: dict, page_height_pt: float | None = None) 
                 rf"{macro}{{{esc(job.title)}}}{{{esc(job.company)}}}"
                 rf"{{{esc(_date_range(job.start, job.end))}}}{{{esc(job.location)}}}"
             )
-            for b in job.bullets:
-                out.append(rf"\cvbullet{{{esc(b)}}}")
+            for j, b in enumerate(job.bullets):
+                bullet = r"\cvbulletfirst" if j == 0 else r"\cvbullet"
+                out.append(rf"{bullet}{{{esc(b)}}}")
 
     # ---- Projects ----
     if cv.projects:
         out.append(rf"\cvsection{{{esc(labels['projects'])}}}")
         for i, proj in enumerate(cv.projects):
-            if i > 0:
-                out.append(rf"\vspace{{{tokens['@ENTRYSEP@']}pt}}")
-            out.append(
-                rf"\noindent{{\szbase\bfseries\color{{cvink}}{esc(proj.name)}}}\hfill"
-                rf"{{\szsmall\cvmono\color{{cvfaint}}{esc(proj.tech)}}}\par"
-            )
+            macro = r"\cvprojectfirst" if i == 0 else r"\cvproject"
+            out.append(rf"{macro}{{{esc(proj.name)}}}{{{esc(proj.tech)}}}")
             if proj.description.strip():
-                out.append(rf"\cvbullet{{{esc(proj.description)}}}")
+                out.append(rf"\cvbulletfirst{{{esc(proj.description)}}}")
 
     # ---- Education ----
     if cv.education:
@@ -245,9 +288,8 @@ def render_tex(data: dict, settings: dict, page_height_pt: float | None = None) 
                 rf"{{{esc(_date_range(ed.start, ed.end))}}}{{{esc(ed.location)}}}"
             )
             if ed.details:
-                out.append(r"\vspace{1.8pt}")
-                joined = esc("  ·  ").join(esc(d) for d in ed.details)
-                out.append(rf"\noindent{{\szsmall\color{{cvmuted}}{joined}}}\par")
+                joined = r"\cvdot{}".join(esc(d) for d in ed.details)
+                out.append(rf"\cvdetail{{{joined}}}")
 
     # ---- Skills ----
     if cv.skills:
@@ -255,7 +297,7 @@ def render_tex(data: dict, settings: dict, page_height_pt: float | None = None) 
         for i, group in enumerate(cv.skills):
             if i > 0:
                 out.append(r"\vspace{2.6pt}")
-            items = esc("  ·  ").join(esc(it) for it in group.items)
+            items = r"\cvdot{}".join(esc(it) for it in group.items)
             out.append(
                 rf"\noindent{{\szsmall\bfseries\color{{cvink}}{esc(group.category)}}}"
                 rf"\hspace{{8pt}}{{\szsmall\color{{cvmuted}}{items}}}\par"
@@ -266,7 +308,7 @@ def render_tex(data: dict, settings: dict, page_height_pt: float | None = None) 
         out.append(rf"\cvsection{{{esc(labels['certifications'])}}}")
         for cert in cv.certifications:
             bits = [b for b in (cert.name, cert.issuer, cert.year) if b.strip()]
-            joined = esc("  ·  ").join(esc(b) for b in bits)
+            joined = r"\cvdot{}".join(esc(b) for b in bits)
             out.append(rf"\noindent{{\szsmall\color{{cvinklight}}{joined}}}\par")
 
     # ---- Languages + interests footer ----
@@ -280,11 +322,11 @@ def render_tex(data: dict, settings: dict, page_height_pt: float | None = None) 
                 if lang.level.strip():
                     name += rf" {{\szsmall\color{{cvfaint}}({esc(lang.level)})}}"
                 parts.append(name)
-            out.append(r"\noindent" + r"{\szsmall\color{cvfaint}\enspace·\enspace}".join(parts) + r"\par")
+            out.append(r"\noindent" + r"\cvdot{}".join(parts) + r"\par")
         if cv.interests:
             if cv.languages:
                 out.append(r"\vspace{2.6pt}")
-            joined = esc("  ·  ").join(esc(it) for it in cv.interests)
+            joined = r"\cvdot{}".join(esc(it) for it in cv.interests)
             out.append(rf"\noindent{{\szsmall\color{{cvmuted}}{joined}}}\par")
 
     # One-page fill probe: \pagetotal/\pagegoal of the last page, typed into

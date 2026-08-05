@@ -65,11 +65,16 @@ SECRETS = {
     "STRIPE_WEBHOOK_SECRET": "STRIPE_WEBHOOK_SECRET:latest",
 }
 
-# LaTeX compile service wiring (services/latexc, ops/latexc.py). Set
-# CVG_LATEXC_URL to the stable service URL printed by `python ops/latexc.py
-# status` to enable the feature; unset keeps it dark. The token secret must
-# exist first (docs/deploy.md, latexc section).
-LATEXC_URL = os.environ.get("CVG_LATEXC_URL", "")
+# LaTeX compile service wiring (services/latexc, ops/latexc.py). The stable
+# service URL is a CONSTANT, not an ambient shell variable. It used to default
+# to "", so a deploy from any shell without CVG_LATEXC_URL exported dropped
+# LATEXC_URL/LATEXC_TOKEN out of the declarative set, --set-env-vars replaced
+# the whole set, and the paid LaTeX lane went dark with no error: that is what
+# happened to revision 00030-yir. Override for staging, or set it empty to
+# disable on purpose. The token secret must exist first (docs/deploy.md).
+LATEXC_URL = os.environ.get(
+    "CVG_LATEXC_URL", "https://cvglowup-latexc-i6e3w7o3sq-ew.a.run.app"
+)
 if LATEXC_URL:
     ENV_VARS["LATEXC_URL"] = LATEXC_URL
     SECRETS["LATEXC_TOKEN"] = "LATEXC_TOKEN:latest"
@@ -215,7 +220,12 @@ def check_health(payload: dict) -> list[str]:
     return problems
 
 
-def check_config(payload: dict, require_gemini: bool = True, require_billing: bool = True) -> list[str]:
+def check_config(
+    payload: dict,
+    require_gemini: bool = True,
+    require_billing: bool = True,
+    require_latex: bool | None = None,
+) -> list[str]:
     problems = []
     mode = payload.get("ai_mode")
     if require_gemini and mode != "gemini":
@@ -223,6 +233,17 @@ def check_config(payload: dict, require_gemini: bool = True, require_billing: bo
     if require_billing and payload.get("billing_enabled") is not True:
         problems.append(
             "/api/config billing_enabled is not true (Stripe secrets/price env vars missing?)"
+        )
+    # If this deploy wires latexc, the revision it produced has to come back
+    # reporting the feature live. Revision 00030-yir dropped LATEXC_URL and
+    # LATEXC_TOKEN and still smoked green, so the paid LaTeX lane went dark
+    # unnoticed; that is now a hard deploy failure instead.
+    if require_latex is None:
+        require_latex = bool(LATEXC_URL)
+    if require_latex and payload.get("latex_enabled") is not True:
+        problems.append(
+            "/api/config latex_enabled is not true "
+            "(LATEXC_URL/LATEXC_TOKEN missing from the revision?)"
         )
     template_ids = {t.get("id") for t in payload.get("templates", [])}
     if not {"onyx", "classic"} <= template_ids:

@@ -188,6 +188,7 @@ def test_check_config_happy():
     payload = {
         "ai_mode": "gemini",
         "billing_enabled": True,
+        "latex_enabled": True,
         "templates": [{"id": "onyx"}, {"id": "classic"}, {"id": "compact"}],
         "plans": [{"key": "free"}, {"key": "plus"}, {"key": "pro"}],
     }
@@ -198,6 +199,7 @@ def test_check_config_catches_offline_ai_in_prod():
     payload = {
         "ai_mode": "offline",
         "billing_enabled": True,
+        "latex_enabled": True,
         "templates": [{"id": "onyx"}, {"id": "classic"}],
         "plans": [{"key": "free"}, {"key": "plus"}, {"key": "pro"}],
     }
@@ -219,6 +221,7 @@ def test_check_config_catches_disabled_billing():
     payload = {
         "ai_mode": "gemini",
         "billing_enabled": False,
+        "latex_enabled": True,
         "templates": [{"id": "onyx"}, {"id": "classic"}, {"id": "compact"}],
         "plans": [{"key": "free"}, {"key": "plus"}, {"key": "pro"}],
     }
@@ -241,8 +244,7 @@ def test_check_index():
 
 
 def test_latexc_wiring_joins_env_and_secrets_when_enabled(monkeypatch):
-    """CVG_LATEXC_URL flips the app's env/secret set; unset (the default in
-    every other test) leaves the pinned sets untouched."""
+    """An explicit URL flows into both the env set and the secret set."""
     import ops.deploy as deploy
 
     monkeypatch.setitem(deploy.ENV_VARS, "LATEXC_URL", "https://latexc.example.run.app")
@@ -251,4 +253,29 @@ def test_latexc_wiring_joins_env_and_secrets_when_enabled(monkeypatch):
     env = args[args.index("--set-env-vars") + 1]
     sec = args[args.index("--set-secrets") + 1]
     assert "LATEXC_URL=https://latexc.example.run.app" in env
+    assert "LATEXC_TOKEN=LATEXC_TOKEN:latest" in sec
+
+
+def test_check_config_fails_when_a_wired_latex_lane_comes_back_dark():
+    """The regression that made this necessary: the revision deployed fine and
+    smoked green while latex_enabled had silently flipped to false."""
+    payload = {
+        "ai_mode": "gemini", "billing_enabled": True, "latex_enabled": False,
+        "templates": [{"id": "onyx"}, {"id": "classic"}],
+        "plans": [{"key": "free"}, {"key": "plus"}, {"key": "pro"}],
+    }
+    assert any("latex_enabled" in p for p in check_config(payload, require_latex=True))
+    assert check_config(payload, require_latex=False) == []
+    assert check_config({**payload, "latex_enabled": True}, require_latex=True) == []
+
+
+def test_deploy_args_carry_latexc_wiring_without_any_shell_setup():
+    """Revision 00030-yir took the paid LaTeX lane dark because the URL came
+    from an ambient CVG_LATEXC_URL that the deploying shell did not export, so
+    both keys fell out of the declarative set and --set-env-vars wiped them.
+    A plain deploy must carry the wiring on its own."""
+    args = deploy_args("cand-abc1234")
+    env = args[args.index("--set-env-vars") + 1]
+    sec = args[args.index("--set-secrets") + 1]
+    assert "LATEXC_URL=https://" in env
     assert "LATEXC_TOKEN=LATEXC_TOKEN:latest" in sec

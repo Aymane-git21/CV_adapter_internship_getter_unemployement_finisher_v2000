@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, byokStore, type MasterCVMeta } from "../../api";
 import { useI18n } from "../../i18n";
 import { useSession, useStudio } from "../../store";
+import { CvInspector } from "./CvInspector";
+import { loadLaunchPrefs, saveLaunchPrefs } from "./launchPrefs";
 
 const ACCENTS = ["#0F62FE", "#1C3B5A", "#0E8A66", "#7C3AED", "#C2551B", "#B42318", "#101828"];
 
@@ -31,20 +33,29 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
   const maxParallel = byok ? 3 : (me?.quota.parallel ?? 1);
   const allowedTemplates = byok ? (config?.all_templates ?? []) : (me?.quota.templates ?? ["onyx"]);
 
+  /* Choices registered at the last Tailor-CV press. Fields are pre-validated
+     by loadLaunchPrefs; entitlement-dependent ones (template, compiler, upload
+     mode) get a second pass below once config/me arrive. */
+  const [stored] = useState(loadLaunchPrefs);
+
   const [jds, setJds] = useState<string[]>([""]);
-  const [cvMode, setCvMode] = useState<"saved" | "paste" | "upload">(authed ? "saved" : "paste");
+  const [cvMode, setCvMode] = useState<"saved" | "paste" | "upload">(() => {
+    if (stored.cvMode === "paste" || (stored.cvMode === "upload" && authed)) return stored.cvMode;
+    return authed ? "saved" : "paste";
+  });
   const [savedCvs, setSavedCvs] = useState<MasterCVMeta[]>([]);
   const [savedCvId, setSavedCvId] = useState<number | null>(null);
+  const [inspectId, setInspectId] = useState<number | null>(null);
   const [cvText, setCvText] = useState("");
-  const [saveMaster, setSaveMaster] = useState(true);
+  const [saveMaster, setSaveMaster] = useState(stored.saveMaster ?? true);
   const [uploadedCv, setUploadedCv] = useState<MasterCVMeta | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  const [docLang, setDocLang] = useState(lang);
-  const [intensity, setIntensity] = useState<"reshape" | "minor" | "major" | "max_ats">("major");
-  const [compiler, setCompiler] = useState<"typst" | "latex">("typst");
-  const [template, setTemplate] = useState("onyx");
-  const [accent, setAccent] = useState("#0F62FE");
+  const [docLang, setDocLang] = useState(stored.language ?? lang);
+  const [intensity, setIntensity] = useState<"reshape" | "minor" | "major" | "max_ats">(stored.intensity ?? "major");
+  const [compiler, setCompiler] = useState<"typst" | "latex">(stored.compiler ?? "typst");
+  const [template, setTemplate] = useState(stored.template ?? "onyx");
+  const [accent, setAccent] = useState(stored.accent ?? "#0F62FE");
   const [photoId, setPhotoId] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
@@ -57,16 +68,40 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
     if (!authed) return;
     void api.cvs().then((rows) => {
       setSavedCvs(rows);
-      const def = rows.find((r) => r.is_default) ?? rows[0];
+      const def =
+        rows.find((r) => r.id === stored.savedCvId) ?? rows.find((r) => r.is_default) ?? rows[0];
       if (def) setSavedCvId(def.id);
-      else setCvMode("paste");
-    }).catch(() => setCvMode("paste"));
-  }, [authed]);
+      else setCvMode((m) => (m === "saved" ? "paste" : m));
+    }).catch(() => setCvMode((m) => (m === "saved" ? "paste" : m)));
+  }, [authed, stored]);
 
   const canUploadPdf = config?.ai_mode === "gemini" || byok;
 
+  /* One-shot downgrade of restored choices this account can't use anymore
+     (plan change, template gone, LaTeX lane dark). Runs once when config and
+     me are both in, so later quota refreshes never clobber in-session edits. */
+  const restoredChecked = useRef(false);
+  useEffect(() => {
+    if (restoredChecked.current || !config || !me) return;
+    restoredChecked.current = true;
+    let tpl = template;
+    if (!config.templates.some((tp) => tp.id === tpl) || !allowedTemplates.includes(tpl)) {
+      tpl = "onyx";
+      setTemplate("onyx");
+    }
+    if (compiler === "latex" && (!config.latex_enabled || !me.quota.latex || tpl !== "onyx")) {
+      setCompiler("typst");
+    }
+    if (cvMode === "upload" && !canUploadPdf) setCvMode("paste");
+  }, [config, me, template, compiler, cvMode, allowedTemplates, canUploadPdf]);
+
   const setJd = (i: number, v: string) => setJds((xs) => xs.map((x, j) => (j === i ? v : x)));
   const removeJd = (i: number) => setJds((xs) => xs.filter((_, j) => j !== i));
+
+  const inspectCv = useMemo(
+    () => (inspectId != null ? savedCvs.find((c) => c.id === inspectId) ?? null : null),
+    [inspectId, savedCvs],
+  );
 
   const ready = useMemo(() => {
     const filled = jds.filter((j) => j.trim().length >= 80);
@@ -76,9 +111,42 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
     return uploadedCv != null;
   }, [jds, cvMode, savedCvId, cvText, uploadedCv]);
 
+  const removeSavedCv = async (id: number) => {
+    setError("");
+    try {
+      await api.deleteCv(id);
+    } catch (e) {
+      // 404 means it is already gone server-side; converge the UI on that.
+      if (!(e instanceof ApiError && e.status === 404)) {
+        setError(e instanceof Error ? e.message : "Delete failed.");
+        return;
+      }
+    }
+    const rest = savedCvs.filter((r) => r.id !== id);
+    setSavedCvs(rest);
+    if (inspectId === id) setInspectId(null);
+    if (savedCvId === id) {
+      const next = rest.find((r) => r.is_default) ?? rest[0];
+      setSavedCvId(next?.id ?? null);
+      if (!next) setCvMode("paste");
+    }
+  };
+
   const launch = async () => {
     setBusy(true);
     setError("");
+    /* The press is the registration event: these become the preselected
+       choices on the next visit, whether or not the API call succeeds. */
+    saveLaunchPrefs({
+      language: docLang,
+      intensity,
+      template,
+      accent,
+      compiler,
+      cvMode,
+      savedCvId: cvMode === "upload" ? (uploadedCv?.id ?? savedCvId) : savedCvId,
+      saveMaster,
+    });
     try {
       const body = {
         job_descriptions: jds.filter((j) => j.trim()),
@@ -209,24 +277,41 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
             </div>
 
             {cvMode === "saved" && (
-              <div className="flex flex-wrap gap-2">
-                {savedCvs.map((cv) => (
-                  <button
-                    key={cv.id}
-                    onClick={() => setSavedCvId(cv.id)}
-                    className={`rounded-lg border px-3.5 py-2.5 text-left text-[13px] transition-colors ${
-                      savedCvId === cv.id
-                        ? "border-flame-500 bg-flame-950 text-text"
-                        : "border-black/10 glass-panel text-text/70 hover:border-ink-600"
-                    }`}
-                  >
-                    <span className="block font-medium">{cv.name}</span>
-                    <span className="font-mono text-[11px] text-text/50">
-                      {cv.data?.full_name ?? "·"}{cv.is_default ? " · default" : ""}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {savedCvs.map((cv) => (
+                    <div key={cv.id} className="group relative">
+                      {/* Click selects and opens the data view; a second click
+                          on the selected chip folds the view away. */}
+                      <button
+                        onClick={() => {
+                          if (savedCvId === cv.id) setInspectId((v) => (v === cv.id ? null : cv.id));
+                          else { setSavedCvId(cv.id); setInspectId(cv.id); }
+                        }}
+                        className={`rounded-lg border py-2.5 pl-3.5 pr-8 text-left text-[13px] transition-colors ${
+                          savedCvId === cv.id
+                            ? "border-flame-500 bg-flame-950 text-text"
+                            : "border-black/10 glass-panel text-text/70 hover:border-ink-600"
+                        }`}
+                      >
+                        <span className="block font-medium">{cv.name}</span>
+                        <span className="font-mono text-[11px] text-text/50">
+                          {cv.data?.full_name ?? "·"}{cv.is_default ? " · default" : ""}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => void removeSavedCv(cv.id)}
+                        className="absolute right-1.5 top-1.5 hidden rounded p-0.5 text-text/50 hover:bg-ink-700 hover:text-danger group-hover:block group-focus-within:block"
+                        aria-label={`${t("studio.cv.delete")}: ${cv.name}`}
+                        title={t("studio.cv.delete")}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {inspectCv && <CvInspector cv={inspectCv} onClose={() => setInspectId(null)} />}
+              </>
             )}
 
             {cvMode === "paste" && (

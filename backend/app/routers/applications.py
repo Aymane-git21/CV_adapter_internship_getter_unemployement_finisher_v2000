@@ -151,8 +151,11 @@ async def generate_for_applications(
     if cv is None or cv.data is None:
         raise HTTPException(status_code=404, detail="Save a master CV first.")
 
+    # double-click safe: silent order-preserving dedupe
+    application_ids = list(dict.fromkeys(body.application_ids))
+
     apps: list[tuple[Application, JobPosting]] = []
-    for app_id in body.application_ids:
+    for app_id in application_ids:
         a, p = await _get_app(db, app_id, user)
         if a.status != "inbox":
             raise HTTPException(status_code=409, detail=f"Application {app_id} is not in the inbox.")

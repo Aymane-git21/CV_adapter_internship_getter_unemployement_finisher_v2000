@@ -90,3 +90,23 @@ async def test_send_cap_enforced(client, tmp_path, monkeypatch):
     await client.post(f"/api/pipeline/{app_id}/approve")
     r = await client.post(f"/api/pipeline/{app_id}/send", json={})
     assert r.status_code == 429
+
+
+async def test_generate_dedupes_duplicate_ids(client):
+    email, uid = await _setup_user(client)
+    app_id = (await client.get("/api/pipeline")).json()["applications"][0]["id"]
+
+    r = await client.post("/api/pipeline/generate", json={
+        "application_ids": [app_id, app_id], "template": "onyx", "accent": "#0F62FE",
+        "language": "fr", "rewrite_intensity": "major",
+    })
+    assert r.status_code == 200, r.text
+    job_ids = r.json()["jobs"]
+    assert len(job_ids) == 1, "duplicate ids must collapse to a single job"
+    assert await _wait_jobs(client, job_ids) == ["completed"]
+
+    board = (await client.get("/api/pipeline")).json()["applications"]
+    assert board[0]["status"] == "generated"
+
+    me = await client.get("/api/auth/me")
+    assert me.json()["quota"]["used_today"] == 1, "duplicate id must not double-charge the daily quota"

@@ -6,6 +6,15 @@ from backend.app.schemas import JobPostingIn, SavedSearchParams
 from backend.app.sources import SourceError, all_sources, get_source, register
 
 
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    from backend.app.sources import _REGISTRY
+    saved = dict(_REGISTRY)
+    yield
+    _REGISTRY.clear()
+    _REGISTRY.update(saved)
+
+
 class DummySource:
     name = "dummy"
 

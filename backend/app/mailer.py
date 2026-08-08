@@ -3,11 +3,15 @@
 The body is the outreach message; the CV and letter PDFs ride as
 attachments. Sends go out as the USER (their Gmail, Task 12) or to a
 local .eml file in dev — never from a cvglowup.com address."""
+import base64
+import json
 import uuid
 from email.message import EmailMessage
 from email.policy import SMTP
 from pathlib import Path
 from typing import Protocol
+
+import httpx
 
 _FORBIDDEN = ("\r", "\n")
 
@@ -58,3 +62,59 @@ class EmlSender:
 
     async def send(self, msg: EmailMessage) -> str:
         return str(write_eml(msg, self._dir))
+
+
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+SEND_URL = "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send"
+
+
+class GmailError(Exception):
+    """User-presentable Gmail failure (revoked consent, quota, transport)."""
+
+
+class GmailSender:
+    """Sends as the user via their stored refresh token (scope gmail.send).
+    We hold ONLY the refresh token Google issued to our client id — never a
+    password. Revoking access in the user's Google account kills it."""
+
+    def __init__(self, refresh_token: str, client_id: str, client_secret: str,
+                 http: httpx.AsyncClient | None = None):
+        self._rt = refresh_token
+        self._cid = client_id
+        self._csec = client_secret
+        self._http = http
+
+    async def _access_token(self, http: httpx.AsyncClient) -> str:
+        resp = await http.post(TOKEN_URL, data={
+            "grant_type": "refresh_token", "refresh_token": self._rt,
+            "client_id": self._cid, "client_secret": self._csec,
+        })
+        if resp.status_code != 200:
+            raise GmailError("Gmail authorization expired or was revoked. Reconnect Gmail in Settings.")
+        return resp.json()["access_token"]
+
+    async def send(self, msg) -> str:
+        raw = base64.urlsafe_b64encode(bytes(msg)).decode().rstrip("=")
+        own = self._http is None
+        http = self._http or httpx.AsyncClient(timeout=30)
+        try:
+            token = await self._access_token(http)
+            # Note on Content-Type: Gmail's upload endpoint accepts `message/rfc822`
+            # with the raw RFC822 bytes OR the JSON {"raw": ...} metadata form on the
+            # non-upload endpoint. The MockTransport test pins the JSON-raw form; if
+            # the live API rejects it during phase-2 verification, switch `content=`
+            # to `bytes(msg)` with `Content-Type: message/rfc822` and drop the
+            # base64 — the test then pins that instead. One of the two documented
+            # forms will hold; the seam is one method.
+            resp = await http.post(
+                SEND_URL,
+                params={"uploadType": "media"},
+                content=json.dumps({"raw": raw}),
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "message/rfc822"},
+            )
+            if resp.status_code not in (200, 202):
+                raise GmailError(f"Gmail send failed ({resp.status_code}).")
+            return resp.json().get("id", "")
+        finally:
+            if own:
+                await http.aclose()

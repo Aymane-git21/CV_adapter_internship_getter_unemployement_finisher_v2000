@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     internal_token: str = ""
     send_cap_daily: int = 15
     eml_out_dir: str = ""  # dev fallback output; empty -> <repo>/eml_out
+    google_client_secret: str = ""  # OAuth code exchange for Gmail connect (Task 12)
 
     # LaTeX compile service (services/latexc). Feature stays dark until both
     # LATEXC_URL and LATEXC_TOKEN are set.

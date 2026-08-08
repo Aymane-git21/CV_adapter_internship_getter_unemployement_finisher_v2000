@@ -1,12 +1,14 @@
 """Account utilities: history, feedback, BYOK validation, public config."""
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
 from ..db import get_db
+from ..mailer import TOKEN_URL
 from ..models import Document, FeedbackEntry, Job, User
 from ..quota import ALL_TEMPLATES, PLANS
 from ..schemas import ByokValidateIn, FactsProfile, FeedbackIn
@@ -122,3 +124,37 @@ async def put_facts(
     user.facts = body.model_dump()
     await db.commit()
     return body
+
+
+@router.post("/account/gmail/connect")
+async def gmail_connect(
+    body: dict,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_user)],
+) -> dict:
+    code, redirect_uri = body.get("code", ""), body.get("redirect_uri", "")
+    if not code:
+        raise HTTPException(status_code=422, detail="Missing authorization code.")
+    settings = get_settings()
+    async with httpx.AsyncClient(timeout=30) as http:
+        resp = await http.post(TOKEN_URL, data={
+            "grant_type": "authorization_code", "code": code,
+            "client_id": settings.google_client_id,
+            "client_secret": settings.google_client_secret,
+            "redirect_uri": redirect_uri,
+        })
+    if resp.status_code != 200 or "refresh_token" not in resp.json():
+        raise HTTPException(status_code=400, detail="Google did not grant offline Gmail access.")
+    user.gmail_refresh_token = resp.json()["refresh_token"]
+    await db.commit()
+    return {"connected": True}
+
+
+@router.delete("/account/gmail")
+async def gmail_disconnect(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_user)],
+) -> dict:
+    user.gmail_refresh_token = None
+    await db.commit()
+    return {"connected": False}

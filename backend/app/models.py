@@ -36,6 +36,9 @@ class User(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(64), default=None)
     gens_today: Mapped[int] = mapped_column(Integer, default=0)
     gens_date: Mapped[date | None] = mapped_column(Date, default=None)
+    facts: Mapped[dict | None] = mapped_column(JSON, default=None)  # FactsProfile
+    pipeline_enabled: Mapped[int] = mapped_column(Integer, default=0)  # feature flag
+    gmail_refresh_token: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     master_cvs: Mapped[list["MasterCV"]] = relationship(back_populates="user", lazy="noload")
@@ -143,3 +146,59 @@ class GuestUsage(Base):
     key_hash: Mapped[str] = mapped_column(String(64), index=True)
     day: Mapped[date] = mapped_column(Date)
     count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SavedSearch(Base):
+    """One polled query, e.g. 'machine learning' around Toulouse."""
+
+    __tablename__ = "saved_searches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120), default="Search")
+    keywords: Mapped[str] = mapped_column(String(255), default="")
+    insee: Mapped[str] = mapped_column(String(12), default="")
+    radius_km: Mapped[int] = mapped_column(Integer, default=20)
+    contract_type: Mapped[str] = mapped_column(String(32), default="")
+    enabled: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class JobPosting(Base):
+    """A posting fetched from a source. Global, shared across users."""
+
+    __tablename__ = "job_postings"
+    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_posting_source_ext"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(24), index=True)
+    external_id: Mapped[str] = mapped_column(String(128))
+    title: Mapped[str] = mapped_column(String(255))
+    company: Mapped[str] = mapped_column(String(255), default="")
+    location: Mapped[str] = mapped_column(String(255), default="")
+    contract_type: Mapped[str] = mapped_column(String(32), default="")
+    description: Mapped[str] = mapped_column(Text)
+    apply_email: Mapped[str | None] = mapped_column(String(255), default=None)
+    apply_url: Mapped[str | None] = mapped_column(Text, default=None)
+    posted_at: Mapped[str] = mapped_column(String(40), default="")
+    fuzzy_hash: Mapped[str] = mapped_column(String(64), index=True)
+    raw: Mapped[dict | None] = mapped_column(JSON, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Application(Base):
+    """One user's pursuit of one posting; the review-queue row."""
+
+    __tablename__ = "applications"
+    __table_args__ = (UniqueConstraint("user_id", "posting_id", name="uq_application_user_posting"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    posting_id: Mapped[int] = mapped_column(ForeignKey("job_postings.id"), index=True)
+    job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id"), default=None)
+    status: Mapped[str] = mapped_column(String(16), default="inbox")
+    audit: Mapped[list] = mapped_column(JSON, default=list)
+    sent_via: Mapped[str | None] = mapped_column(String(16), default=None)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

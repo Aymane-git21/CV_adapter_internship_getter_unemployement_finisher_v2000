@@ -47,6 +47,14 @@ def _ensure_columns(conn) -> None:
     if "gen_params" not in cols:
         conn.execute(text("ALTER TABLE jobs ADD COLUMN gen_params JSON"))
 
+    ucols = {c["name"] for c in inspect(conn).get_columns("users")}
+    if "facts" not in ucols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN facts JSON"))
+    if "pipeline_enabled" not in ucols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN pipeline_enabled INTEGER DEFAULT 0"))
+    if "gmail_refresh_token" not in ucols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN gmail_refresh_token TEXT"))
+
 
 async def init_db() -> None:
     from . import models  # noqa: F401  (register tables)

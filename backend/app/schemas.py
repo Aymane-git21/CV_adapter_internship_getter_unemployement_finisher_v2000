@@ -214,3 +214,53 @@ class ChatIn(BaseModel):
 
 class ByokValidateIn(BaseModel):
     key: str = Field(min_length=10, max_length=200)
+
+
+# ---------------------------------------------------------------------------
+# Auto-apply pipeline contracts
+# ---------------------------------------------------------------------------
+
+
+class JobPostingIn(BaseModel):
+    """Normalized posting produced by every source adapter."""
+
+    source: str
+    external_id: str
+    title: str
+    company: str = ""
+    location: str = ""
+    contract_type: str = ""
+    description: str
+    apply_email: str | None = None
+    apply_url: str | None = None
+    posted_at: str = ""  # ISO date string from the source, informational
+    raw: dict = Field(default_factory=dict)
+
+
+class SavedSearchParams(BaseModel):
+    keywords: str = ""
+    insee: str = ""  # commune code, e.g. Toulouse
+    radius_km: int = 20
+    contract_type: str = ""  # source-specific filter, empty = all
+
+
+class FactsProfile(BaseModel):
+    """Deterministic answer material. Never invented by the model."""
+
+    work_permit: str = ""
+    notice_period: str = ""
+    salary_range: str = ""
+    mobility: str = ""
+    languages: str = ""
+    driving_licence: str = ""
+    availability: str = ""
+
+
+class AnswerItem(BaseModel):
+    question: str
+    answer: str
+    origin: str = "generated"  # facts | generated
+
+
+class AnswersDoc(BaseModel):
+    items: list[AnswerItem] = Field(default_factory=list)

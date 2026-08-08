@@ -2,8 +2,9 @@
 import base64
 
 import httpx
+import pytest
 
-from backend.app.mailer import SEND_URL, TOKEN_URL, GmailSender, build_application_email
+from backend.app.mailer import SEND_URL, TOKEN_URL, GmailError, GmailSender, build_application_email
 from backend.tests.conftest import unique_email
 
 
@@ -31,6 +32,18 @@ async def test_send_exchanges_token_and_posts_raw():
     raw = json.loads(seen["raw"])["raw"]
     decoded = base64.urlsafe_b64decode(raw + "==")
     assert b"To: hr@co.fr" in decoded
+
+
+async def test_gmail_sender_malformed_token_response():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url).startswith(TOKEN_URL)
+        return httpx.Response(200, text="not json")
+
+    msg = build_application_email("a@b.c", "hr@co.fr", "Candidature", "Bonjour", [])
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        sender = GmailSender("rt-1", "cid", "csec", http=http)
+        with pytest.raises(GmailError):
+            await sender.send(msg)
 
 
 async def test_gmail_connect_requires_auth(client):

@@ -89,9 +89,14 @@ class GmailSender:
             "grant_type": "refresh_token", "refresh_token": self._rt,
             "client_id": self._cid, "client_secret": self._csec,
         })
-        if resp.status_code != 200:
+        try:
+            payload = resp.json()
+        except ValueError:
+            payload = {}
+        token = payload.get("access_token")
+        if resp.status_code != 200 or not token:
             raise GmailError("Gmail authorization expired or was revoked. Reconnect Gmail in Settings.")
-        return resp.json()["access_token"]
+        return token
 
     async def send(self, msg) -> str:
         raw = base64.urlsafe_b64encode(bytes(msg)).decode().rstrip("=")
@@ -114,7 +119,12 @@ class GmailSender:
             )
             if resp.status_code not in (200, 202):
                 raise GmailError(f"Gmail send failed ({resp.status_code}).")
-            return resp.json().get("id", "")
+            try:
+                return resp.json().get("id", "")
+            except ValueError:
+                # Send already succeeded per status code; an unparseable body
+                # (Gmail API contract violation) should not fail the application.
+                return ""
         finally:
             if own:
                 await http.aclose()

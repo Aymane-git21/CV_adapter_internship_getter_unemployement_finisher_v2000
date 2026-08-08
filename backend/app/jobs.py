@@ -17,7 +17,7 @@ from .ai import get_provider
 from .ai.base import AIError
 from .config import get_settings
 from .db import session_factory
-from .models import Document, Job, Photo
+from .models import Document, Job, Photo, User
 from .schemas import CVData, DocSettings, JobAnalysis, LetterData
 from .texsvc.fit import compile_tex_document
 from .typstsvc import renderer
@@ -164,6 +164,8 @@ async def _pipeline(
     provider = get_provider(byok_key)
     language = job.language
     master = CVData.model_validate(master_data)
+    gen_params = job.gen_params or {}
+    is_pipeline_job = gen_params.get("posting_id") is not None
     if compiler == "latex":
         # Boot the warm compiler DURING the AI phase so the render step at the
         # end hits a live service instead of paying the cold start itself.
@@ -186,7 +188,20 @@ async def _pipeline(
     cv_task = provider.tailor_cv(job.job_description, analysis, master, language, rewrite_intensity)
     letter_task = provider.write_letter(job.job_description, analysis, master, language)
     msg_task = provider.outreach(job.job_description, analysis, master, language)
-    tailored, letter, message = await asyncio.gather(cv_task, letter_task, msg_task)
+    if is_pipeline_job:
+        from .answers import fixed_answers
+        from .schemas import FactsProfile
+
+        user = await db.get(User, job.user_id) if job.user_id else None
+        facts = FactsProfile.model_validate((user.facts if user else None) or {})
+        answers_task = provider.write_answers(job.job_description, analysis, master, facts, language)
+        tailored, letter, message, generated_answers = await asyncio.gather(
+            cv_task, letter_task, msg_task, answers_task
+        )
+        all_answers = fixed_answers(facts, language) + list(generated_answers.items)
+    else:
+        tailored, letter, message = await asyncio.gather(cv_task, letter_task, msg_task)
+        all_answers = None
 
     after = ats.score(analysis.keywords, tailored.plain_text())
     await _emit(
@@ -268,7 +283,16 @@ async def _pipeline(
         title=title, template_id=template, settings=doc_settings,
         text_content=message, mode="data",
     )
-    db.add_all([cv_doc, letter_doc, msg_doc])
+    docs_to_add = [cv_doc, letter_doc, msg_doc]
+    if all_answers is not None:
+        docs_to_add.append(
+            Document(
+                id=uuid.uuid4().hex, job_id=job.id, user_id=job.user_id, kind="answers",
+                title=title, template_id=template, settings=doc_settings,
+                data={"items": [a.model_dump() for a in all_answers]}, mode="data",
+            )
+        )
+    db.add_all(docs_to_add)
 
     job.status = "completed"
     job.finished_at = datetime.now(UTC)

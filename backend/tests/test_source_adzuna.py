@@ -21,11 +21,13 @@ async def test_fetch_normalizes_results():
         assert params["app_id"] == "aid" and params["app_key"] == "akey"
         assert params["what"] == "python"
         assert params["where"] == "Toulouse"
+        assert params["distance"] == "20"
+        assert params["results_per_page"] == "50"
         return httpx.Response(200, json=FIXTURE)
 
     src = AdzunaSource(app_id="aid", app_key="akey")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        postings = await src.fetch(SavedSearchParams(keywords="python", insee="31555"), client)
+        postings = await src.fetch(SavedSearchParams(keywords="python", insee="31555", radius_km=20), client)
     assert len(postings) == 1
     p = postings[0]
     assert p.source == "adzuna"
@@ -52,3 +54,16 @@ async def test_malformed_json_raises():
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(SourceError, match="Adzuna returned an unreadable response"):
             await src.fetch(SavedSearchParams(keywords="python"), client)
+
+
+async def test_missing_credentials_raise_before_any_call():
+    def handler(request: httpx.Request) -> httpx.Response:
+        handler.calls += 1
+        return httpx.Response(500)
+    handler.calls = 0
+
+    src = AdzunaSource(app_id="", app_key="")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(SourceError):
+            await src.fetch(SavedSearchParams(keywords="python"), client)
+    assert handler.calls == 0  # Prove no HTTP happened

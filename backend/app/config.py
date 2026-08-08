@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     # Auto-apply pipeline (Phase 1)
     ft_client_id: str = ""
     ft_client_secret: str = ""
+    adzuna_app_id: str = ""
+    adzuna_app_key: str = ""
 
     # LaTeX compile service (services/latexc). Feature stays dark until both
     # LATEXC_URL and LATEXC_TOKEN are set.

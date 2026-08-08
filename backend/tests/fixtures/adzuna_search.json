@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "id": "5011223344",
+      "title": "Développeur Python Toulouse",
+      "description": "Startup toulousaine cherche développeur python, fastapi, docker.",
+      "created": "2026-08-04T09:30:00Z",
+      "company": { "display_name": "Softlab" },
+      "location": { "display_name": "Toulouse, Haute-Garonne" },
+      "contract_type": "permanent",
+      "redirect_url": "https://www.adzuna.fr/land/ad/5011223344"
+    }
+  ]
+}

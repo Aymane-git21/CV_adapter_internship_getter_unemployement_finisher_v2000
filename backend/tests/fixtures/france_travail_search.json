@@ -1,0 +1,26 @@
+{
+  "resultats": [
+    {
+      "id": "185XKPT",
+      "intitule": "Ingénieur Machine Learning (H/F)",
+      "description": "Au sein de l'équipe data de Lumina AI à Toulouse, vous concevez des pipelines RAG en python avec pytorch et docker sur GCP.",
+      "dateCreation": "2026-08-06T08:12:00.000Z",
+      "lieuTravail": { "libelle": "31 - TOULOUSE", "commune": "31555" },
+      "entreprise": { "nom": "LUMINA AI" },
+      "typeContrat": "CDI",
+      "contact": { "courriel": "recrutement@lumina.example" },
+      "origineOffre": { "urlOrigine": "https://candidat.francetravail.fr/offres/recherche/detail/185XKPT" }
+    },
+    {
+      "id": "185ZQRD",
+      "intitule": "Data Engineer (H/F)",
+      "description": "Chez Aerotech Toulouse vous industrialisez des flux de données avec airflow et kubernetes.",
+      "dateCreation": "2026-08-05T14:03:00.000Z",
+      "lieuTravail": { "libelle": "31 - TOULOUSE", "commune": "31555" },
+      "entreprise": { "nom": "AEROTECH" },
+      "typeContrat": "CDD",
+      "contact": {},
+      "origineOffre": { "urlOrigine": "https://aerotech.example/careers/data-engineer" }
+    }
+  ]
+}

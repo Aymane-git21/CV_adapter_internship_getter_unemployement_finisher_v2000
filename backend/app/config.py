@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     adsense_client: str = ""
 
+    # Auto-apply pipeline (Phase 1)
+    ft_client_id: str = ""
+    ft_client_secret: str = ""
+
     # LaTeX compile service (services/latexc). Feature stays dark until both
     # LATEXC_URL and LATEXC_TOKEN are set.
     latexc_url: str = ""

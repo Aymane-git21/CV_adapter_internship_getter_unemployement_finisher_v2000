@@ -4,7 +4,7 @@ import asyncio
 from sqlalchemy import select
 
 from backend.app.db import session_factory
-from backend.app.models import User
+from backend.app.models import Job, User
 from backend.app.pipeline_ingest import ingest
 from backend.app.schemas import JobPostingIn
 from backend.tests.conftest import SAMPLE_CV_TEXT, SAMPLE_JD, unique_email
@@ -110,3 +110,61 @@ async def test_generate_dedupes_duplicate_ids(client):
 
     me = await client.get("/api/auth/me")
     assert me.json()["quota"]["used_today"] == 1, "duplicate id must not double-charge the daily quota"
+
+
+async def test_send_rejects_malformed_apply_email(client):
+    email = unique_email()
+    await client.post("/api/auth/register", json={"email": email, "password": "password123"})
+    await client.post("/api/cvs", json={"name": "Master", "raw_text": SAMPLE_CV_TEXT})
+    async with session_factory()() as db:
+        user = (await db.execute(select(User).where(User.email == email))).scalar_one()
+        user.pipeline_enabled = 1
+        # ingest stores apply_email verbatim -- that is the point: a scraped
+        # posting can carry an embedded CRLF, and the router must not 500 on it.
+        await ingest(db, user.id, [
+            JobPostingIn(source="ft", external_id="R2", title="ML Engineer", company="Lumina",
+                         description=SAMPLE_JD, apply_email="hr@lumina.example\r\nBcc: x@y.z"),
+        ])
+        await db.commit()
+
+    app_id = (await client.get("/api/pipeline")).json()["applications"][0]["id"]
+    r = await client.post("/api/pipeline/generate", json={
+        "application_ids": [app_id], "template": "onyx", "accent": "#0F62FE",
+        "language": "fr", "rewrite_intensity": "major",
+    })
+    assert await _wait_jobs(client, r.json()["jobs"]) == ["completed"]
+    assert (await client.post(f"/api/pipeline/{app_id}/approve")).status_code == 200
+
+    r = await client.post(f"/api/pipeline/{app_id}/send", json={})
+    assert r.status_code == 409, r.text
+
+    board = (await client.get("/api/pipeline")).json()["applications"]
+    assert board[0]["status"] == "approved"
+
+
+async def test_approve_requires_completed_job(client):
+    _, uid = await _setup_user(client)
+    app_id = (await client.get("/api/pipeline")).json()["applications"][0]["id"]
+    r = await client.post("/api/pipeline/generate", json={
+        "application_ids": [app_id], "template": "onyx", "accent": "#0F62FE",
+        "language": "fr", "rewrite_intensity": "major",
+    })
+    job_id = r.json()["jobs"][0]
+    # Let generation actually finish before overriding the status by hand --
+    # otherwise the background job racing to "completed" on its own would
+    # make the "still running" assertion below flaky.
+    assert await _wait_jobs(client, [job_id]) == ["completed"]
+
+    async with session_factory()() as db:
+        job = await db.get(Job, job_id)
+        job.status = "running"
+        await db.commit()
+    r = await client.post(f"/api/pipeline/{app_id}/approve")
+    assert r.status_code == 409, r.text
+
+    async with session_factory()() as db:
+        job = await db.get(Job, job_id)
+        job.status = "completed"
+        await db.commit()
+    r = await client.post(f"/api/pipeline/{app_id}/approve")
+    assert r.status_code == 200, r.text

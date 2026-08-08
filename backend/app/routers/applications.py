@@ -1,5 +1,6 @@
 """Review-queue API. The queue is the product: nothing sends without an
 explicit approve, and nothing sends past the daily cap."""
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated
@@ -195,6 +196,13 @@ async def approve(
     user: Annotated[User, Depends(require_pipeline_user)],
 ) -> dict:
     a, p = await _get_app(db, app_id, user)
+    if a.job_id is not None:
+        job = await db.get(Job, a.job_id)
+        if job is None or job.status != "completed":
+            raise HTTPException(
+                status_code=409,
+                detail="Documents are not ready yet. Wait for generation to finish or reject.",
+            )
     try:
         advance(a, "approved")
     except ValueError as exc:
@@ -282,13 +290,19 @@ async def send(
         raise HTTPException(status_code=409, detail="Documents are not ready for this application.")
 
     full_name = (cv_doc.data or {}).get("full_name", "") or user.email
-    safe_name = full_name.replace(" ", "_") or "Candidate"
+    safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", full_name) or "Candidate"
     subject = body.subject or f"Candidature - {p.title}" + (f" - {full_name}" if full_name else "")
     email_body = body.body or (msg_doc.text_content if msg_doc else "") or "Veuillez trouver ma candidature ci-jointe."
-    msg = build_application_email(
-        sender=user.email, to=p.apply_email, subject=subject, body=email_body,
-        attachments=[(f"CV_{safe_name}.pdf", cv_doc.pdf), (f"Lettre_{safe_name}.pdf", letter_doc.pdf)],
-    )
+    try:
+        msg = build_application_email(
+            sender=user.email, to=p.apply_email, subject=subject, body=email_body,
+            attachments=[(f"CV_{safe_name}.pdf", cv_doc.pdf), (f"Lettre_{safe_name}.pdf", letter_doc.pdf)],
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="This posting's application email or title is malformed; open the posting and apply manually.",
+        ) from exc
     if user.gmail_refresh_token:
         sender = GmailSender(user.gmail_refresh_token, settings.google_client_id, settings.google_client_secret)
         via = "gmail"

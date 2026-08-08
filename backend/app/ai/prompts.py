@@ -229,6 +229,35 @@ CANDIDATE CV (JSON):
 """
 
 
+def answers_prompt(jd: str, master_text: str, facts_text: str, language: str) -> str:
+    lang_names = {"en": "English", "fr": "French", "de": "German"}
+    return f"""You prepare a candidate for the screening questions of ONE job posting.
+Write in {lang_names.get(language, "English")}.
+
+Derive 3 to 6 questions a recruiter for THIS posting would realistically ask
+(experience depth, specific tools, motivation for this company, availability
+specifics beyond the standard facts) and answer them AS the candidate.
+
+HARD RULES:
+- Ground every answer ONLY in the CV and the stated facts below. If the
+  information is not there, the answer must say the candidate will confirm,
+  never an invented specific (no invented years, employers, certificates,
+  salaries, or dates).
+- Skip questions already covered by the standard facts (work permit, notice
+  period, salary, mobility, languages, driving licence, start date).
+- 2-4 sentences per answer, first person, concrete, no filler.
+
+JOB POSTING:
+{jd}
+
+CANDIDATE CV:
+{master_text}
+
+CANDIDATE FACTS:
+{facts_text}
+"""
+
+
 def edit_cv_prompt(cv_json: str, instruction: str, language: str) -> str:
     return f"""You are editing a candidate's CV data. Apply the instruction below and
 return the COMPLETE updated CV in the same schema. Change only what the

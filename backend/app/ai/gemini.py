@@ -11,7 +11,7 @@ from google.genai import types
 from pydantic import BaseModel
 
 from ..config import get_settings
-from ..schemas import CVData, JobAnalysis, LetterData
+from ..schemas import AnswersDoc, CVData, FactsProfile, JobAnalysis, LetterData
 from . import prompts
 from .base import AIError
 
@@ -157,6 +157,20 @@ class GeminiProvider:
 
     async def outreach(self, jd: str, analysis: JobAnalysis, cv: CVData, language: str) -> str:
         return await self._generate(prompts.outreach_prompt(jd, cv.model_dump_json(), language))
+
+    async def write_answers(
+        self, jd: str, analysis: JobAnalysis, master: CVData, facts: FactsProfile, language: str
+    ) -> AnswersDoc:
+        facts_text = "\n".join(
+            f"{k}: {v}" for k, v in facts.model_dump().items() if v
+        ) or "(none provided)"
+        doc: AnswersDoc = await self._generate(
+            prompts.answers_prompt(jd, master.plain_text(), facts_text, language),
+            schema=AnswersDoc,
+        )
+        for item in doc.items:
+            item.origin = "generated"
+        return doc
 
     async def edit_cv_data(self, cv: CVData, instruction: str, language: str) -> CVData:
         prompt = prompts.edit_cv_prompt(cv.model_dump_json(indent=1), instruction, language)

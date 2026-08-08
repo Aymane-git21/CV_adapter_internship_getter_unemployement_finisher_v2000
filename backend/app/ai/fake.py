@@ -5,9 +5,12 @@ import asyncio
 import re
 
 from ..schemas import (
+    AnswerItem,
+    AnswersDoc,
     Contacts,
     CVData,
     ExperienceItem,
+    FactsProfile,
     JobAnalysis,
     Keyword,
     LetterData,
@@ -160,6 +163,28 @@ class FakeProvider:
         return (
             f"Hi, I just applied for the {analysis.job_title} role. "
             "My background matches the requirements closely; open to a quick 15-minute chat?"
+        )
+
+    async def write_answers(
+        self, jd: str, analysis: JobAnalysis, master: CVData, facts: FactsProfile, language: str
+    ) -> AnswersDoc:
+        await self._tick()
+        top = [k.term for k in analysis.keywords[:2]] or ["the stack"]
+        return AnswersDoc(
+            items=[
+                AnswerItem(
+                    question=f"How much hands-on experience do you have with {top[0]}?",
+                    answer=f"I have used {top[0]} in production as part of my recent work. "
+                           f"Details are in my CV; I can walk through concrete projects.",
+                    origin="generated",
+                ),
+                AnswerItem(
+                    question=f"Why {analysis.company or 'this company'}?",
+                    answer="The role matches the work I already do and the stack I enjoy. "
+                           "I want to keep building exactly this kind of system.",
+                    origin="generated",
+                ),
+            ]
         )
 
     async def edit_cv_data(self, cv: CVData, instruction: str, language: str) -> CVData:

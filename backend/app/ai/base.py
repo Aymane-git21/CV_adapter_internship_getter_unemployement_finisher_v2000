@@ -2,7 +2,7 @@
 the LLM never emits raw markup, only structured data."""
 from typing import Protocol
 
-from ..schemas import CVData, JobAnalysis, LetterData
+from ..schemas import AnswersDoc, CVData, FactsProfile, JobAnalysis, LetterData
 
 
 class AIError(Exception):
@@ -28,6 +28,10 @@ class AIProvider(Protocol):
     ) -> LetterData: ...
 
     async def outreach(self, jd: str, analysis: JobAnalysis, cv: CVData, language: str) -> str: ...
+
+    async def write_answers(
+        self, jd: str, analysis: JobAnalysis, master: CVData, facts: FactsProfile, language: str
+    ) -> AnswersDoc: ...
 
     async def edit_cv_data(self, cv: CVData, instruction: str, language: str) -> CVData: ...
 

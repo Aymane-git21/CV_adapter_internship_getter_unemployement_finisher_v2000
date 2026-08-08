@@ -9,7 +9,7 @@ from backend.app.schemas import FactsProfile
 from backend.tests.conftest import SAMPLE_CV_TEXT, SAMPLE_JD, unique_email
 
 
-async def _register_and_generate(client, extra_gen=None):
+async def _register_and_generate(client):
     email = unique_email()
     await client.post("/api/auth/register", json={"email": email, "password": "password123"})
     body = {
@@ -69,3 +69,8 @@ async def test_pipeline_job_gets_answers_document(client):
     assert "facts" in origins and "generated" in origins
     facts_items = [i for i in items if i["origin"] == "facts"]
     assert facts_items[0]["answer"] == "EU citizen"
+    # Ordering contract: fixed facts are merged BEFORE generated items. A set-based
+    # origin check alone would still pass if the concatenation were reversed.
+    first_generated = next(i for i, item in enumerate(items) if item["origin"] == "generated")
+    assert all(item["origin"] == "facts" for item in items[:first_generated])
+    assert items[0]["origin"] == "facts"

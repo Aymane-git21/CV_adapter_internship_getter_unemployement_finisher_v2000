@@ -9,7 +9,7 @@ from ..config import get_settings
 from ..db import get_db
 from ..models import Document, FeedbackEntry, Job, User
 from ..quota import ALL_TEMPLATES, PLANS
-from ..schemas import ByokValidateIn, FeedbackIn
+from ..schemas import ByokValidateIn, FactsProfile, FeedbackIn
 from ..security import require_user
 
 router = APIRouter(prefix="/api", tags=["account"])
@@ -106,3 +106,19 @@ async def byok_validate(body: ByokValidateIn):
             detail="Gemini rejected this key. Create one at aistudio.google.com/apikey and try again.",
         )
     return {"ok": True}
+
+
+@router.get("/account/facts")
+async def get_facts(user: Annotated[User, Depends(require_user)]) -> FactsProfile:
+    return FactsProfile.model_validate(user.facts or {})
+
+
+@router.put("/account/facts")
+async def put_facts(
+    body: FactsProfile,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_user)],
+) -> FactsProfile:
+    user.facts = body.model_dump()
+    await db.commit()
+    return body

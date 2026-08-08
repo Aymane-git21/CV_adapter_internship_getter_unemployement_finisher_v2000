@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     adzuna_app_key: str = ""
     poll_interval_minutes: int = 60
     internal_token: str = ""
+    send_cap_daily: int = 15
+    eml_out_dir: str = ""  # dev fallback output; empty -> <repo>/eml_out
 
     # LaTeX compile service (services/latexc). Feature stays dark until both
     # LATEXC_URL and LATEXC_TOKEN are set.

@@ -32,7 +32,8 @@ def build_application_email(
     msg.set_content(body)
     for filename, blob in attachments:
         msg.add_attachment(
-            blob, maintype="application", subtype="pdf", filename=filename
+            blob, maintype="application", subtype="pdf",
+            filename=_clean_header(filename, "attachment filename"),
         )
     return msg
 

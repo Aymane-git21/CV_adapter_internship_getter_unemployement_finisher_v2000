@@ -36,6 +36,14 @@ def test_header_injection_rejected(field):
         build_application_email(**kwargs)
 
 
+def test_attachment_filename_injection_rejected():
+    with pytest.raises(ValueError):
+        build_application_email(
+            sender="a@b.c", to="x@y.z", subject="Hi", body="B",
+            attachments=[("evil.pdf\r\nBcc: spam@spam.spam", PDF)],
+        )
+
+
 async def test_eml_sender_writes_file(tmp_path: Path):
     path_str = await EmlSender(tmp_path).send(_msg())
     p = Path(path_str)

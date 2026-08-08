@@ -11,7 +11,7 @@ from ..db import get_db
 from ..mailer import TOKEN_URL
 from ..models import Document, FeedbackEntry, Job, User
 from ..quota import ALL_TEMPLATES, PLANS
-from ..schemas import ByokValidateIn, FactsProfile, FeedbackIn
+from ..schemas import ByokValidateIn, FactsProfile, FeedbackIn, GmailConnectIn
 from ..security import require_user
 
 router = APIRouter(prefix="/api", tags=["account"])
@@ -128,24 +128,27 @@ async def put_facts(
 
 @router.post("/account/gmail/connect")
 async def gmail_connect(
-    body: dict,
+    body: GmailConnectIn,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_user)],
 ) -> dict:
-    code, redirect_uri = body.get("code", ""), body.get("redirect_uri", "")
-    if not code:
+    if not body.code:
         raise HTTPException(status_code=422, detail="Missing authorization code.")
     settings = get_settings()
     async with httpx.AsyncClient(timeout=30) as http:
         resp = await http.post(TOKEN_URL, data={
-            "grant_type": "authorization_code", "code": code,
+            "grant_type": "authorization_code", "code": body.code,
             "client_id": settings.google_client_id,
             "client_secret": settings.google_client_secret,
-            "redirect_uri": redirect_uri,
+            "redirect_uri": body.redirect_uri,
         })
-    if resp.status_code != 200 or "refresh_token" not in resp.json():
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = {}
+    if resp.status_code != 200 or "refresh_token" not in payload:
         raise HTTPException(status_code=400, detail="Google did not grant offline Gmail access.")
-    user.gmail_refresh_token = resp.json()["refresh_token"]
+    user.gmail_refresh_token = payload["refresh_token"]
     await db.commit()
     return {"connected": True}
 

@@ -264,3 +264,10 @@ class AnswerItem(BaseModel):
 
 class AnswersDoc(BaseModel):
     items: list[AnswerItem] = Field(default_factory=list)
+
+
+class GmailConnectIn(BaseModel):
+    """OAuth code exchange for Gmail send access (Task 12)."""
+
+    code: str = ""
+    redirect_uri: str = ""

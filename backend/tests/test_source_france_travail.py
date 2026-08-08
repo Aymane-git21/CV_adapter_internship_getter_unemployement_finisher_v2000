@@ -42,19 +42,25 @@ async def test_fetch_normalizes_offers():
         postings = await src.fetch(
             SavedSearchParams(keywords="machine learning", insee="31555", radius_km=20), client
         )
-    assert calls == {"token": 1, "search": 1}
-    assert len(postings) == 2
-    first = postings[0]
-    assert first.source == "ft"
-    assert first.external_id == "185XKPT"
-    assert first.title == "Ingénieur Machine Learning (H/F)"
-    assert first.company == "LUMINA AI"
-    assert first.location == "31 - TOULOUSE"
-    assert first.contract_type == "CDI"
-    assert first.apply_email == "recrutement@lumina.example"
-    second = postings[1]
-    assert second.apply_email is None
-    assert second.apply_url == "https://aerotech.example/careers/data-engineer"
+        assert calls == {"token": 1, "search": 1}
+        assert len(postings) == 2
+        first = postings[0]
+        assert first.source == "ft"
+        assert first.external_id == "185XKPT"
+        assert first.title == "Ingénieur Machine Learning (H/F)"
+        assert first.company == "LUMINA AI"
+        assert first.location == "31 - TOULOUSE"
+        assert first.contract_type == "CDI"
+        assert first.apply_email == "recrutement@lumina.example"
+        second = postings[1]
+        assert second.apply_email is None
+        assert second.apply_url == "https://aerotech.example/careers/data-engineer"
+        # Second fetch should reuse cached token
+        postings2 = await src.fetch(
+            SavedSearchParams(keywords="machine learning", insee="31555", radius_km=20), client
+        )
+        assert calls == {"token": 1, "search": 2}
+        assert len(postings2) == 2
 
 
 async def test_search_failure_raises_source_error():
@@ -66,7 +72,13 @@ async def test_search_failure_raises_source_error():
 
 
 async def test_missing_credentials_raise_before_any_call():
+    def handler(request: httpx.Request) -> httpx.Response:
+        handler.calls += 1
+        return httpx.Response(500)
+    handler.calls = 0
+
     src = FranceTravailSource(client_id="", client_secret="")
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500))) as client:
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(SourceError):
             await src.fetch(SavedSearchParams(keywords="x"), client)
+    assert handler.calls == 0  # Prove no HTTP happened

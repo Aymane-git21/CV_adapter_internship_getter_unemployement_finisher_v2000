@@ -39,9 +39,12 @@ class FranceTravailSource:
         )
         if resp.status_code != 200:
             raise SourceError(f"France Travail token request failed ({resp.status_code})")
-        body = resp.json()
-        self._token = body["access_token"]
-        self._token_exp = time.monotonic() + float(body.get("expires_in", 1200))
+        try:
+            body = resp.json()
+            self._token = body["access_token"]
+            self._token_exp = time.monotonic() + float(body.get("expires_in", 1200))
+        except (ValueError, KeyError) as exc:
+            raise SourceError("France Travail returned an unreadable response.") from exc
         return self._token
 
     async def fetch(
@@ -62,7 +65,11 @@ class FranceTravailSource:
         if resp.status_code not in (200, 206):  # 206 = partial content, documented for paging
             raise SourceError(f"France Travail search failed ({resp.status_code})")
         out: list[JobPostingIn] = []
-        for offer in resp.json().get("resultats", []):
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise SourceError("France Travail returned an unreadable response.") from exc
+        for offer in data.get("resultats", []):
             contact = offer.get("contact") or {}
             out.append(
                 JobPostingIn(

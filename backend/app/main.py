@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from . import poller as pipeline_poller
 from .config import get_settings
 from .db import dispose_db, init_db, session_factory
 from .routers import account, auth, billing, cvs, documents, generate, latex, templates
@@ -54,9 +55,16 @@ async def lifespan(app: FastAPI):
         import asyncio
 
         reaper = asyncio.create_task(latex.idle_reaper())
+    poll_task = None
+    if not settings.is_prod and (settings.ft_client_id or settings.adzuna_app_id):
+        import asyncio as _asyncio
+
+        poll_task = _asyncio.create_task(pipeline_poller.poll_loop())
     yield
     if reaper is not None:
         reaper.cancel()
+    if poll_task is not None:
+        poll_task.cancel()
     await dispose_db()
 
 
@@ -110,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(billing.router)
     app.include_router(latex.router)
     app.include_router(templates.router)
+    app.include_router(pipeline_poller.internal_router)
 
     @app.get("/healthz")
     async def healthz():

@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     ft_client_secret: str = ""
     adzuna_app_id: str = ""
     adzuna_app_key: str = ""
+    poll_interval_minutes: int = 60
+    internal_token: str = ""
 
     # LaTeX compile service (services/latexc). Feature stays dark until both
     # LATEXC_URL and LATEXC_TOKEN are set.

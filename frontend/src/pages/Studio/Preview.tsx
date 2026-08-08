@@ -1,7 +1,7 @@
 /* Right pane: the paper. Live SVG pages, zoom, score card, downloads. */
 import { Download, FileCode2, Loader2, Minus, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api } from "../../api";
+import { api, type AnswersData } from "../../api";
 import { useI18n } from "../../i18n";
 import { SettingsPopover } from "./SettingsPopover";
 import type { DocController } from "./useDocument";
@@ -96,13 +96,29 @@ export function Preview({ ctl }: { ctl: DocController }) {
 
   if (!doc) return <div className="h-full glass-panel" />;
 
-  if (doc.kind === "message") {
+  // Neither kind has a source/svg — same read-only "paper" treatment,
+  // never the SVG/settings toolbar below (which assumes a compiled doc).
+  if (doc.kind === "message" || doc.kind === "answers") {
+    const answerItems = doc.kind === "answers" ? ((doc.data as AnswersData | null)?.items ?? []) : [];
     return (
       <div className="grid h-full place-items-center overflow-y-auto glass-panel p-8">
         <div className="sheet w-full max-w-md p-8">
-          <p className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-neutral-800">
-            {doc.text_content}
-          </p>
+          {doc.kind === "message" ? (
+            <p className="whitespace-pre-wrap font-sans text-[13.5px] leading-relaxed text-neutral-800">
+              {doc.text_content}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {answerItems.map((it, i) => (
+                <div key={i}>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    {it.question}
+                  </p>
+                  <p className="text-[13.5px] leading-relaxed text-neutral-800">{it.answer}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );

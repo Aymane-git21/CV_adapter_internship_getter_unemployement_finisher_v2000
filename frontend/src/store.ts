@@ -46,7 +46,7 @@ function saveTabIds(ids: string[]) {
   localStorage.setItem(TABS_KEY, JSON.stringify(ids.slice(-12)));
 }
 
-export type DocKind = "cv" | "letter" | "message";
+export type DocKind = "cv" | "letter" | "message" | "answers";
 
 interface StudioState {
   jobs: Record<string, JobSnapshot>;

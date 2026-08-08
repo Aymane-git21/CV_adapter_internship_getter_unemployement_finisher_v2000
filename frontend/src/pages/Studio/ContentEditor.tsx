@@ -1,6 +1,7 @@
-/* Structured editor — CV form, letter form, or outreach message. */
+/* Structured editor — CV form, letter form, outreach message, or (read-only)
+   screening answers. */
 import { Plus, Trash2 } from "lucide-react";
-import type { CVData, LetterData } from "../../api";
+import type { AnswerItem, CVData, LetterData } from "../../api";
 import { useI18n } from "../../i18n";
 import type { DocController } from "./useDocument";
 
@@ -275,6 +276,22 @@ function MessageForm({ ctl }: { ctl: DocController }) {
   );
 }
 
+/* ── Answers (read-only) ─────────────────────────────────────────────────── */
+
+function AnswersView({ items }: { items: AnswerItem[] }) {
+  const { t } = useI18n();
+  return (
+    <Section title={t("ed.answers")}>
+      {items.map((it, i) => (
+        <div key={i} className="rounded-lg border border-black/10 glass-panel/60 p-3">
+          <p className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-text/50">{it.question}</p>
+          <p className="text-[13px] leading-relaxed">{it.answer}</p>
+        </div>
+      ))}
+    </Section>
+  );
+}
+
 export function ContentEditor({ ctl }: { ctl: DocController }) {
   const doc = ctl.doc;
   if (!doc) return null;
@@ -283,6 +300,7 @@ export function ContentEditor({ ctl }: { ctl: DocController }) {
       {doc.kind === "cv" && doc.data && <CVForm ctl={ctl} />}
       {doc.kind === "letter" && doc.data && <LetterForm ctl={ctl} />}
       {doc.kind === "message" && <MessageForm ctl={ctl} />}
+      {doc.kind === "answers" && doc.data && <AnswersView items={(doc.data as { items: AnswerItem[] }).items} />}
     </div>
   );
 }

@@ -44,7 +44,7 @@ export interface DocSettings {
 export interface JobEvent { ts: string; step: string; message: string; pct: number }
 
 export interface DocSummary {
-  id: string; kind: "cv" | "letter" | "message"; title: string;
+  id: string; kind: "cv" | "letter" | "message" | "answers"; title: string;
   template?: string; score_before?: number | null; score_after?: number | null;
 }
 
@@ -55,10 +55,15 @@ export interface JobSnapshot {
   documents?: DocSummary[];
 }
 
+/* Screening Q&A — the pipeline's 4th artifact (mirrors backend AnswerItem).
+   Read-only in the studio: no source/svg, never sent through compile/chat. */
+export interface AnswerItem { question: string; answer: string; origin: "facts" | "generated" }
+export interface AnswersData { items: AnswerItem[] }
+
 export interface DocumentPayload {
-  id: string; job_id: string | null; kind: "cv" | "letter" | "message";
+  id: string; job_id: string | null; kind: "cv" | "letter" | "message" | "answers";
   title: string; template: string; settings: DocSettings;
-  data: CVData | LetterData | null; source: string | null;
+  data: CVData | LetterData | AnswersData | null; source: string | null;
   mode: "data" | "source"; text_content: string | null; photo_id: string | null;
   score_before: number | null; score_after: number | null;
   keywords: { matched: string[]; missing: string[] } | null;
@@ -73,7 +78,7 @@ export interface Quota {
 
 export interface Me {
   authenticated: boolean; id?: number; email?: string; plan?: string;
-  language?: string; quota: Quota;
+  language?: string; pipeline_enabled?: boolean; quota: Quota;
 }
 
 export interface TemplateMeta { id: string; label: string; vibe: string; default_accent: string }
@@ -96,6 +101,23 @@ export interface HistoryEntry {
 export interface MasterCVMeta {
   id: number; name: string; is_default: boolean; data: CVData | null;
   has_raw_text: boolean; updated_at: string | null;
+}
+
+/* ── auto-apply pipeline (mirrors backend/app/routers/applications.py) ─────── */
+
+export interface PipelinePosting {
+  id: number; title: string; company: string; location: string; source: string;
+  apply_email: string | null; apply_url: string | null; posted_at: string; contract_type: string;
+}
+export interface PipelineApp {
+  id: number; status: "inbox" | "generated" | "approved" | "sent" | "replied" | "rejected";
+  job_id: string | null; sent_via: string | null; sent_at: string | null;
+  audit: { ts: string; from: string; to: string; note: string }[];
+  posting: PipelinePosting;
+}
+export interface PipelineSearch {
+  id: number; name: string; keywords: string; insee: string; radius_km: number;
+  contract_type: string; enabled: boolean;
 }
 
 /* ── client ──────────────────────────────────────────────────────────────── */
@@ -187,6 +209,26 @@ export const api = {
     rewrite_intensity?: "reshape" | "minor" | "major" | "max_ats";
     compiler?: "typst" | "latex";
   }) => request<{ jobs: string[] }>("/api/generate", { method: "POST", body: JSON.stringify(body) }),
+
+  pipeline: () => request<{ applications: PipelineApp[] }>("/api/pipeline"),
+  pipelineGenerate: (application_ids: number[], opts: {
+    template: string; accent: string; language: string; rewrite_intensity: string;
+  }) => request<{ jobs: string[] }>("/api/pipeline/generate", {
+    method: "POST", body: JSON.stringify({ application_ids, ...opts }),
+  }),
+  pipelineApprove: (id: number) =>
+    request<PipelineApp>(`/api/pipeline/${id}/approve`, { method: "POST" }),
+  pipelineReject: (id: number, note: string) =>
+    request<PipelineApp>(`/api/pipeline/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
+  pipelineSend: (id: number, body: { subject?: string; body?: string }) =>
+    request<PipelineApp>(`/api/pipeline/${id}/send`, { method: "POST", body: JSON.stringify(body) }),
+  pipelineMarkSent: (id: number) =>
+    request<PipelineApp>(`/api/pipeline/${id}/mark-sent`, { method: "POST" }),
+  pipelineSearches: () => request<PipelineSearch[]>("/api/pipeline/searches"),
+  createPipelineSearch: (body: { name: string; keywords: string; insee: string; radius_km: number; contract_type: string }) =>
+    request<{ id: number }>("/api/pipeline/searches", { method: "POST", body: JSON.stringify(body) }),
+  deletePipelineSearch: (id: number) =>
+    request<{ ok: true }>(`/api/pipeline/searches/${id}`, { method: "DELETE" }),
 
   job: (id: string) => request<JobSnapshot>(`/api/jobs/${id}`),
   retryJob: (id: string) => request<JobSnapshot>(`/api/jobs/${id}/retry`, { method: "POST" }),

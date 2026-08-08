@@ -2,6 +2,7 @@
 import { CheckCircle2, Loader2, Plus, X, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { useSearchParams } from "react-router-dom";
 import type { JobSnapshot } from "../../api";
 import { AdSlot } from "../../components/AdSlot";
 import { useI18n } from "../../i18n";
@@ -164,7 +165,10 @@ function Workspace({ job }: { job: JobSnapshot }) {
   );
   const ctl = useDocument(activeDoc?.id ?? null);
 
-  const kinds: DocKind[] = ["cv", "letter", "message"];
+  // "answers" only exists on pipeline-originated jobs (4th artifact); a
+  // plain studio job has 3 docs and must not show a dead tab for it.
+  const hasAnswers = job.documents?.some((d) => d.kind === "answers") ?? false;
+  const kinds: DocKind[] = hasAnswers ? ["cv", "letter", "message", "answers"] : ["cv", "letter", "message"];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -220,11 +224,31 @@ export default function Studio() {
   const closeJob = useStudio((s) => s.closeJob);
   const retryJob = useStudio((s) => s.retryJob);
   const restoreTabs = useStudio((s) => s.restoreTabs);
+  const openJobs = useStudio((s) => s.openJobs);
   const [showNew, setShowNew] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    void restoreTabs();
-  }, [restoreTabs]);
+    // Restore previously open tabs first, then apply a "?job=<id>" deep
+    // link (e.g. the pipeline board's "View documents"). Sequenced after
+    // restoreTabs resolves so its own tabOrder/activeJobId write can never
+    // race and clobber the just-opened deep-linked job.
+    const jobId = searchParams.get("job");
+    void restoreTabs().then(() => {
+      if (!jobId) return;
+      openJobs([jobId]);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("job");
+          return next;
+        },
+        { replace: true },
+      );
+    });
+    // Deep link is consumed once on mount; restoreTabs/openJobs are stable zustand actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeJob = activeJobId ? jobs[activeJobId] : null;
   const showNewPanel = showNew || tabOrder.length === 0;

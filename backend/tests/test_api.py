@@ -29,6 +29,7 @@ async def test_full_flow(client):
 
     user = await _register(client)
     assert user["plan"] == "free"
+    assert user["pipeline_enabled"] is False
 
     # Save a master CV from pasted text (offline parser).
     r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})

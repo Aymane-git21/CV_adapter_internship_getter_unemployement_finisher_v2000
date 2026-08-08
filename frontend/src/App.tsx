@@ -5,6 +5,7 @@ import { Nav } from "./components/Nav";
 import { useSession } from "./store";
 import Dashboard from "./pages/Dashboard";
 import Landing from "./pages/Landing";
+import Pipeline from "./pages/Pipeline";
 import Pricing from "./pages/Pricing";
 import Settings from "./pages/Settings";
 import Studio from "./pages/Studio";
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/studio" element={<Studio />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Landing />} />
         </Routes>

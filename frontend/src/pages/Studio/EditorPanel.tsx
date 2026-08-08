@@ -23,7 +23,10 @@ export function EditorPanel({ ctl }: { ctl: DocController }) {
   }
 
   const isMessage = doc.kind === "message";
-  const tabs: PanelTab[] = isMessage ? ["content", "chat"] : ["content", "source", "chat"];
+  // "answers" has no source and is never sent through chat edits (its data
+  // shape isn't CVData/LetterData) — content-only, read-only tab.
+  const tabs: PanelTab[] =
+    doc.kind === "answers" ? ["content"] : isMessage ? ["content", "chat"] : ["content", "source", "chat"];
   const labels: Record<PanelTab, string> = {
     content: t("studio.panel.content"),
     source: t("studio.panel.source"),

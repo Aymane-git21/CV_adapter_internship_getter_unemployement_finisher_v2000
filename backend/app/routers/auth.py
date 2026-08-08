@@ -22,6 +22,7 @@ def _user_payload(user: User) -> dict:
         "plan": user.plan,
         "language": user.language,
         "quota": quota_snapshot(user),
+        "pipeline_enabled": bool(user.pipeline_enabled),
     }
 
 

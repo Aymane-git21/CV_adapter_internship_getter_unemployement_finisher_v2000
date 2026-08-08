@@ -45,20 +45,41 @@ async def poll_once() -> dict:
                 .where(SavedSearch.enabled == True, User.pipeline_enabled == 1)  # noqa: E712
             )
         ).all()
-        async with httpx.AsyncClient(timeout=30) as client:
-            for search, user in rows:
-                params = SavedSearchParams(
+        # Read every value the inner loop needs out of the ORM rows now, before
+        # any commit/rollback: Session.rollback() unconditionally expires every
+        # object loaded in the transaction (not just the ones touched in the
+        # failed unit of work — this is separate from expire_on_commit, which
+        # only governs commit()), and touching an expired attribute on an
+        # AsyncSession outside of an awaited call raises MissingGreenlet. Since
+        # the loop below commits/rolls back per (search, source) pair, `search`
+        # and `user` must never be read again past this point.
+        jobs = [
+            (
+                user.id,
+                SavedSearchParams(
                     keywords=search.keywords, insee=search.insee,
                     radius_km=search.radius_km, contract_type=search.contract_type,
-                )
+                ),
+            )
+            for search, user in rows
+        ]
+        async with httpx.AsyncClient(timeout=30) as client:
+            for user_id, params in jobs:
                 for source in sources:
                     try:
                         postings = await source.fetch(params, client)
-                        new_total += await ingest(db, user.id, postings)
+                        new_total += await ingest(db, user_id, postings)
+                        # Commit per (search, source) pair rather than once at the
+                        # end: a failed flush leaves the session in
+                        # PendingRollbackError state, so the rollback below
+                        # restores it and later sources still land; per-pair
+                        # commits also mean a later error never discards an
+                        # earlier source's already-ingested postings.
+                        await db.commit()
                     except Exception as exc:  # noqa: BLE001 — reported, poll continues
                         log.warning("source %s failed: %s", source.name, exc)
-                        errors.append(str(exc))
-        await db.commit()
+                        errors.append(f"{source.name}: {exc}")
+                        await db.rollback()
     return {"new": new_total, "errors": errors}
 
 

@@ -1,4 +1,6 @@
 """Idempotent ingest: same poll twice = zero new rows; cross-source dupes collapse."""
+import asyncio
+
 import pytest
 from sqlalchemy import func, select
 
@@ -55,3 +57,47 @@ async def test_cross_source_duplicate_collapses(client):
         postings = (await db.execute(select(func.count(JobPosting.id)))).scalar_one()
         apps = (await db.execute(select(func.count(Application.id)).where(Application.user_id == uid))).scalar_one()
         assert postings >= 2 and apps == 1
+
+
+async def test_concurrent_ingest_same_fuzzy_creates_one_application(client):
+    async with session_factory()() as db:
+        user = User(email=unique_email())
+        db.add(user)
+        await db.commit()
+        uid = user.id
+
+    # Two postings with same title+company (fuzzy hash) but different source+external_id
+    posting_a = _posting(source="ft", ext="C1")  # title="ML Engineer", company="Lumina"
+    posting_b = _posting(source="adzuna", ext="C2")  # same title+company
+
+    async def run(posting):
+        async with session_factory()() as db:
+            n = await ingest(db, uid, [posting])
+            await db.commit()
+            return n
+
+    # Concurrent ingest calls
+    results = await asyncio.gather(run(posting_a), run(posting_b))
+
+    async with session_factory()() as db:
+        assert sum(results) == 1, f"Expected 1 new application total, got {sum(results)}"
+        apps = (await db.execute(select(func.count(Application.id)).where(Application.user_id == uid))).scalar_one()
+        assert apps == 1, f"Expected 1 application for user, got {apps}"
+
+
+async def test_blank_postings_skipped(client):
+    async with session_factory()() as db:
+        user = User(email=unique_email())
+        db.add(user)
+        await db.commit()
+        uid = user.id
+
+    async with session_factory()() as db:
+        n = await ingest(db, uid, [
+            JobPostingIn(source="ft", external_id="", title="X", description="d"),
+            JobPostingIn(source="ft", external_id="B1", title="", description="d"),
+        ])
+        await db.commit()
+        assert n == 0
+        apps = (await db.execute(select(func.count(Application.id)).where(Application.user_id == uid))).scalar_one()
+        assert apps == 0

@@ -15,7 +15,7 @@ from sqlalchemy import text
 from . import poller as pipeline_poller
 from .config import get_settings
 from .db import dispose_db, init_db, session_factory
-from .routers import account, auth, billing, cvs, documents, generate, latex, templates
+from .routers import account, applications, auth, billing, cvs, documents, generate, latex, templates
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("cvglowup")
@@ -118,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(billing.router)
     app.include_router(latex.router)
     app.include_router(templates.router)
+    app.include_router(applications.router)
     app.include_router(pipeline_poller.internal_router)
 
     @app.get("/healthz")

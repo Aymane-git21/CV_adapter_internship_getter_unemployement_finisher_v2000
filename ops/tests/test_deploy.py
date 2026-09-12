@@ -279,3 +279,68 @@ def test_deploy_args_carry_latexc_wiring_without_any_shell_setup():
     sec = args[args.index("--set-secrets") + 1]
     assert "LATEXC_URL=https://" in env
     assert "LATEXC_TOKEN=LATEXC_TOKEN:latest" in sec
+
+
+# ---- tag cleanup after promotion ---------------------------------------------
+
+# The traffic state the 2026-09-13 deploy read right after building its
+# candidate, i.e. BEFORE the promote step moved 100% onto it.
+_PRE_PROMOTION = [
+    {"revision": "cvglowup-00036-ber", "percent": 100, "tag": "cand-eeb0d8a1a26f", "url": "u"},
+    {"revision": "cvglowup-00033-yeb", "percent": 0, "tag": "cand-1f7bc73dcc60", "url": "u"},
+    {"revision": "cvglowup-00039-ket", "percent": 0, "tag": "cand-1ddd28cf2cc3", "url": "u"},
+]
+
+
+def test_stale_tags_after_promotion_include_the_previously_serving_revision():
+    """Regression, 2026-09-13: cleanup judged tags on the pre-promotion snapshot,
+    so the previously serving revision (100% at read time) kept its tag, and its
+    tagged URL kept serving the path traversal that deploy had just fixed."""
+    import ops.deploy as deploy
+
+    assert deploy.stale_tags_after_promotion(_PRE_PROMOTION, "cvglowup-00039-ket") == [
+        "cand-1f7bc73dcc60", "cand-eeb0d8a1a26f",
+    ]
+
+
+def test_stale_tags_after_promotion_keep_the_new_candidate_and_non_candidate_tags():
+    import ops.deploy as deploy
+
+    pre_promotion = [
+        {"revision": "cvglowup-00011-new", "percent": 0, "tag": "cand-newsha11111", "url": "u"},
+        {"revision": "cvglowup-00010-hmk", "percent": 100, "tag": "", "url": ""},
+        {"revision": "cvglowup-00009-zqk", "percent": 0, "tag": "special", "url": "u"},
+    ]
+    assert deploy.stale_tags_after_promotion(pre_promotion, "cvglowup-00011-new") == []
+
+
+def test_cmd_deploy_removes_the_previous_revisions_tag(monkeypatch):
+    """The call site, end to end with gcloud faked: after promoting, the
+    removal must name the old serving revision's tag, not only older ones."""
+    import ops.deploy as deploy
+
+    sha = "1ddd28cf2cc3aaaabbbbccccddddeeeeffff0000"
+    tag = deploy.candidate_tag(sha)
+    before = {
+        "url": SERVICE_URL, "latest_created": "cvglowup-00036-ber", "latest_ready": "cvglowup-00036-ber",
+        "traffic": _PRE_PROMOTION[:2],
+    }
+    after = {
+        **before, "latest_created": "cvglowup-00039-ket", "latest_ready": "cvglowup-00039-ket",
+        "traffic": [
+            *_PRE_PROMOTION[:2],
+            {"revision": "cvglowup-00039-ket", "percent": 0, "tag": tag, "url": deploy.tag_url(tag, SERVICE_URL)},
+        ],
+    }
+    states = iter([before, after])
+    calls: list[list[str]] = []
+    monkeypatch.setattr(deploy, "preflight", lambda: sha)
+    monkeypatch.setattr(deploy, "describe_service", lambda: next(states))
+    monkeypatch.setattr(deploy, "gcloud_stream", lambda args, timeout=None: calls.append(args))
+    monkeypatch.setattr(deploy, "smoke", lambda url, require_gemini=True: None)
+
+    deploy.cmd_deploy(skip_gate=True, no_promote=False)
+
+    removals = [a for a in calls if "--remove-tags" in a]
+    assert len(removals) == 1, calls
+    assert removals[0][removals[0].index("--remove-tags") + 1] == "cand-1f7bc73dcc60,cand-eeb0d8a1a26f"

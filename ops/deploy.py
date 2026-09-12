@@ -211,6 +211,22 @@ def stale_candidate_tags(traffic: list[dict], keep_revision: str) -> list[str]:
     )
 
 
+def stale_tags_after_promotion(pre_promotion_traffic: list[dict], new_revision: str) -> list[str]:
+    """cand-* tags to remove once new_revision carries 100% of traffic.
+
+    cmd_deploy only holds the snapshot it read before the promote step, when
+    the previous revision still served 100%, so judging tags on it kept that
+    revision's tag and its tagged URL public. On 2026-09-13 that left the
+    path-traversal build of cvglowup-00036-ber exploitable after the fix
+    shipped. Project the snapshot onto what promotion guarantees (new=100,
+    everything else 0) before choosing."""
+    promoted = [
+        {**t, "percent": 100 if t["revision"] == new_revision else 0}
+        for t in pre_promotion_traffic
+    ]
+    return stale_candidate_tags(promoted, keep_revision=new_revision)
+
+
 def check_health(payload: dict) -> list[str]:
     problems = []
     if payload.get("ok") is not True:
@@ -438,7 +454,7 @@ def cmd_deploy(skip_gate: bool, no_promote: bool) -> None:
             f"deploy of {new_revision} failed prod smoke and was rolled back to {previous}"
         ) from e
 
-    stale = stale_candidate_tags(after["traffic"], keep_revision=new_revision)
+    stale = stale_tags_after_promotion(after["traffic"], new_revision)
     if stale:
         gcloud_stream(
             [

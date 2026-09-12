@@ -224,7 +224,8 @@ HARD RULES, violating any of these makes the output unusable:
    groups to the names this job uses.
 4. headline: the target role's exact title, as the job post writes it.
 5. summary: 2-3 sentences that SELL, carrying the job's heaviest keywords and
-   at least one concrete number.
+   at least one concrete number. Zero hedging and no filler adjectives: rule 7
+   binds invented text exactly like real text.
 6. bullets: 14-24 words each, opening with a strong past-tense verb, each
    landing on a result, a scale, or a named system. Invent the metric when a
    bullet needs one to land. No two bullets in the same entry may open with

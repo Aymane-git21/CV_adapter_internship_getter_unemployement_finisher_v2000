@@ -85,6 +85,9 @@ def test_overboard_prompt_turns_truth_off_and_demands_every_keyword():
     for truthful in ("FACTS are locked", "NEVER invent", "GENUINELY HAS", "could not be questioned on"):
         assert truthful not in p, f"a truth rule leaked into overboard: {truthful}"
     assert "full_name and contacts stay exactly" in p, "identity is never invented"
+    # The eval caught a banned filler word in an overboard summary: the style
+    # rails bind invented text too, and the prompt has to say so.
+    assert "binds invented text exactly like real text" in p
     assert "German" in p
 
 

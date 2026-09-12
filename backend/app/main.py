@@ -141,16 +141,27 @@ def create_app() -> FastAPI:
     # ---- SPA serving (production build) ------------------------------------
     dist: Path = settings.frontend_dist
     if dist.exists():
-        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+        root = dist.resolve()
+        # A frontend rebuild empties dist/ before rewriting it, and mounting a
+        # missing assets/ crashed startup. Without the mount, the catch-all
+        # below serves the asset files once the build lands.
+        if (dist / "assets").is_dir():
+            app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
         @app.get("/{path:path}")
         async def spa(path: str):
             if path.startswith("api/"):
                 return JSONResponse({"detail": "Not found"}, status_code=404)
-            file = dist / path
-            if path and file.is_file():
+            # The path arrives percent-decoded, so GET /..%2F.env climbs out of
+            # dist/: resolve first and serve only files that stay inside it.
+            try:
+                file = (root / path).resolve()
+                servable = bool(path) and file.is_file() and file.is_relative_to(root)
+            except (OSError, ValueError):  # e.g. an embedded NUL byte
+                servable = False
+            if servable:
                 return FileResponse(file)
-            return FileResponse(dist / "index.html")
+            return FileResponse(root / "index.html")
 
     return app
 

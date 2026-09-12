@@ -1,9 +1,10 @@
 /* Landing — THE FORGE.
    Drenched dark register: a full-bleed Three.js smolder field where the
-   cursor works like a bellows, a scroll-pinned 7.4s recruiter-scan
-   countdown scrubbed by GSAP, sticky-stacked steps, a feature ledger
-   whose rules ignite on hover, and a molten finale. The floating CV
-   sheet is gone: the fire itself is the hero.
+   cursor works like a bellows, a 7.4s recruiter-scan countdown that
+   runs in real time once it scrolls into view and rewinds when you scroll
+   back above it, sticky-stacked steps, a feature ledger whose rules
+   ignite on hover, and a molten finale. The floating CV sheet is gone:
+   the fire itself is the hero.
    All motion gated behind prefers-reduced-motion. */
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -13,6 +14,7 @@ import { Languages } from "lucide-react";
 import logoUrl from "../assets/CVglowup_logo.svg";
 import { useI18n } from "../i18n";
 import { useSession } from "../store";
+import { COOL_S, LIGHT_S, REWIND_SPEED, SCAN_SECONDS, scanCues } from "./landingScan";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -265,8 +267,10 @@ export default function Landing() {
         return undefined;
       });
 
-      // 4 — THE SCAN: pinned countdown scrubbed by scroll (desktop only;
-      // mobile and reduced motion get the plain readable list).
+      // 4 — THE SCAN: a real 7.4-second countdown. It starts by itself when
+      // the numeral scrolls into view and rewinds when you scroll back above
+      // it, so every pass down replays it (desktop only; mobile and reduced
+      // motion get the plain readable list).
       mm.add("(prefers-reduced-motion: no-preference) and (min-width: 768px)", () => {
         const section = scanRef.current;
         const counter = scanCounterRef.current;
@@ -274,29 +278,20 @@ export default function Landing() {
 
         const items = gsap.utils.toArray<HTMLElement>("[data-scan-item]", section);
         const verdict = section.querySelector<HTMLElement>("[data-scan-verdict]");
-        const state = { v: 7.4 };
+        const state = { v: SCAN_SECONDS };
 
         // initial states live here, not in the markup: with reduced motion
         // (or on mobile) everything below stays plainly visible.
         gsap.set(items, { opacity: 0.22 });
         if (verdict) gsap.set(verdict, { autoAlpha: 0 });
 
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            scroller,
-            trigger: section,
-            start: "top top",
-            end: "+=2800",
-            scrub: 0.6,
-            pin: true,
-            anticipatePin: 1,
-          },
-        });
+        // Every duration below is wall-clock seconds, not scroll distance.
+        const tl = gsap.timeline({ paused: true });
 
-        // the seconds drain away over the first 80% of the pin
+        // the seconds drain away, one real second per second
         tl.to(state, {
           v: 0,
-          duration: 0.8,
+          duration: SCAN_SECONDS,
           ease: "none",
           onUpdate: () => {
             counter.textContent = fmt(state.v, 1);
@@ -305,22 +300,37 @@ export default function Landing() {
         // the numeral heats up as time runs out
         tl.fromTo(counter,
           { color: "#f5ede2", textShadow: "0 0 0px rgba(232,114,44,0)" },
-          { color: "#ff9a4d", textShadow: "0 0 40px rgba(232,114,44,0.55)", duration: 0.45, ease: "power1.in" },
-          0.35,
+          { color: "#ff9a4d", textShadow: "0 0 40px rgba(232,114,44,0.55)", duration: SCAN_SECONDS * 0.55, ease: "power1.in" },
+          SCAN_SECONDS * 0.45,
         );
 
-        // each gaze line lights while "the recruiter is on it", then cools
-        items.forEach((item, i) => {
-          const at = 0.04 + i * 0.152;
-          tl.fromTo(item, { opacity: 0.22, x: 0 }, { opacity: 1, x: 12, duration: 0.06, ease: "power2.out" }, at);
-          tl.to(item, { opacity: 0.38, x: 0, duration: 0.08, ease: "power2.in" }, at + 0.13);
+        // each gaze line lights during the window its label prints, then cools
+        scanCues().forEach(({ lightAt, coolAt }, i) => {
+          const item = items[i];
+          if (!item) return;
+          tl.fromTo(item, { opacity: 0.22, x: 0 }, { opacity: 1, x: 12, duration: LIGHT_S, ease: "power2.out" }, lightAt);
+          tl.to(item, { opacity: 0.38, x: 0, duration: COOL_S, ease: "power2.in" }, coolAt);
         });
 
         // the verdict lands after the last second burns
         if (verdict) {
-          tl.fromTo(verdict, { autoAlpha: 0, y: 36 }, { autoAlpha: 1, y: 0, duration: 0.12, ease: "power3.out" }, 0.85);
-          tl.to(counter, { opacity: 0.12, duration: 0.1 }, 0.85);
+          tl.fromTo(verdict, { autoAlpha: 0, y: 36 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: "power3.out" }, SCAN_SECONDS + 0.15);
+          tl.to(counter, { opacity: 0.12, duration: 0.6 }, SCAN_SECONDS + 0.15);
         }
+
+        // Reaching the numeral starts the clock; scrolling back above it
+        // rewinds (faster than it ran), and the next pass down plays again.
+        ScrollTrigger.create({
+          scroller,
+          trigger: counter,
+          start: "center 72%",
+          onEnter: () => {
+            tl.timeScale(1).play();
+          },
+          onLeaveBack: () => {
+            tl.timeScale(REWIND_SPEED).reverse();
+          },
+        });
       });
 
       mm.add("(prefers-reduced-motion: no-preference)", () => {
@@ -466,7 +476,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── the scan: 7.4 seconds, scrubbed by scroll ────────────────────── */}
+      {/* ── the scan: 7.4 real seconds, started by scroll ────────────────────── */}
       <section ref={scanRef} className="relative overflow-hidden">
         <div className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-24">
           <h2 data-reveal className="forge-display mb-14 text-[clamp(1.7rem,3.4vw,2.6rem)] font-semibold">

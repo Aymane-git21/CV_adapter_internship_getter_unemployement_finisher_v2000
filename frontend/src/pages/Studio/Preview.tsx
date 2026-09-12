@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, type AnswersData } from "../../api";
 import { useI18n } from "../../i18n";
 import { SettingsPopover } from "./SettingsPopover";
+import { chipWindow } from "./scoreChips";
 import type { DocController } from "./useDocument";
 
 /* Warm-compiler chip: shows starting -> warm; X clears this doc's remote
@@ -55,9 +56,11 @@ function LatexChip({ ctl }: { ctl: DocController }) {
 
 function ScoreCard({ ctl }: { ctl: DocController }) {
   const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
   const doc = ctl.doc;
   if (!doc || doc.kind !== "cv" || doc.score_after == null) return null;
   const missing = doc.keywords?.missing ?? [];
+  const chips = chipWindow(missing, expanded);
   return (
     <div className="border-b border-black/10 glass-panel/60 px-4 py-2.5">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
@@ -80,13 +83,21 @@ function ScoreCard({ ctl }: { ctl: DocController }) {
             <span className="text-[12px] font-semibold text-text/60">
               {t("studio.score.missing")}:
             </span>
-            {missing.slice(0, 5).map((k) => (
+            {chips.shown.map((k) => (
               <span key={k} className="rounded-full border border-signal-500/25 bg-signal-950 px-2 py-0.5 text-[12px] font-medium text-danger">
                 {k}
               </span>
             ))}
-            {missing.length > 5 && (
-              <span className="text-[12px] font-medium text-text/50">+{missing.length - 5}</span>
+            {chips.canToggle && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                aria-expanded={expanded}
+                aria-label={expanded ? t("studio.score.showLess") : `${t("studio.score.showAll")} (+${chips.hidden})`}
+                className="rounded-full border border-black/10 px-2 py-0.5 text-[12px] font-medium text-text/60 transition-colors hover:border-ink-600 hover:text-text"
+              >
+                {expanded ? t("studio.score.showLess") : `+${chips.hidden}`}
+              </button>
             )}
           </span>
         ) : (
@@ -134,7 +145,7 @@ export function Preview({ ctl }: { ctl: DocController }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col glass-panel">
-      <ScoreCard ctl={ctl} />
+      <ScoreCard key={doc.id} ctl={ctl} />
 
       <div className="flex shrink-0 items-center justify-between border-b border-black/10 px-4 py-1.5">
         <div className="flex items-center gap-1">

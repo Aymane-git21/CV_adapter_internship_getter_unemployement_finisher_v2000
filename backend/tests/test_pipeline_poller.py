@@ -1,6 +1,5 @@
 """poll_once fans a saved search across sources; the internal endpoint is token-guarded."""
 import httpx
-import pytest
 from sqlalchemy import update
 
 from backend.app import poller

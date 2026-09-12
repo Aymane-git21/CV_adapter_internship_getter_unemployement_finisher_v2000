@@ -22,7 +22,6 @@ from .ats import normalize
 from .models import Application, JobPosting
 from .schemas import JobPostingIn
 
-
 _ingest_lock = asyncio.Lock()
 
 

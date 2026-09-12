@@ -7,7 +7,7 @@ import pytest
 
 from backend.app.schemas import SavedSearchParams
 from backend.app.sources import SourceError
-from backend.app.sources.france_travail import SEARCH_URL, TOKEN_URL, FranceTravailSource
+from backend.app.sources.france_travail import TOKEN_URL, FranceTravailSource
 
 FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "france_travail_search.json").read_text(encoding="utf-8")

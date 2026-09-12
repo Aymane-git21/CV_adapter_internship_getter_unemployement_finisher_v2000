@@ -1,7 +1,6 @@
 """Idempotent ingest: same poll twice = zero new rows; cross-source dupes collapse."""
 import asyncio
 
-import pytest
 from sqlalchemy import func, select
 
 from backend.app.db import session_factory

@@ -45,10 +45,13 @@ def test_attachment_filename_injection_rejected():
 
 
 async def test_eml_sender_writes_file(tmp_path: Path):
+    import anyio
+
     path_str = await EmlSender(tmp_path).send(_msg())
-    p = Path(path_str)
-    assert p.exists() and p.suffix == ".eml"
-    content = p.read_bytes()
+    # anyio.Path: blocking pathlib calls inside a coroutine trip ASYNC240.
+    p = anyio.Path(path_str)
+    assert await p.exists() and p.suffix == ".eml"
+    content = await p.read_bytes()
     assert b"recrutement@lumina.example" in content and b"application/pdf" in content
 
 

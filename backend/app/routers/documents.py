@@ -4,15 +4,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import ats, doctext
 from ..ai import get_provider
 from ..ai.base import AIError
 from ..config import get_settings
 from ..db import get_db
-from ..models import Document, Photo, User
+from ..models import Document, Job, Photo, User
 from ..quota import plan_for
-from ..schemas import ChatIn, CompileIn, CVData, DocumentUpdateIn, LetterData
+from ..schemas import ChatIn, CompileIn, CVData, DocumentUpdateIn, JobAnalysis, LetterData
 from ..security import get_byok_key, get_current_user
 from ..texsvc.activity import touch_latex_activity
 from ..texsvc.client import compile_tex
@@ -46,6 +48,31 @@ def _continuous(settings: dict | None) -> dict:
     out = {**(settings or {}), "page_mode": "continuous", "density": "normal", "font_scale": 1.0}
     out.pop("overflowed", None)
     return out
+
+
+async def _rescore(db: AsyncSession, doc: Document) -> None:
+    """Re-measure the keyword match after an edit from any editor (form,
+    source editor, assistant) against the keyword list that scored the
+    generation, so before/after stay comparable. The text comes from the
+    document as it now stands: its data, or its hand-edited source. No-op for
+    letters, messages, and documents without a job analysis."""
+    if doc.kind != "cv" or not doc.job_id:
+        return
+    job = await db.get(Job, doc.job_id)
+    if job is None or not job.analysis:
+        return
+    try:
+        keywords = JobAnalysis.model_validate(job.analysis).keywords
+    except ValidationError:
+        return
+    if doc.mode == "source":
+        read = doctext.tex_source_text if _is_latex(doc) else doctext.typst_source_text
+        text = read(doc.source or "")
+    else:
+        text = doctext.cv_text(doc.data or {})
+    result = ats.score(keywords, text)
+    doc.score_after = result["score"]
+    doc.keywords = {"matched": result["matched"], "missing": result["missing"]}
 
 
 async def _photo_bytes(db: AsyncSession, doc: Document) -> bytes | None:
@@ -160,6 +187,7 @@ async def update_document(
             result = await renderer.compile_source(doc.source or "", photo=photo, fmt="svg")
         if not result.ok:
             raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
+    await _rescore(db, doc)
     doc.pdf = None  # invalidate cache
     await db.commit()
     return _doc_payload(doc, result.svgs)
@@ -172,7 +200,8 @@ async def compile_document(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User | None, Depends(get_current_user)],
 ):
-    """Compile preview. With a source body, validates + saves it (source mode)."""
+    """Compile preview. With a source body, validates + saves it (source mode)
+    and re-scores the keyword match against the saved source."""
     doc = await _get_doc(db, doc_id, user)
     if doc.kind == "message":
         raise HTTPException(status_code=422, detail="Messages are plain text.")
@@ -195,6 +224,7 @@ async def compile_document(
         doc.source = body.source
         doc.mode = "source"
         doc.pdf = None
+        await _rescore(db, doc)
         await db.commit()
         saved = True
     return {
@@ -204,6 +234,8 @@ async def compile_document(
         "diagnostics": result.diagnostics,
         "saved": saved,
         "mode": doc.mode,
+        "score_after": doc.score_after,
+        "keywords": doc.keywords,
     }
 
 
@@ -274,6 +306,7 @@ async def chat_edit(
     except AIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    await _rescore(db, doc)
     doc.pdf = None
     await db.commit()
     return {
@@ -283,6 +316,8 @@ async def chat_edit(
         "source": doc.source,
         "svgs": result.svgs,
         "mode": doc.mode,
+        "score_after": doc.score_after,
+        "keywords": doc.keywords,
     }
 
 

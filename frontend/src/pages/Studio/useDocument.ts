@@ -1,8 +1,11 @@
 /* Orchestrates one open document: optimistic edits, debounced server sync,
-   live recompiles, chat edits, mode transitions. */
+   live recompiles, chat edits, mode transitions. Every server response to an
+   edit carries the re-scored keyword match; it is folded in here, so the
+   score card follows the form, the source editor and the assistant alike. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, type DocSettings, type DocumentPayload } from "../../api";
 import { useStudio } from "../../store";
+import { mergeEcho, withScore } from "./docSync";
 
 export interface DocController {
   doc: DocumentPayload | null;
@@ -57,7 +60,8 @@ export function useDocument(docId: string | null): DocController {
       setSyncing(true);
       try {
         const updated = await api.updateDocument(docId, body);
-        applyDocument(updated);
+        // Keystrokes typed while this was in flight win over the echo.
+        applyDocument(mergeEcho(useStudio.getState().docs[docId], body, updated));
         if (updated.svgs) setSvgs(docId, updated.svgs);
         setDiagnostics("");
       } catch (e) {
@@ -110,6 +114,8 @@ export function useDocument(docId: string | null): DocController {
           if (res.ok) {
             setSvgs(docId, res.svgs);
             setDiagnostics("");
+            const current = useStudio.getState().docs[docId];
+            if (res.saved && current) applyDocument(withScore(current, res));
           } else {
             setDiagnostics(res.diagnostics);
           }
@@ -135,12 +141,17 @@ export function useDocument(docId: string | null): DocController {
       if (res.ok) {
         const current = useStudio.getState().docs[docId];
         if (current) {
-          applyDocument({
-            ...current,
-            data: (res.data as DocumentPayload["data"]) ?? current.data,
-            source: res.source ?? current.source,
-            text_content: res.text_content ?? current.text_content,
-          });
+          applyDocument(
+            withScore(
+              {
+                ...current,
+                data: (res.data as DocumentPayload["data"]) ?? current.data,
+                source: res.source ?? current.source,
+                text_content: res.text_content ?? current.text_content,
+              },
+              res,
+            ),
+          );
         }
         if (res.svgs) setSvgs(docId, res.svgs);
       }

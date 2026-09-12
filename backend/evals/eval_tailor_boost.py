@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from backend.app import ats
+from backend.app import ats, doctext
 from backend.app.ai import get_provider
 from backend.app.config import get_settings
 from backend.app.schemas import CVData
@@ -132,7 +132,7 @@ async def run_intensity_matrix(provider, master: CVData) -> bool:
         assert bullets, f"tailored CV ({level}) has no bullets"
         novelties = [metrics.bullet_novelty(b, master_bullets) for b in bullets]
         novelty[level] = sum(novelties) / len(novelties)
-        after[level] = ats.score(analysis.keywords, tailored.plain_text())["score"]
+        after[level] = ats.score(analysis.keywords, doctext.cv_text(tailored.model_dump()))["score"]
         print(f"  {level}: mean novelty {novelty[level]:.2f}, ATS after {after[level]}%")
 
     ok = True

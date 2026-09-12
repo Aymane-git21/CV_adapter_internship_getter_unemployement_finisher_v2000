@@ -58,13 +58,16 @@ export interface JobSnapshot {
 export interface AnswerItem { question: string; answer: string; origin: "facts" | "generated" }
 export interface AnswersData { items: AnswerItem[] }
 
+/* Keyword match of a CV: re-scored by the server after every edit. */
+export interface KeywordMatch { matched: string[]; missing: string[] }
+
 export interface DocumentPayload {
   id: string; job_id: string | null; kind: "cv" | "letter" | "message" | "answers";
   title: string; template: string; settings: DocSettings;
   data: CVData | LetterData | AnswersData | null; source: string | null;
   mode: "data" | "source"; text_content: string | null; photo_id: string | null;
   score_before: number | null; score_after: number | null;
-  keywords: { matched: string[]; missing: string[] } | null;
+  keywords: KeywordMatch | null;
   svgs: string[] | null;
 }
 
@@ -235,12 +238,18 @@ export const api = {
   updateDocument: (id: string, body: { data?: object; settings?: DocSettings; text_content?: string }) =>
     request<DocumentPayload>(`/api/documents/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   compile: (id: string, source?: string) =>
-    request<{ ok: boolean; pages: number; svgs: string[]; diagnostics: string; saved: boolean; mode: string }>(
+    request<{
+      ok: boolean; pages: number; svgs: string[]; diagnostics: string; saved: boolean; mode: string;
+      score_after: number | null; keywords: KeywordMatch | null;
+    }>(
       `/api/documents/${id}/compile`,
       { method: "POST", body: JSON.stringify({ source: source ?? null }) },
     ),
   chat: (id: string, message: string) =>
-    request<{ ok: boolean; reply: string; data?: object; source?: string; svgs?: string[]; text_content?: string; diagnostics?: string }>(
+    request<{
+      ok: boolean; reply: string; data?: object; source?: string; svgs?: string[]; text_content?: string;
+      diagnostics?: string; score_after?: number | null; keywords?: KeywordMatch | null;
+    }>(
       `/api/documents/${id}/chat`,
       { method: "POST", body: JSON.stringify({ message }) },
     ),

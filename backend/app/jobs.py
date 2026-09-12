@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import ats, quota
+from . import ats, doctext, quota
 from .ai import get_provider
 from .ai.base import AIError
 from .config import get_settings
@@ -178,7 +178,9 @@ async def _pipeline(
     job.title = analysis.job_title
     job.company = analysis.company
     job.analysis = analysis.model_dump()
-    before = ats.score(analysis.keywords, master.plain_text())
+    # Scored on doctext.cv_text, the same text every later edit is re-scored
+    # on (routers/documents.py), so the first edit never moves the score alone.
+    before = ats.score(analysis.keywords, doctext.cv_text(master.model_dump()))
     await _emit(
         db, job, "analyzed",
         f"Found {len(analysis.keywords)} key requirements. Current match {before['score']}%.", 22,
@@ -203,7 +205,7 @@ async def _pipeline(
         tailored, letter, message = await asyncio.gather(cv_task, letter_task, msg_task)
         all_answers = None
 
-    after = ats.score(analysis.keywords, tailored.plain_text())
+    after = ats.score(analysis.keywords, doctext.cv_text(tailored.model_dump()))
     await _emit(
         db, job, "generated",
         f"Content ready. Keyword match {before['score']}% → {after['score']}%.", 62,

@@ -62,10 +62,18 @@ function ScoreCard({ ctl }: { ctl: DocController }) {
     <div className="border-b border-black/10 glass-panel/60 px-4 py-2.5">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <span className="eyebrow">{t("studio.score.title")}</span>
-        <span className="text-[15px] font-semibold tabular-nums">
+        <span className="text-[15px] font-semibold tabular-nums" aria-live="polite">
           <span className="text-text/50">{doc.score_before}%</span>
           <span className="mx-1.5 text-text/50">→</span>
-          <span className="font-bold text-ok-400">{doc.score_after}%</span>
+          {/* Keyed on the value: every re-score after an edit replays the bump. */}
+          <span
+            key={doc.score_after}
+            className={`score-bump font-bold ${
+              doc.score_before != null && doc.score_after < doc.score_before ? "text-flame-700" : "text-ok-400"
+            }`}
+          >
+            {doc.score_after}%
+          </span>
         </span>
         {missing.length > 0 ? (
           <span className="flex flex-wrap items-center gap-1.5">

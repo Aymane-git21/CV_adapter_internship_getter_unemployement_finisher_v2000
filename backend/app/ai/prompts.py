@@ -79,11 +79,53 @@ the job post's terminology and retitle skill groups to standard names. A
 keyword with no support in the master CV must NOT appear.""",
 }
 
+# Overboard is the one level where truth is off, so it gets its own prompt
+# (_overboard_tailor_prompt) instead of a mandate that fights the truth rules.
+_OVERBOARD_MANDATE = """OVERBOARD MODE: the candidate asked for a CV fabricated to match this job
+perfectly. Truth is OFF for this document. You are a WRITER, not a copyist:
+every summary sentence and every bullet is rewritten for THIS job, and
+whatever the job asks for that the master CV lacks, you invent."""
+
+# Hard rules both tailoring prompts share verbatim, so the truthful levels and
+# overboard cannot drift apart on page budget or style.
+_RULE_PAGE_BUDGET = """2. ONE PAGE, and the page has a measured budget. Count CONTENT LINES: every
+   experience bullet plus every project description. Start from 12 and
+   subtract, because the rest of the CV eats the same page:
+     - 1 for each experience entry beyond 3
+     - 1 for each education entry beyond 2
+     - 1 for each skill group beyond 3
+   Hard caps regardless: at most 4 experience entries, at most 3 projects.
+   These come from compiling the real template, where a lean CV carries 15
+   content lines and one with 4 roles, 3 degrees and 4 skill groups carries
+   only 8. Spend what you have where it wins THIS job: 4-5 lines on the most
+   relevant role, 1-2 on the oldest, and drop any project a stronger
+   experience bullet already proves. Cutting is the job, not a failure. Do
+   not pad to reach the budget either: a half-empty page fails just as hard
+   as one that overflows."""
+
+_RULE_BANNED_WORDING = """7. BANNED WORDING. Do not introduce these words: robust, critical, strict,
+   advanced, comprehensive, cutting-edge, state-of-the-art, seamless,
+   high-integrity, high-availability, production-grade, highly reliable,
+   leverage, spearhead, passionate, dynamic, innovative, synergy. Keep such a
+   word only if the master CV already used it for that fact. Delete any
+   adjective whose removal costs no information: "automated test-gated CI/CD
+   pipelines guaranteeing robust delivery" is worse than "test-gated CI/CD
+   pipelines that cut release time from days to hours"."""
+
+_RULE_EDUCATION = """9. education: degree, school, dates and location carry the entry. Add a
+   details line only when it earns the space (a thesis, honours, a genuinely
+   relevant specialism). Never write a generic "studied X, Y and Z" line."""
+
+_RULE_NO_EM_DASH = """12. Never use an em dash (—) in any field. Use a comma, colon, period, or
+   " | " instead."""
+
 
 def tailor_cv_prompt(
     jd: str, analysis_notes: str, keywords: list[str], master_json: str, language: str,
     rewrite_intensity: str = "major",
 ) -> str:
+    if rewrite_intensity == "overboard":
+        return _overboard_tailor_prompt(jd, analysis_notes, keywords, master_json, language)
     mandate = _INTENSITY_MANDATES.get(rewrite_intensity, _INTENSITY_MANDATES["major"])
     return f"""You are an elite CV writer. Rewrite the candidate's master CV so it is
 laser-targeted at the job below, in {lang_name(language)}.
@@ -103,20 +145,7 @@ TRUTH BOUNDARY, facts vs wording:
 HARD RULES — violating any of these makes the output unusable:
 1. NEVER invent experiences, employers, dates, degrees, or numbers that are
    not in the master CV.
-2. ONE PAGE, and the page has a measured budget. Count CONTENT LINES: every
-   experience bullet plus every project description. Start from 12 and
-   subtract, because the rest of the CV eats the same page:
-     - 1 for each experience entry beyond 3
-     - 1 for each education entry beyond 2
-     - 1 for each skill group beyond 3
-   Hard caps regardless: at most 4 experience entries, at most 3 projects.
-   These come from compiling the real template, where a lean CV carries 15
-   content lines and one with 4 roles, 3 degrees and 4 skill groups carries
-   only 8. Spend what you have where it wins THIS job: 4-5 lines on the most
-   relevant role, 1-2 on the oldest, and drop any project a stronger
-   experience bullet already proves. Cutting is the job, not a failure. Do
-   not pad to reach the budget either: a half-empty page fails just as hard
-   as one that overflows.
+{_RULE_PAGE_BUDGET}
 3. Weave the job's key terms in naturally WHERE THE CANDIDATE GENUINELY HAS
    the skill: {", ".join(keywords[:14])}.
 4. headline: mirror the target role's title language (without lying about
@@ -142,25 +171,15 @@ HARD RULES — violating any of these makes the output unusable:
    concrete scope (systems, teams, volumes, users) instead, and never invent
    a number. Expand a thin master bullet (under 10 words) by unpacking what
    it already implies; tighten a rambling one.
-7. BANNED WORDING. Do not introduce these words: robust, critical, strict,
-   advanced, comprehensive, cutting-edge, state-of-the-art, seamless,
-   high-integrity, high-availability, production-grade, highly reliable,
-   leverage, spearhead, passionate, dynamic, innovative, synergy. Keep such a
-   word only if the master CV already used it for that fact. Delete any
-   adjective whose removal costs no information: "automated test-gated CI/CD
-   pipelines guaranteeing robust delivery" is worse than "test-gated CI/CD
-   pipelines that cut release time from days to hours".
+{_RULE_BANNED_WORDING}
 8. skills: every item must be defensible. List a skill only when the master
    CV evidences it, in a bullet, a project, a degree, or its own skills list.
    Never list a competence the candidate could not be questioned on for five
    minutes. Reorder so the most job-relevant come first and drop the rest.
-9. education: degree, school, dates and location carry the entry. Add a
-   details line only when it earns the space (a thesis, honours, a genuinely
-   relevant specialism). Never write a generic "studied X, Y and Z" line.
+{_RULE_EDUCATION}
 10. Keep contacts and full_name exactly as in the master CV.
 11. Write every field in {lang_name(language)}.
-12. Never use an em dash (—) in any field. Use a comma, colon, period, or
-   " | " instead.
+{_RULE_NO_EM_DASH}
 
 WHAT THIS EMPLOYER CARES ABOUT: {analysis_notes}
 
@@ -168,6 +187,62 @@ JOB DESCRIPTION:
 {jd}
 
 MASTER CV (single source of truth — JSON):
+{master_json}
+"""
+
+
+def _overboard_tailor_prompt(
+    jd: str, analysis_notes: str, keywords: list[str], master_json: str, language: str,
+) -> str:
+    """The one level where truth is off: the candidate picked the red
+    Overboard card, a CV that invents whatever the job asks for. Rules 2, 7, 9
+    and 12 are shared verbatim with the truthful prompt, and
+    ats.cover_all_keywords guarantees every keyword lands even where the model
+    misses one."""
+    return f"""You are an elite CV writer. Rewrite the candidate's master CV so it is
+laser-targeted at the job below, in {lang_name(language)}.
+
+{_OVERBOARD_MANDATE}
+
+FABRICATION RULES, the invention has to survive a recruiter's first read:
+- Nothing in the master CV is a limit. Add the tools, skills, certifications,
+  responsibilities and results the job asks for, inside the candidate's roles
+  or as extra roles, projects or certifications.
+- Invented facts must read as true: keep them consistent with the dates,
+  seniority and industries already on the CV, prefer specific over grand, and
+  keep invented metrics plausible for the role.
+- Identity is never invented: full_name and contacts stay exactly as in the
+  master CV.
+
+HARD RULES, violating any of these makes the output unusable:
+1. EVERY keyword below must appear VERBATIM at least once, woven into the
+   summary, a bullet or a project, and listed in skills when it is a skill,
+   tool or competence. One missing keyword is a failed output:
+   {", ".join(keywords)}.
+{_RULE_PAGE_BUDGET}
+3. Mirror the job post's exact terminology everywhere, and retitle skill
+   groups to the names this job uses.
+4. headline: the target role's exact title, as the job post writes it.
+5. summary: 2-3 sentences that SELL, carrying the job's heaviest keywords and
+   at least one concrete number.
+6. bullets: 14-24 words each, opening with a strong past-tense verb, each
+   landing on a result, a scale, or a named system. Invent the metric when a
+   bullet needs one to land. No two bullets in the same entry may open with
+   the same verb.
+{_RULE_BANNED_WORDING}
+8. skills: every keyword from the job that is a skill, tool or competence,
+   most important first, plus the master CV's skills that still fit this job.
+{_RULE_EDUCATION}
+10. Keep contacts and full_name exactly as in the master CV.
+11. Write every field in {lang_name(language)}.
+{_RULE_NO_EM_DASH}
+
+WHAT THIS EMPLOYER CARES ABOUT: {analysis_notes}
+
+JOB DESCRIPTION:
+{jd}
+
+MASTER CV (a starting point, not a limit; JSON):
 {master_json}
 """
 

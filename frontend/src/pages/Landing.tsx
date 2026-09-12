@@ -59,7 +59,7 @@ export const copy = {
     languages: "English, French & German: site, documents, lettres de motivation and Anschreiben.",
     faqTitle: "Questions",
     faq: [
-      ["Does it invent experience I don't have?", "No. The generator is instructed to rephrase, reorder and emphasize, never to fabricate employers, dates or numbers. Everything stays editable, and the source of truth is your master CV."],
+      ["Does it invent experience I don't have?", "Only if you choose Overboard. Every other mode rephrases, reorders and emphasizes, and never fabricates employers, dates or numbers. Overboard is the red, opt-in exception: it invents whatever the posting asks for to reach a 100% keyword match, so read every line before you send it."],
       ["What's the catch with the free plan?", "Three generations a day, two templates, one job at a time. Paid plans raise the limits; your own API key removes them entirely."],
       ["Can I edit the result?", "Everything. Structured forms for quick changes, the full Typst source for control, and a chat assistant for \"make it punchier\". The page re-typesets live."],
       ["Why Typst instead of LaTeX?", "Same typographic quality, a thousandth of the wait. Compiles take milliseconds, so the preview follows your keystrokes."],
@@ -108,7 +108,7 @@ export const copy = {
     languages: "Français, anglais & allemand : site, CV, lettres de motivation et Anschreiben.",
     faqTitle: "Questions",
     faq: [
-      ["Est-ce que ça invente des expériences ?", "Non. Le générateur reformule, réordonne et met en valeur, jamais il n'invente employeurs, dates ou chiffres. Tout reste éditable, et votre CV de référence fait foi."],
+      ["Est-ce que ça invente des expériences ?", "Seulement si vous choisissez « À outrance ». Tous les autres modes reformulent, réordonnent et mettent en valeur, sans jamais inventer employeurs, dates ou chiffres. « À outrance » est l'exception rouge, sur demande : il invente ce que l'offre réclame pour atteindre 100 % de mots-clés, alors relisez chaque ligne avant d'envoyer."],
       ["Le piège du plan gratuit ?", "Trois générations par jour, deux modèles, une offre à la fois. Les plans payants montent les limites ; votre propre clé API les supprime."],
       ["Je peux éditer le résultat ?", "Tout. Formulaires pour les retouches rapides, source Typst complète pour le contrôle, et un assistant pour « rends ça plus percutant ». La page se recompose en direct."],
       ["Pourquoi Typst plutôt que LaTeX ?", "La même qualité typographique, mille fois moins d'attente. La compilation prend des millisecondes, l'aperçu suit vos frappes."],
@@ -157,7 +157,7 @@ export const copy = {
     languages: "Deutsch, Englisch & Französisch: Website, Dokumente, Anschreiben und lettres de motivation.",
     faqTitle: "Fragen",
     faq: [
-      ["Erfindet es Erfahrung, die ich nicht habe?", "Nein. Der Generator formuliert um, ordnet neu und betont, er erfindet nie Arbeitgeber, Daten oder Zahlen. Alles bleibt editierbar, und Ihr Master-Lebenslauf ist die einzige Quelle der Wahrheit."],
+      ["Erfindet es Erfahrung, die ich nicht habe?", "Nur wenn Sie „Maßlos“ wählen. Alle anderen Modi formulieren um, ordnen neu und betonen, erfinden aber nie Arbeitgeber, Daten oder Zahlen. „Maßlos“ ist die rote Ausnahme auf Wunsch: Es erfindet, was die Stelle verlangt, bis 100 % der Keywords sitzen. Lesen Sie also jede Zeile, bevor Sie senden."],
       ["Wo ist der Haken beim Gratis-Plan?", "Drei Generierungen pro Tag, zwei Vorlagen, eine Stelle auf einmal. Bezahlte Pläne erhöhen die Limits; Ihr eigener API-Schlüssel hebt sie komplett auf."],
       ["Kann ich das Ergebnis bearbeiten?", "Alles. Strukturierte Formulare für schnelle Änderungen, der volle Typst-Quelltext für Kontrolle, und ein Chat-Assistent für „mach es prägnanter“. Die Seite setzt sich live neu."],
       ["Warum Typst statt LaTeX?", "Dieselbe typografische Qualität, ein Tausendstel der Wartezeit. Kompilieren dauert Millisekunden, die Vorschau folgt Ihren Tastenanschlägen."],

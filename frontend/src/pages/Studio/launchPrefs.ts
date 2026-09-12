@@ -2,10 +2,11 @@
    restored on the next NewJobPanel mount. Per-browser (localStorage), same
    vanilla pattern as the open-tabs store; version-keyed so a future shape
    change just orphans the old blob instead of misparsing it. */
+import type { RewriteIntensity } from "../../api";
 
 export interface LaunchPrefs {
   language: "en" | "fr" | "de";
-  intensity: "reshape" | "minor" | "major" | "max_ats";
+  intensity: RewriteIntensity;
   template: string;
   accent: string;
   compiler: "typst" | "latex";
@@ -17,7 +18,9 @@ export interface LaunchPrefs {
 const KEY = "cvg_launch_prefs.v1";
 
 const LANGUAGES = new Set(["en", "fr", "de"]);
-const INTENSITIES = new Set(["reshape", "minor", "major", "max_ats"]);
+/* Overboard fabricates content, so it is never preselected: choosing it has
+   to be a fresh, deliberate act on every launch. */
+const STICKY_INTENSITIES = new Set(["reshape", "minor", "major", "max_ats"]);
 const COMPILERS = new Set(["typst", "latex"]);
 const CV_MODES = new Set(["saved", "paste", "upload"]);
 const ACCENT_RE = /^#[0-9a-fA-F]{6}$/;
@@ -26,7 +29,7 @@ const ACCENT_RE = /^#[0-9a-fA-F]{6}$/;
    only; the component downgrades locked values once config/quota arrive. */
 const FIELD_OK: { [K in keyof LaunchPrefs]: (v: unknown) => v is LaunchPrefs[K] } = {
   language: (v): v is LaunchPrefs["language"] => typeof v === "string" && LANGUAGES.has(v),
-  intensity: (v): v is LaunchPrefs["intensity"] => typeof v === "string" && INTENSITIES.has(v),
+  intensity: (v): v is LaunchPrefs["intensity"] => typeof v === "string" && STICKY_INTENSITIES.has(v),
   template: (v): v is string => typeof v === "string" && v.length > 0,
   accent: (v): v is string => typeof v === "string" && ACCENT_RE.test(v),
   compiler: (v): v is LaunchPrefs["compiler"] => typeof v === "string" && COMPILERS.has(v),
@@ -36,8 +39,15 @@ const FIELD_OK: { [K in keyof LaunchPrefs]: (v: unknown) => v is LaunchPrefs[K] 
 };
 
 export function saveLaunchPrefs(prefs: LaunchPrefs): void {
+  let stored: Partial<LaunchPrefs> = prefs;
+  if (prefs.intensity === "overboard") {
+    // Keep whichever truthful level was sticky before; never persist overboard.
+    const { intensity: _overboard, ...rest } = prefs;
+    const previous = loadLaunchPrefs().intensity;
+    stored = previous ? { ...rest, intensity: previous } : rest;
+  }
   try {
-    localStorage.setItem(KEY, JSON.stringify(prefs));
+    localStorage.setItem(KEY, JSON.stringify(stored));
   } catch {
     /* storage unavailable or full: sticky choices are a nicety, not a feature gate */
   }

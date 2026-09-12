@@ -76,6 +76,34 @@ def test_tailor_prompt_intensity_mandates():
     assert bad == p["major"]
 
 
+def test_overboard_prompt_turns_truth_off_and_demands_every_keyword():
+    kws = [f"kw{i}" for i in range(20)]
+    p = prompts.tailor_cv_prompt("JD", "notes", kws, "{}", "de", rewrite_intensity="overboard")
+    assert "OVERBOARD MODE" in p and "Truth is OFF" in p
+    assert "EVERY keyword below must appear VERBATIM" in p
+    assert ", ".join(kws) in p, "overboard lists every keyword, not the first 14"
+    for truthful in ("FACTS are locked", "NEVER invent", "GENUINELY HAS", "could not be questioned on"):
+        assert truthful not in p, f"a truth rule leaked into overboard: {truthful}"
+    assert "full_name and contacts stay exactly" in p, "identity is never invented"
+    assert "German" in p
+
+
+def test_only_overboard_turns_truth_off():
+    for level in ("reshape", "minor", "major", "max_ats", "turbo"):
+        p = prompts.tailor_cv_prompt("JD", "notes", ["python"], "{}", "en", rewrite_intensity=level)
+        assert "FACTS are locked" in p and "Truth is OFF" not in p, level
+
+
+def test_overboard_shares_the_page_and_style_rules_verbatim():
+    major = prompts.tailor_cv_prompt("JD", "notes", ["python"], "{}", "en")
+    overboard = prompts.tailor_cv_prompt(
+        "JD", "notes", ["python"], "{}", "en", rewrite_intensity="overboard"
+    )
+    for rule in (prompts._RULE_PAGE_BUDGET, prompts._RULE_BANNED_WORDING,
+                 prompts._RULE_EDUCATION, prompts._RULE_NO_EM_DASH):
+        assert rule in major and rule in overboard
+
+
 def test_source_prompts_carry_typst_primer():
     p = prompts.edit_source_prompt("SRC", "make headings blue")
     assert "TYPST IS NOT LATEX" in p

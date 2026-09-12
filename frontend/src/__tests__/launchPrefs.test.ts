@@ -108,4 +108,25 @@ describe("launchPrefs", () => {
     expect(() => saveLaunchPrefs(FULL)).not.toThrow();
     expect(loadLaunchPrefs()).toEqual({});
   });
+
+  it("never restores overboard, even when something stored it", () => {
+    localStorage.setItem(KEY, JSON.stringify({ ...FULL, intensity: "overboard" }));
+    const got = loadLaunchPrefs();
+    expect(got.intensity).toBeUndefined();
+    expect(got.language).toBe("de");
+  });
+
+  it("launching with overboard keeps the previously sticky truthful level", () => {
+    saveLaunchPrefs({ ...FULL, intensity: "max_ats" });
+    saveLaunchPrefs({ ...FULL, intensity: "overboard", language: "fr" });
+    const got = loadLaunchPrefs();
+    expect(got.intensity).toBe("max_ats");
+    expect(got.language).toBe("fr");
+  });
+
+  it("launching with overboard on a fresh browser stores no intensity at all", () => {
+    saveLaunchPrefs({ ...FULL, intensity: "overboard" });
+    expect(JSON.parse(localStorage.getItem(KEY) ?? "{}")).not.toHaveProperty("intensity");
+    expect(loadLaunchPrefs().intensity).toBeUndefined();
+  });
 });

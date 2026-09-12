@@ -1,13 +1,14 @@
 /* Launch panel: multiple job descriptions in parallel, CV source, look & feel. */
-import { Camera, FileUp, Loader2, Lock, Plus, Trash2, X } from "lucide-react";
+import { Camera, FileUp, Loader2, Lock, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, byokStore, type MasterCVMeta } from "../../api";
+import { api, ApiError, byokStore, type MasterCVMeta, type RewriteIntensity } from "../../api";
 import { useI18n } from "../../i18n";
 import { useSession, useStudio } from "../../store";
 import { CvInspector } from "./CvInspector";
 import { loadLaunchPrefs, saveLaunchPrefs } from "./launchPrefs";
 
 const ACCENTS = ["#0F62FE", "#1C3B5A", "#0E8A66", "#7C3AED", "#C2551B", "#B42318", "#101828"];
+const INTENSITIES: readonly RewriteIntensity[] = ["reshape", "minor", "major", "max_ats", "overboard"];
 
 async function squareCrop(file: File, size = 512): Promise<Blob> {
   const img = await createImageBitmap(file);
@@ -52,7 +53,7 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
   const [uploading, setUploading] = useState(false);
 
   const [docLang, setDocLang] = useState(stored.language ?? lang);
-  const [intensity, setIntensity] = useState<"reshape" | "minor" | "major" | "max_ats">(stored.intensity ?? "major");
+  const [intensity, setIntensity] = useState<RewriteIntensity>(stored.intensity ?? "major");
   const [compiler, setCompiler] = useState<"typst" | "latex">(stored.compiler ?? "typst");
   const [template, setTemplate] = useState(stored.template ?? "onyx");
   const [accent, setAccent] = useState(stored.accent ?? "#0F62FE");
@@ -375,21 +376,41 @@ export function NewJobPanel({ onLaunched }: { onLaunched: () => void }) {
           <div>
             <p className="eyebrow mb-3">{t("studio.intensity.title")}</p>
             <div className="space-y-2">
-              {(["reshape", "minor", "major", "max_ats"] as const).map((lvl) => (
-                <button
-                  key={lvl}
-                  onClick={() => setIntensity(lvl)}
-                  className={`block w-full rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
-                    intensity === lvl
-                      ? "border-flame-500 bg-flame-950"
-                      : "border-black/10 glass-panel hover:border-ink-600"
-                  }`}
-                >
-                  <span className="block text-[13px] font-medium">{t(`studio.intensity.${lvl}`)}</span>
-                  <span className="block text-[11px] text-text/50">{t(`studio.intensity.${lvl}.desc`)}</span>
-                </button>
-              ))}
+              {INTENSITIES.map((lvl) => {
+                const selected = intensity === lvl;
+                // Overboard fabricates content: red at rest, solid red when chosen.
+                const lies = lvl === "overboard";
+                return (
+                  <button
+                    key={lvl}
+                    onClick={() => setIntensity(lvl)}
+                    aria-pressed={selected}
+                    className={`block w-full rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
+                      lies
+                        ? selected
+                          ? "border-danger bg-signal-950"
+                          : "border-signal-500/40 glass-panel hover:border-danger"
+                        : selected
+                          ? "border-flame-500 bg-flame-950"
+                          : "border-black/10 glass-panel hover:border-ink-600"
+                    }`}
+                  >
+                    <span className={`flex items-center gap-1.5 text-[13px] font-medium ${lies ? "text-danger" : ""}`}>
+                      {lies && <TriangleAlert size={12} aria-hidden="true" />}
+                      {t(`studio.intensity.${lvl}`)}
+                    </span>
+                    <span className={`block text-[11px] ${lies ? "text-danger/80" : "text-text/50"}`}>
+                      {t(`studio.intensity.${lvl}.desc`)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+            {intensity === "overboard" && (
+              <p role="alert" className="mt-2 rounded-md border border-signal-500/30 bg-signal-950 px-3 py-2 text-[11.5px] leading-snug text-danger">
+                {t("studio.intensity.overboard.warn")}
+              </p>
+            )}
           </div>
 
           <div>

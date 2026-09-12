@@ -84,9 +84,11 @@ async def generate(
 
     # ---- Create job rows, then spawn ------------------------------------------
     language = body.language if body.language in ("en", "fr", "de") else "en"
+    # "overboard" fabricates content; it is a studio-only level (the pipeline,
+    # which can send documents to employers, keeps its own whitelist without it).
     intensity = (
         body.rewrite_intensity
-        if body.rewrite_intensity in ("reshape", "minor", "major", "max_ats")
+        if body.rewrite_intensity in ("reshape", "minor", "major", "max_ats", "overboard")
         else "major"
     )
     # Compiler choice at generation time: silent fallback to typst when the

@@ -58,6 +58,10 @@ export interface JobSnapshot {
 export interface AnswerItem { question: string; answer: string; origin: "facts" | "generated" }
 export interface AnswersData { items: AnswerItem[] }
 
+/* Tailoring levels (mirrors GenerateIn.rewrite_intensity). "overboard"
+   fabricates content to land every keyword; it is studio-only. */
+export type RewriteIntensity = "reshape" | "minor" | "major" | "max_ats" | "overboard";
+
 /* Keyword match of a CV: re-scored by the server after every edit. */
 export interface KeywordMatch { matched: string[]; missing: string[] }
 
@@ -207,7 +211,7 @@ export const api = {
     job_descriptions: string[]; master_cv_id?: number | null; cv_text?: string | null;
     language: string; template: string; accent: string; show_photo: boolean;
     photo_id?: string | null; save_master?: boolean;
-    rewrite_intensity?: "reshape" | "minor" | "major" | "max_ats";
+    rewrite_intensity?: RewriteIntensity;
     compiler?: "typst" | "latex";
   }) => request<{ jobs: string[] }>("/api/generate", { method: "POST", body: JSON.stringify(body) }),
 

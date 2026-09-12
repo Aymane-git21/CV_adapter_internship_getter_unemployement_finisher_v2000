@@ -205,6 +205,11 @@ async def _pipeline(
         tailored, letter, message = await asyncio.gather(cv_task, letter_task, msg_task)
         all_answers = None
 
+    if rewrite_intensity == "overboard":
+        # The prompt tells the model to place every keyword; this makes 100% a
+        # guarantee instead of a hope by listing whatever it still missed.
+        tailored = ats.cover_all_keywords(analysis.keywords, tailored, language)
+
     after = ats.score(analysis.keywords, doctext.cv_text(tailored.model_dump()))
     await _emit(
         db, job, "generated",

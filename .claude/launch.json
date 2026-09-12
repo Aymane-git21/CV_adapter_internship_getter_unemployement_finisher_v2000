@@ -9,6 +9,13 @@
       "port": 8011
     },
     {
+      "name": "cvglowup-e2e",
+      "runtimeExecutable": "C:\\Users\\ayman\\Desktop\\CV_glowup\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-c", "import os, runpy, tempfile; os.environ['CVG_FAKE_AI'] = '1'; os.environ['DATABASE_URL'] = 'sqlite+aiosqlite:///' + os.path.join(tempfile.gettempdir(), 'cvglowup-e2e.db').replace(os.sep, '/'); runpy.run_module('backend.scripts.serve', run_name='__main__')"],
+      "autoPort": true,
+      "port": 8012
+    },
+    {
       "name": "cvglowup-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "C:\\Users\\ayman\\Desktop\\CV_glowup\\frontend", "run", "dev"],

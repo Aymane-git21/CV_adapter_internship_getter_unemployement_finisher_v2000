@@ -11,8 +11,17 @@ from .test_typst import _cv_data
 def _settings(**over) -> dict:
     base = {"template": "onyx", "accent": "#C2551B", "density": "normal",
             "show_photo": False, "font_scale": 1.0, "lang": "en",
-            "page_mode": "paged", "compiler": "latex"}
+            "page_mode": "continuous", "compiler": "latex"}
     return {**base, **over}
+
+
+def test_render_tex_never_emits_a4():
+    """A4 pagination was removed: even a legacy stored page_mode "paged"
+    renders the continuous measuring canvas."""
+    for mode in ("continuous", "paged"):
+        tex = render_tex(_cv_data(), _settings(page_mode=mode))
+        assert "a4paper" not in tex
+        assert "paperheight=500cm" in tex
 
 
 def test_escape_adversarial():

@@ -45,7 +45,7 @@ export const copy = {
     howTitle: "How it works",
     how: [
       ["Paste the job posting", "One or several: each runs in parallel, in its own tab."],
-      ["Watch the documents write themselves", "CV, cover letter and outreach message, tailored to the posting and typeset live on a real A4 page."],
+      ["Watch the documents write themselves", "CV, cover letter and outreach message, tailored to the posting and typeset live as one continuous page."],
       ["Edit anything, three ways", "Structured forms, the raw Typst source, or just tell the assistant what to change."],
     ],
     howModes: ["Forms", "Typst source", "Chat"],
@@ -94,7 +94,7 @@ export const copy = {
     howTitle: "Comment ça marche",
     how: [
       ["Collez l'offre d'emploi", "Une ou plusieurs : chacune tourne en parallèle, dans son propre onglet."],
-      ["Les documents s'écrivent sous vos yeux", "CV, lettre de motivation et message d'approche, adaptés à l'offre et composés en direct sur une vraie page A4."],
+      ["Les documents s'écrivent sous vos yeux", "CV, lettre de motivation et message d'approche, adaptés à l'offre et composés en direct sur une page continue."],
       ["Éditez tout, de trois façons", "Formulaires structurés, source Typst, ou demandez simplement à l'assistant."],
     ],
     howModes: ["Formulaires", "Source Typst", "Chat"],
@@ -143,7 +143,7 @@ export const copy = {
     howTitle: "So funktioniert es",
     how: [
       ["Stellenanzeige einfügen", "Eine oder mehrere: jede läuft parallel in ihrem eigenen Tab."],
-      ["Zusehen, wie sich die Dokumente schreiben", "Lebenslauf, Anschreiben und Kontaktnachricht, zugeschnitten auf die Stelle und live auf einer echten A4-Seite gesetzt."],
+      ["Zusehen, wie sich die Dokumente schreiben", "Lebenslauf, Anschreiben und Kontaktnachricht, zugeschnitten auf die Stelle und live als durchgehende Seite gesetzt."],
       ["Alles bearbeiten, auf drei Wegen", "Strukturierte Formulare, der rohe Typst-Quelltext, oder sagen Sie dem Assistenten einfach, was er ändern soll."],
     ],
     howModes: ["Formulare", "Typst-Quelltext", "Chat"],
@@ -353,7 +353,7 @@ export default function Landing() {
           });
         });
 
-        // 7 — the A4 sheet writes itself, line by line
+        // 7 — the sheet writes itself, line by line
         gsap.utils.toArray<HTMLElement>("[data-sheet]").forEach((sheet) => {
           gsap.from(sheet.querySelectorAll(".forge-sheet-line"), {
             scaleX: 0,

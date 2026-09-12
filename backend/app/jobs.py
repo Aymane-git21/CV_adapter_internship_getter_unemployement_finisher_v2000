@@ -236,32 +236,27 @@ async def _pipeline(
         show_photo=bool(photo_bytes), lang=language,
     ).model_dump()
 
+    # DocSettings defaults page_mode to continuous: one page per document,
+    # exactly as tall as its content, so there is no fit step to run.
     cv_id = uuid.uuid4().hex
     if compiler == "latex":
         # The .tex port has no photo (v1); the letter stays on the Typst lane.
-        cv_settings_in = {**doc_settings, "compiler": "latex", "show_photo": False}
+        cv_settings = {**doc_settings, "compiler": "latex", "show_photo": False}
         cv_result, cv_source = await compile_tex_document(
-            cv_id, tailored.model_dump(), cv_settings_in
+            cv_id, tailored.model_dump(), cv_settings
         )
     else:
-        cv_settings_in = doc_settings
+        cv_settings = doc_settings
         cv_result, cv_source = await renderer.compile_document(
             "cv", template, tailored.model_dump(), doc_settings, photo=photo_bytes, fmt="pdf",
-            fit_one_page=doc_settings.get("page_mode") != "continuous",
         )
     letter_result, letter_source = await renderer.compile_document(
         "letter", template, letter.model_dump(), doc_settings, photo=None, fmt="pdf",
-        fit_one_page=doc_settings.get("page_mode") != "continuous",
     )
     if not cv_result.ok or not letter_result.ok:
         diag = cv_result.diagnostics or letter_result.diagnostics
         raise AIError(f"Document rendering failed: {diag[:300]}")
 
-    cv_settings = {
-        **cv_settings_in,
-        "density": cv_result.density_used,
-        "font_scale": cv_result.font_scale_used,
-    }
     title = f"{analysis.job_title}" + (f" | {analysis.company}" if analysis.company else "")
 
     cv_doc = Document(

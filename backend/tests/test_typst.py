@@ -1,5 +1,5 @@
 """Golden compile tests — every template must compile the rich fixture to a
-single page, and the source-mode roundtrip must hold."""
+single continuous page, and the source-mode roundtrip must hold."""
 import json
 import re
 import shutil
@@ -17,6 +17,8 @@ typst_missing = shutil.which(get_settings().typst_command) is None and not Path(
 ).exists()
 pytestmark = pytest.mark.skipif(typst_missing, reason="typst binary not installed")
 
+_A4_PT = 841.89
+
 
 def _cv_data() -> dict:
     return json.loads((FIXTURES / "sample_cv.json").read_text(encoding="utf-8"))
@@ -24,6 +26,12 @@ def _cv_data() -> dict:
 
 def _letter_data() -> dict:
     return json.loads((FIXTURES / "sample_letter.json").read_text(encoding="utf-8"))
+
+
+def _svg_height(svg: str) -> float:
+    m = re.search(r'height="([0-9.]+)pt"', svg)
+    assert m, "svg carries no pt height"
+    return float(m.group(1))
 
 
 @pytest.mark.parametrize("template", ["onyx", "classic", "compact"])
@@ -77,16 +85,6 @@ async def test_compile_error_reports_diagnostics():
     assert "error" in result.diagnostics.lower()
 
 
-async def test_density_fallback_squeezes_long_cv():
-    data = _cv_data()
-    data["experience"] = data["experience"] * 4  # force overflow at normal density
-    settings = {"template": "onyx", "accent": "#0F62FE", "density": "normal",
-                "show_photo": False, "font_scale": 1.0, "lang": "en"}
-    result, _ = await renderer.compile_document("cv", "onyx", data, settings, fmt="svg")
-    assert result.ok
-    assert result.density_used in ("tight", "xtight")
-
-
 @pytest.mark.parametrize("template", ["onyx", "classic", "compact"])
 async def test_contact_row_overflow_splits_not_crashes(template):
     """contact-row balances overflowing contact lines into two rows; both the
@@ -115,7 +113,7 @@ async def test_contact_row_overflow_splits_not_crashes(template):
 
 
 def _sparse_cv() -> dict:
-    """A thin CV that condenses at the top of the page at scale 1.0."""
+    """A thin CV whose content ends well before an A4 sheet would."""
     data = _cv_data()
     data["experience"] = data["experience"][:1]
     data["experience"][0]["bullets"] = data["experience"][0]["bullets"][:2]
@@ -124,46 +122,6 @@ def _sparse_cv() -> dict:
     data["certifications"] = []
     data["interests"] = []
     return data
-
-
-async def test_sparse_cv_upscales_to_fill_page():
-    settings = {"template": "onyx", "accent": "#C2551B", "density": "normal",
-                "show_photo": False, "font_scale": 1.0, "lang": "en"}
-    result, source = await renderer.compile_document("cv", "onyx", _sparse_cv(), settings, fmt="svg")
-    assert result.ok, result.diagnostics
-    assert result.pages == 1
-    assert result.font_scale_used > 1.0
-    fill = await renderer.measure_fill(source)
-    assert fill is not None
-    # The fill loop targets 0.92 but caps font_scale at 1.5; a truly tiny CV
-    # can't reach the floor, so assert real improvement over the unscaled page.
-    base_src = renderer.render_source(
-        "cv", "onyx", _sparse_cv(), {**settings, "font_scale": 1.0}, has_photo=False
-    )
-    base_fill = await renderer.measure_fill(base_src)
-    assert base_fill is not None
-    assert fill > base_fill + 0.05
-
-
-async def test_fill_pass_respects_already_full_pages():
-    """The fill pass only engages on underfull pages: an already-full page
-    keeps scale 1.0, an underfull one is scaled up and ends fuller."""
-    data = _cv_data()
-    settings = {"template": "onyx", "accent": "#0F62FE", "density": "normal",
-                "show_photo": False, "font_scale": 1.0, "lang": "en"}
-    base_src = renderer.render_source("cv", "onyx", data, settings, has_photo=False)
-    base_fill = await renderer.measure_fill(base_src)
-    assert base_fill is not None
-
-    result, source = await renderer.compile_document("cv", "onyx", data, settings, fmt="svg")
-    assert result.ok
-    assert result.pages == 1
-    if base_fill >= renderer._FILL_MIN:
-        assert result.font_scale_used == 1.0
-    else:
-        assert result.font_scale_used > 1.0
-        final_fill = await renderer.measure_fill(source)
-        assert final_fill is not None and final_fill > base_fill
 
 
 def test_density_spacing_rhythm_keeps_bullets_separated():
@@ -192,21 +150,6 @@ def test_density_spacing_rhythm_keeps_bullets_separated():
         assert bullet_gap < entry_gap < sect_above, "spacing hierarchy inverted"
 
 
-async def test_measure_fill_orders_documents():
-    settings = {"template": "onyx", "accent": "#0F62FE", "density": "normal",
-                "show_photo": False, "font_scale": 1.0, "lang": "en"}
-    sparse_src = renderer.render_source("cv", "onyx", _sparse_cv(), settings, has_photo=False)
-    rich_src = renderer.render_source("cv", "onyx", _cv_data(), settings, has_photo=False)
-    sparse_fill = await renderer.measure_fill(sparse_src)
-    rich_fill = await renderer.measure_fill(rich_src)
-    assert sparse_fill is not None and rich_fill is not None
-    assert 0.05 < sparse_fill < rich_fill <= 1.0
-
-
-async def test_measure_fill_fails_open_on_bad_source():
-    assert await renderer.measure_fill("#broken(") is None
-
-
 def test_typst_literal_escaping():
     src = renderer.typst_literal({"a": 'He said "hi"\nnewline \\ backslash', "b": [1, True, None]})
     assert '\\"hi\\"' in src
@@ -214,40 +157,47 @@ def test_typst_literal_escaping():
     assert "true" in src and "none" in src
 
 
-# ---- page mode: continuous single auto-height page -------------------------
+# ---- page layout: one continuous page, as tall as its content ---------------
 
 
 @pytest.mark.parametrize("template", ["onyx", "classic", "compact"])
-async def test_continuous_mode_renders_one_tall_page(template):
+async def test_long_cv_grows_one_tall_page(template):
     data = _cv_data()
-    data["experience"] = data["experience"] * 4  # would overflow A4
+    data["experience"] = data["experience"] * 4  # far past one A4 sheet
     settings = {"template": template, "accent": "#C2551B", "density": "normal",
-                "show_photo": False, "font_scale": 1.0, "lang": "en",
-                "page_mode": "continuous"}
-    result, source = await renderer.compile_document(
-        "cv", template, data, settings, fmt="svg", fit_one_page=False)
-    assert result.ok, result.diagnostics
-    assert result.pages == 1
-    m = re.search(r'height="([0-9.]+)pt"', result.svgs[0])
-    assert m and float(m.group(1)) > 841.89, "page did not grow past A4"
-    assert result.density_used == "normal", "fit loop ran despite continuous mode"
-
-
-async def test_continuous_letter_compiles():
-    settings = {"template": "classic", "accent": "#1C3B5A", "density": "normal",
-                "show_photo": False, "font_scale": 1.0, "lang": "en",
-                "page_mode": "continuous"}
-    result, _ = await renderer.compile_document(
-        "letter", "classic", _letter_data(), settings, fmt="svg", fit_one_page=False)
-    assert result.ok, result.diagnostics
-    assert result.pages == 1
-
-
-async def test_paged_default_keeps_exact_a4_height():
-    # page_mode absent entirely (old stored settings) must keep fixed A4 pages
-    settings = {"template": "onyx", "accent": "#0F62FE", "density": "normal",
                 "show_photo": False, "font_scale": 1.0, "lang": "en"}
-    result, _ = await renderer.compile_document("cv", "onyx", _cv_data(), settings, fmt="svg")
-    assert result.ok and result.pages == 1
-    m = re.search(r'height="([0-9.]+)pt"', result.svgs[0])
-    assert m and abs(float(m.group(1)) - 841.89) < 0.5, "A4 height drifted with page_mode absent"
+    result, _ = await renderer.compile_document("cv", template, data, settings, fmt="svg")
+    assert result.ok, result.diagnostics
+    assert result.pages == 1, "a long CV must grow its page, never paginate"
+    assert _svg_height(result.svgs[0]) > _A4_PT, "page did not grow past A4"
+
+
+@pytest.mark.parametrize("template", ["onyx", "classic", "compact"])
+async def test_short_cv_page_ends_with_its_content(template):
+    settings = {"template": template, "accent": "#C2551B", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": "en"}
+    result, _ = await renderer.compile_document("cv", template, _sparse_cv(), settings, fmt="svg")
+    assert result.ok, result.diagnostics
+    assert result.pages == 1
+    assert _svg_height(result.svgs[0]) < _A4_PT - 100, "a sparse CV kept a full A4 sheet"
+
+
+async def test_stored_paged_setting_still_renders_continuous():
+    """Documents saved before A4 pagination was removed carry page_mode
+    "paged" in their settings and embedded sources; the templates ignore it."""
+    settings = {"template": "onyx", "accent": "#0F62FE", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": "en", "page_mode": "paged"}
+    result, _ = await renderer.compile_document("cv", "onyx", _sparse_cv(), settings, fmt="svg")
+    assert result.ok, result.diagnostics
+    assert result.pages == 1
+    assert _svg_height(result.svgs[0]) < _A4_PT - 100, "legacy paged setting brought A4 back"
+
+
+async def test_letter_is_one_continuous_page():
+    settings = {"template": "classic", "accent": "#1C3B5A", "density": "normal",
+                "show_photo": False, "font_scale": 1.0, "lang": "en", "page_mode": "paged"}
+    result, _ = await renderer.compile_document(
+        "letter", "classic", _letter_data(), settings, fmt="svg")
+    assert result.ok, result.diagnostics
+    assert result.pages == 1
+    assert abs(_svg_height(result.svgs[0]) - _A4_PT) > 0.5, "letter still sized to A4"

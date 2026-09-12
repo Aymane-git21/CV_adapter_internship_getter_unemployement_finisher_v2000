@@ -34,11 +34,9 @@ export interface LetterData {
 export interface DocSettings {
   template: string; accent: string; density: string;
   show_photo: boolean; font_scale: number; lang: string;
+  /* Always "continuous": every document is one page as tall as its content. */
   page_mode: string;
   compiler: string;
-  /* Fit-loop output: the CV still needs a second page at the tightest
-     density and the smallest readable type, so the content has to come down. */
-  overflowed?: boolean;
 }
 
 export interface JobEvent { ts: string; step: string; message: string; pct: number }

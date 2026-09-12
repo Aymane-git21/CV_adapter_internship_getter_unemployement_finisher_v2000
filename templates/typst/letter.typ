@@ -12,10 +12,11 @@
     "IBM Plex Sans"
   }
 
-  let continuous = settings.at("page_mode", default: "paged") == "continuous"
+  // One continuous page, as tall as the content. A4 pagination was removed
+  // 2026-09-12; a page_mode still stored in old settings is ignored.
   set page(
     width: 21cm,
-    height: if continuous { auto } else { 29.7cm },
+    height: auto,
     margin: (x: 2.1cm, top: 1.7cm, bottom: 1.7cm),
   )
   set text(font: family, size: 10.6pt, fill: ink, lang: settings.at("lang", default: "en"))

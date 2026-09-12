@@ -7,17 +7,12 @@ Design notes:
 - Compiles run inside {templates_dir}/.compile/<uuid>/ with --root set to the
   templates dir. That jail means user-edited source can only read() template
   files and its own data/photo — never .env or anything else.
-- One-page fitting, both directions: CVs that overflow are retried at tighter
-  densities (dropping any font upscale first); CVs that leave the bottom of
-  the page empty are retried with a larger font_scale until the page reads
-  full. Underfull detection asks Typst itself (`typst query` on an appended
-  end-of-content marker) instead of guessing from the SVG.
-- Continuous page mode (settings.page_mode == "continuous") is compiled with
-  fit_one_page=False by all callers; the fit loop and measure_fill are
-  A4-only by design.
+- Every document is ONE continuous page: the templates set `height: auto`, so
+  the page ends where the content does. A4 pagination and its one-page fit
+  loop (density tightening, font upscaling, overflow reporting) were removed
+  on 2026-09-12, which makes rendering a document a single typst run.
 """
 import asyncio
-import json
 import re
 import shutil
 import uuid
@@ -27,18 +22,6 @@ from pathlib import Path
 from ..config import get_settings
 
 _IDENT = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
-_DENSITIES = ["normal", "tight", "xtight"]
-
-# A4 page height in pt; fill = content-end y / page height.
-_PAGE_H_PT = 841.89
-_FILL_MIN = 0.88     # below this the page reads visibly empty -> scale up
-_FILL_TARGET = 0.95  # aim the content end here when upscaling
-_MAX_FONT_SCALE = 1.5
-# Last rung of the overflow ladder. 0.9 puts xtight's 8.9pt body at 8.0pt,
-# which is the floor a recruiter can still read comfortably; going further
-# buys page count by making the CV worse, so overflow is reported instead.
-_MIN_FONT_SCALE = 0.9
-_DOWNSCALE_STEP = 0.04
 
 _semaphore: asyncio.Semaphore | None = None
 
@@ -127,13 +110,6 @@ class CompileResult:
     pdf: bytes | None = None
     svgs: list[str] = field(default_factory=list)
     diagnostics: str = ""
-    density_used: str = "normal"
-    font_scale_used: float = 1.0
-    # True when the CV still spills past one page at the tightest density and
-    # the smallest readable type. The fit loop cannot fix that by itself: the
-    # content is genuinely too long, and the caller has to say so rather than
-    # hand back a two-page CV that looks like it fitted.
-    overflowed: bool = False
 
 
 def _clean_diagnostics(stderr: str, jail: Path) -> str:
@@ -202,47 +178,6 @@ async def compile_source(
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-async def measure_fill(source: str, photo: bytes | None = None) -> float | None:
-    """How much of the (last) page the content occupies, 0..1.
-
-    Every CV template drops an invisible <cvg-end> anchor (common.typ
-    end-anchor()) at the end of its content; `typst query` reads its page/y.
-    Returns None when the anchor is missing or the query fails; callers treat
-    that as "don't adjust". Content that spills past page 1 reports 1.0.
-    """
-    settings = get_settings()
-    jail_root = settings.templates_dir
-    workdir = jail_root / ".compile" / uuid.uuid4().hex
-    workdir.mkdir(parents=True, exist_ok=True)
-    try:
-        (workdir / "main.typ").write_text(source, encoding="utf-8")
-        if photo is not None:
-            (workdir / "photo.jpg").write_bytes(photo)
-        async with _sem():
-            code, stdout, _ = await _run_typst([
-                "query",
-                str(workdir / "main.typ"),
-                "<cvg-end>",
-                "--root",
-                str(jail_root),
-                "--font-path",
-                str(jail_root / "typst" / "fonts"),
-                "--field",
-                "value",
-                "--one",
-            ])
-        if code != 0:
-            return None
-        value = json.loads(stdout)
-        if int(value.get("page", 1)) > 1:
-            return 1.0
-        return min(1.0, float(value["y"]) / _PAGE_H_PT)
-    except (ValueError, KeyError, TypeError):
-        return None
-    finally:
-        shutil.rmtree(workdir, ignore_errors=True)
-
-
 async def compile_document(
     kind: str,
     template_id: str,
@@ -250,79 +185,8 @@ async def compile_document(
     doc_settings: dict,
     photo: bytes | None = None,
     fmt: str = "svg",
-    fit_one_page: bool = True,
 ) -> tuple[CompileResult, str]:
-    """Render data -> source -> compile, fitting CVs to exactly one FULL page:
-    overflow tightens density (dropping any font upscale first), underflow
-    grows font_scale until the content reaches the bottom of the sheet.
-    Returns (result, final_source)."""
-    density = doc_settings.get("density", "normal")
-    d_idx = _DENSITIES.index(density) if density in _DENSITIES else 0
-    try:
-        scale = float(doc_settings.get("font_scale") or 1.0)
-    except (TypeError, ValueError):
-        scale = 1.0
-    scale = min(max(scale, 0.8), _MAX_FONT_SCALE)
-
-    async def attempt(d: str, s: float) -> tuple[CompileResult, str]:
-        merged = {**doc_settings, "density": d, "font_scale": s}
-        src = render_source(kind, template_id, data, merged, has_photo=photo is not None)
-        res = await compile_source(src, photo=photo, fmt="svg")
-        res.density_used = d
-        res.font_scale_used = s
-        return res, src
-
-    result, source = await attempt(_DENSITIES[d_idx], scale)
-
-    if kind == "cv" and fit_one_page and result.ok:
-        # ---- overflow: undo any upscale first, then tighten density --------
-        while result.pages > 1 and scale > 1.0:
-            scale = max(1.0, round(scale * 0.92, 2))
-            result, source = await attempt(_DENSITIES[d_idx], scale)
-            if not result.ok:
-                return result, source
-        while result.pages > 1 and d_idx + 1 < len(_DENSITIES):
-            d_idx += 1
-            result, source = await attempt(_DENSITIES[d_idx], scale)
-            if not result.ok:
-                return result, source
-        # ---- still over: shrink the type toward the readable floor ---------
-        while result.pages > 1 and scale > _MIN_FONT_SCALE:
-            scale = max(_MIN_FONT_SCALE, round(scale - _DOWNSCALE_STEP, 2))
-            result, source = await attempt(_DENSITIES[d_idx], scale)
-            if not result.ok:
-                return result, source
-        result.overflowed = result.pages > 1
-
-        # ---- underflow: grow the type until the page reads full ------------
-        if result.pages == 1:
-            fill = await measure_fill(source, photo)
-            for _ in range(3):
-                if fill is None or fill >= _FILL_MIN or scale >= _MAX_FONT_SCALE:
-                    break
-                # Spacing gaps are fixed pt (only type scales), so the naive
-                # linear factor undershoots; the loop converges the rest.
-                factor = min(_FILL_TARGET / max(fill, 0.3), 1.35)
-                scale = min(_MAX_FONT_SCALE, round(scale * factor, 2))
-                cand, cand_src = await attempt(_DENSITIES[d_idx], scale)
-                if not cand.ok:
-                    break
-                if cand.pages > 1:
-                    # overshot past one page: back off until it fits again
-                    while cand.ok and cand.pages > 1 and scale > 1.0:
-                        scale = max(1.0, round(scale - 0.06, 2))
-                        cand, cand_src = await attempt(_DENSITIES[d_idx], scale)
-                    if cand.ok and cand.pages == 1:
-                        result, source = cand, cand_src
-                    break
-                result, source = cand, cand_src
-                fill = await measure_fill(source, photo)
-
-    if fmt == "pdf" and result.ok:
-        pdf_result = await compile_source(source, photo=photo, fmt="pdf")
-        pdf_result.density_used = result.density_used
-        pdf_result.font_scale_used = result.font_scale_used
-        pdf_result.pages = result.pages
-        pdf_result.overflowed = result.overflowed
-        return pdf_result, source
-    return result, source
+    """Render data -> self-contained source -> compile. The page is exactly as
+    tall as its content, so there is nothing to fit. Returns (result, source)."""
+    source = render_source(kind, template_id, data, doc_settings, has_photo=photo is not None)
+    return await compile_source(source, photo=photo, fmt=fmt), source

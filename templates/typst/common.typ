@@ -81,8 +81,10 @@
 }
 
 // ---------------------------------------------------------------------------
-// Density system — the knob the renderer turns to keep documents on one page.
-// All sizes derive from these parameters; font_scale multiplies on top.
+// Density system: the spacing and type presets every template derives its
+// sizes from; font_scale multiplies on top. Both stay settings knobs for
+// source-mode edits (the A4 fit loop that used to turn them was removed
+// 2026-09-12).
 // ---------------------------------------------------------------------------
 #let density-params(settings) = {
   let density = settings.at("density", default: "normal")
@@ -116,10 +118,8 @@
     )
   }
   // Type sizes always follow font_scale, and so do the fixed pt gaps, in both
-  // directions. Scaling UP gives a sparse CV proportional whitespace instead
-  // of just bigger letters; scaling DOWN has to move the gaps too, or the fit
-  // loop's downscale rung does almost nothing, since the gaps are the larger
-  // share of the page.
+  // directions, so a scaled document keeps its proportions instead of only
+  // changing letter size.
   let gap-scale = scale
   (
     base: p.base * scale, small: p.small * scale, name: p.name * scale,
@@ -203,13 +203,6 @@
     }
   })
 }
-
-// Invisible end-of-content anchor. Zero layout footprint (place() takes the
-// element out of the flow); the backend queries <cvg-end> to measure how much
-// of the page the content fills (typstsvc.renderer.measure_fill).
-#let end-anchor() = place(
-  context [#metadata((page: here().position().page, y: here().position().y.pt())) <cvg-end>],
-)
 
 // Round or rounded-square photo crop.
 #let photo-box(photo, size, shape: "circle") = {

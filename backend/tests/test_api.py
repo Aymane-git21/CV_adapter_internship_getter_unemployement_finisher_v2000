@@ -332,8 +332,14 @@ async def test_chat_source_edit_repair_round(client, monkeypatch):
     assert "[edited: shorter]" in r.json()["text_content"]
 
 
-async def test_page_mode_continuous_roundtrip(client):
-    """PUT settings.page_mode=continuous -> single tall page; junk value -> coerced."""
+async def test_layout_is_always_one_continuous_page(client):
+    """A4 pagination was removed: new documents are continuous, a client still
+    sending page_mode "paged" (or junk) is coerced, and the fit loop's leftovers
+    (density, font_scale, overflowed) in documents saved before the change
+    reset on their next render."""
+    from backend.app.db import session_factory
+    from backend.app.models import Document
+
     await _register(client)
     r = await client.post("/api/cvs", json={"name": "Main", "raw_text": SAMPLE_CV_TEXT})
     cv_id = r.json()["id"]
@@ -348,15 +354,29 @@ async def test_page_mode_continuous_roundtrip(client):
     cv_doc = next(d for d in snap["documents"] if d["kind"] == "cv")
 
     doc = (await client.get(f"/api/documents/{cv_doc['id']}")).json()
-    new_settings = {**doc["settings"], "page_mode": "continuous"}
-    r = await client.put(f"/api/documents/{cv_doc['id']}", json={"settings": new_settings})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["settings"]["page_mode"] == "continuous"
-    assert body["svgs"] and len(body["svgs"]) == 1
-    assert 'page_mode: "continuous"' in body["source"]
+    assert doc["settings"]["page_mode"] == "continuous", "new documents are continuous"
+    assert doc["svgs"] and len(doc["svgs"]) == 1
 
-    junk = {**body["settings"], "page_mode": "sideways"}
-    r = await client.put(f"/api/documents/{cv_doc['id']}", json={"settings": junk})
+    for sent in ("paged", "sideways"):
+        r = await client.put(
+            f"/api/documents/{cv_doc['id']}",
+            json={"settings": {**doc["settings"], "page_mode": sent}},
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["settings"]["page_mode"] == "continuous"
+        assert 'page_mode: "continuous"' in body["source"]
+        assert len(body["svgs"]) == 1
+
+    # A document last written by the old A4 fit loop.
+    async with session_factory()() as db:
+        row = await db.get(Document, cv_doc["id"])
+        row.settings = {**row.settings, "page_mode": "paged", "density": "xtight",
+                        "font_scale": 0.9, "overflowed": True}
+        await db.commit()
+    r = await client.put(f"/api/documents/{cv_doc['id']}", json={"data": doc["data"]})
     assert r.status_code == 200, r.text
-    assert r.json()["settings"]["page_mode"] == "paged"
+    settings = r.json()["settings"]
+    assert settings["page_mode"] == "continuous"
+    assert settings["density"] == "normal" and settings["font_scale"] == 1.0
+    assert "overflowed" not in settings

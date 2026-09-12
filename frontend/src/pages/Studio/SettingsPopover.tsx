@@ -1,6 +1,8 @@
 /* Layout + compiler settings popover in the preview toolbar. First consumer
    of ctl.updateSettings; card-list options per the house pattern (no
-   segments). The latex card is plan-gated (plus/pro) and onyx/CV-only. */
+   segments). Page layout has one option since A4 pagination was removed:
+   every document is a single continuous page, shown as the fixed, selected
+   card. The latex card is plan-gated (plus/pro) and onyx/CV-only. */
 import { Lock, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api";
@@ -8,7 +10,6 @@ import { useI18n } from "../../i18n";
 import { useSession } from "../../store";
 import type { DocController } from "./useDocument";
 
-const MODES = ["paged", "continuous"] as const;
 const COMPILERS = ["typst", "latex"] as const;
 
 export function SettingsPopover({ ctl }: { ctl: DocController }) {
@@ -36,11 +37,6 @@ export function SettingsPopover({ ctl }: { ctl: DocController }) {
   const latexPlanOk = !!me?.quota?.latex;
   const latexTemplateOk = settings.template === "onyx";
 
-  const pickMode = (page_mode: string) => {
-    if (sourceLocked || page_mode === (settings.page_mode ?? "paged")) return;
-    void ctl.updateSettings({ ...settings, page_mode });
-  };
-
   const pickCompiler = (next: string) => {
     if (sourceLocked || next === compiler) return;
     if (next === "latex" && (!latexPlanOk || !latexTemplateOk)) return;
@@ -67,14 +63,9 @@ export function SettingsPopover({ ctl }: { ctl: DocController }) {
       {open && (
         <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-lg border border-black/10 bg-[#FFFDFA] p-3 shadow-xl">
           <p className="eyebrow mb-3">{t("studio.pagemode.title")}</p>
-          <div className="space-y-2">
-            {MODES.map((m) => (
-              <button key={m} onClick={() => pickMode(m)} disabled={sourceLocked}
-                      className={card((settings.page_mode ?? "paged") === m, sourceLocked)}>
-                <span className="block text-[13px] font-medium">{t(`studio.pagemode.${m}`)}</span>
-                <span className="block text-[11px] text-text/50">{t(`studio.pagemode.${m}.desc`)}</span>
-              </button>
-            ))}
+          <div className={card(true, false)}>
+            <span className="block text-[13px] font-medium">{t("studio.pagemode.continuous")}</span>
+            <span className="block text-[11px] text-text/50">{t("studio.pagemode.continuous.desc")}</span>
           </div>
 
           {latexOffered && (
@@ -103,11 +94,10 @@ export function SettingsPopover({ ctl }: { ctl: DocController }) {
                   );
                 })}
               </div>
+              {sourceLocked && (
+                <p className="mt-2 text-[11px] text-text/50">{t("studio.settings.sourcelock")}</p>
+              )}
             </>
-          )}
-
-          {sourceLocked && (
-            <p className="mt-2 text-[11px] text-text/50">{t("studio.settings.sourcelock")}</p>
           )}
         </div>
       )}

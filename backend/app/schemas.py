@@ -124,12 +124,11 @@ class DocSettings(BaseModel):
     show_photo: bool = False
     font_scale: float = 1.0
     lang: str = "en"
-    page_mode: str = "paged"  # paged | continuous
+    # Every document is one continuous page. A4 pagination, and the fit loop
+    # that wrote density/font_scale/overflowed back, were removed 2026-09-12;
+    # the field stays so stored settings keep validating.
+    page_mode: str = "continuous"  # continuous
     compiler: str = "typst"  # typst | latex
-    # Fit-loop output, written back like density/font_scale: the CV still runs
-    # past one page at the tightest density and the smallest readable type, so
-    # the content itself has to come down. The studio surfaces this.
-    overflowed: bool = False
 
 
 # ---------------------------------------------------------------------------

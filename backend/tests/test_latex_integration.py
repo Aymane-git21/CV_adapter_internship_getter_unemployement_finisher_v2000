@@ -25,18 +25,17 @@ def latex_env(monkeypatch):
     calls = {"n": 0}
 
     async def fake_compile_tex_measured(doc_id: str, tex_source: str):
-        # One page at a healthy fill: the fit loop settles on the first attempt,
-        # and continuous mode trims once (total in pt).
+        # One page; the continuous page's measuring pass reads the content
+        # height (pt) and trims once.
         calls["n"] += 1
         return (
             CompileResult(ok=True, pages=1, pdf=b"%PDF-fake", svgs=[FAKE_SVG]),
             tex_source,
-            0.95,
             700.0,
         )
 
-    # The single choke point: the compile_tex wrapper, the fit loop, and the
-    # job pipeline all route through client.compile_tex_measured.
+    # The single choke point: the compile_tex wrapper, the two-pass page, and
+    # the job pipeline all route through client.compile_tex_measured.
     monkeypatch.setattr(
         "backend.app.texsvc.client.compile_tex_measured", fake_compile_tex_measured
     )

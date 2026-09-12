@@ -35,7 +35,7 @@ The single most important rule: **Gemini outputs structured JSON (`CVData`, `Cov
 - Interpolation trap (top AI-authoring failure per the docgen bench): after `#variable` an underscore is eaten into the identifier, so `_#company_` dies with "unclosed delimiter" (parses as `#company_`). Terminate with `;` (`_#company;_`) or use `#emph[#company]`.
 - Images: `#image("photo.jpg", width: 3cm)`. Round photo: clip with `#box(clip: true, radius: 50%, image(...))`.
 - Icons: use a bundled icon font (e.g. Font Awesome via `#text(font: "Font Awesome 7 Free", "\u{f095}")`) or inline SVGs — fontawesome5 LaTeX package does not exist here.
-- Page fitting: `#set page(height: auto)` gives the standalone-class cropping behavior of the legacy CV.tex; for strict one-page A4, keep fixed height and expose font-size/spacing knobs the generator can tighten.
+- Page layout: every CV Glowup document is ONE continuous page, `#set page(width: 21cm, height: auto)` (the standalone-class cropping behavior of the legacy CV.tex). The A4 one-page fit loop (density tightening, font upscaling, `<cvg-end>` fill measurement) was removed 2026-09-12; do not reintroduce fixed page heights.
 - Multilingual: `#set text(lang: "fr")` drives hyphenation/quotes; date formatting via `datetime.today().display("[day]/[month]/[year]")`.
 
 ## Porting the legacy templates
@@ -45,4 +45,4 @@ Legacy `CV.tex` (standalone class, `\entry{}{}{}{}`, `\project{}{}`) and `CoverL
 ## Debugging
 
 - Typst errors are precise (line/col + message) — surface them verbatim to the editor UI as diagnostics; never retry-loop the LLM on compile errors (with the JSON contract there should be none from generation).
-- `typst query` can extract document metadata (e.g. page count) — use it to detect overflow beyond one page and trigger the condensing pass.
+- `typst query` can extract document metadata (a labelled `metadata(...)` value, element positions) for deterministic checks without parsing SVG output.

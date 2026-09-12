@@ -39,6 +39,15 @@ def _is_latex(doc: Document) -> bool:
     return (doc.settings or {}).get("compiler") == "latex"
 
 
+def _continuous(settings: dict | None) -> dict:
+    """Layout for a render from data. Every document is one continuous page;
+    density, font_scale and overflowed were written by the removed A4 fit
+    loop, so whatever it left in stored settings resets to the defaults."""
+    out = {**(settings or {}), "page_mode": "continuous", "density": "normal", "font_scale": 1.0}
+    out.pop("overflowed", None)
+    return out
+
+
 async def _photo_bytes(db: AsyncSession, doc: Document) -> bytes | None:
     if not doc.photo_id or not (doc.settings or {}).get("show_photo"):
         return None
@@ -108,9 +117,7 @@ async def update_document(
         doc.data = schema.model_validate(body.data).model_dump()
         doc.mode = "data"
     if body.settings is not None:
-        new_settings = body.settings.model_dump()
-        if new_settings.get("page_mode") not in ("paged", "continuous"):
-            new_settings["page_mode"] = "paged"
+        new_settings = _continuous(body.settings.model_dump())
         if new_settings.get("compiler") not in ("typst", "latex"):
             new_settings["compiler"] = "typst"
         if new_settings["compiler"] == "latex":
@@ -132,26 +139,18 @@ async def update_document(
 
     photo = await _photo_bytes(db, doc)
     if doc.mode == "data":
+        doc.settings = _continuous(doc.settings)
         if _is_latex(doc):
-            result, source = await compile_tex_document(doc.id, doc.data or {}, doc.settings or {})
+            result, source = await compile_tex_document(doc.id, doc.data or {}, doc.settings)
         else:
             result, source = await renderer.compile_document(
-                doc.kind, doc.template_id, doc.data or {}, doc.settings or {}, photo=photo, fmt="svg",
-                fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
+                doc.kind, doc.template_id, doc.data or {}, doc.settings, photo=photo, fmt="svg",
             )
         if not result.ok:
             raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})
         doc.source = source
         if _is_latex(doc):
             await touch_latex_activity(db)
-        # Both engines settle density/font_scale one-page fits now, and report
-        # when even the tightest setting could not get the CV onto one page.
-        doc.settings = {
-            **(doc.settings or {}),
-            "density": result.density_used,
-            "font_scale": result.font_scale_used,
-            "overflowed": result.overflowed,
-        }
     else:
         if _is_latex(doc):
             result, _ = await compile_tex(doc.id, doc.source or "")
@@ -246,14 +245,14 @@ async def chat_edit(
             else:
                 edited = await provider.edit_letter_data(current, body.message, lang)
             doc.data = edited.model_dump()
+            doc.settings = _continuous(doc.settings)
             if _is_latex(doc):
-                result, source = await compile_tex_document(doc.id, doc.data, doc.settings or {})
+                result, source = await compile_tex_document(doc.id, doc.data, doc.settings)
                 if result.ok:
                     await touch_latex_activity(db)
             else:
                 result, source = await renderer.compile_document(
-                    doc.kind, doc.template_id, doc.data, doc.settings or {}, photo=photo, fmt="svg",
-                    fit_one_page=(doc.settings or {}).get("page_mode") != "continuous",
+                    doc.kind, doc.template_id, doc.data, doc.settings, photo=photo, fmt="svg",
                 )
             if not result.ok:
                 raise HTTPException(status_code=422, detail={"diagnostics": result.diagnostics})

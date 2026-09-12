@@ -9,7 +9,7 @@ description: How to run, build, test, and deploy CV Glowup locally (Windows) and
 
 - **Backend**: FastAPI (async) in `backend/app/` — routers, google-genai AI providers (+ deterministic offline fake), Typst render service, Postgres/SQLite job state, SSE progress, quotas, Stripe (env-gated). Tests in `backend/tests/` (pytest, 24 tests incl. golden Typst compiles and a full e2e API flow).
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind v4 in `frontend/`. Studio = the core (split panes, CodeMirror Typst source, chat editing, SVG live preview).
-- **Documents**: Typst templates in `templates/typst/` (onyx/classic/compact + letter), IBM Plex fonts shipped in-repo. The LLM outputs structured JSON; templates render it (see typst-doc-engine skill). Per-document `settings.page_mode` (`paged` | `continuous`) switches A4 pagination vs one auto-height page.
+- **Documents**: Typst templates in `templates/typst/` (onyx/classic/compact + letter), IBM Plex fonts shipped in-repo. The LLM outputs structured JSON; templates render it (see typst-doc-engine skill). Every document is one continuous auto-height page (`height: auto`, LaTeX lane trims in two passes); A4 pagination and its one-page fit loop were removed 2026-09-12, and a stored `settings.page_mode` is ignored.
 - **LaTeX lane (opt-in, plus/pro)**: `settings.compiler = "latex"` renders CVData via `backend/app/texsvc/` (onyx port, XeLaTeX) and compiles on `services/latexc/`, a warm sandboxed container with per-doc compile caches (Overleaf CLSI model). Wire contract: `services/latexc/contract.py`. Feature is dark unless `LATEXC_URL` + `LATEXC_TOKEN` are set.
 
 ## latexc locally (Docker Desktop)

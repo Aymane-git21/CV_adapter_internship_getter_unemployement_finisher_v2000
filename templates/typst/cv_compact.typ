@@ -22,10 +22,11 @@
   let p = density-params(settings)
   let accent = settings.at("accent", default: "#0E8A66")
 
-  let continuous = settings.at("page_mode", default: "paged") == "continuous"
+  // One continuous page, as tall as the content. A4 pagination was removed
+  // 2026-09-12; a page_mode still stored in old settings is ignored.
   set page(
     width: 21cm,
-    height: if continuous { auto } else { 29.7cm },
+    height: auto,
     margin: (x: p.margin-x - 0.1cm, top: p.margin-y - 0.05cm, bottom: p.margin-y - 0.05cm),
   )
   set text(font: "IBM Plex Sans", size: p.base, fill: ink, lang: settings.at("lang", default: "en"))
@@ -191,6 +192,4 @@
       text(size: p.small, fill: muted, interests.join("  ·  "))
     }
   }
-
-  end-anchor()
 }

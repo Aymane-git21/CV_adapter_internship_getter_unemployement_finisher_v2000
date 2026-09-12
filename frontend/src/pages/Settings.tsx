@@ -1,6 +1,7 @@
 /* Settings — master CVs, BYOK key, plan, account. */
-import { Check, FileUp, KeyRound, Loader2, Star, Trash2 } from "lucide-react";
+import { Check, FileUp, KeyRound, Loader2, Pencil, Star, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, ApiError, byokStore, type MasterCVMeta } from "../api";
 import { useI18n } from "../i18n";
 import { useSession } from "../store";
@@ -146,7 +147,7 @@ function ByokCard() {
 }
 
 function MasterCVs() {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const c = copy[lang];
   const [rows, setRows] = useState<MasterCVMeta[]>([]);
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -208,6 +209,14 @@ function MasterCVs() {
               </p>
               <p className="font-mono text-[11px] text-text/50">{cv.data?.full_name ?? "·"}</p>
             </div>
+            <Link
+              to={`/profile?cv=${cv.id}`}
+              className="grid size-7 place-items-center rounded text-text/50 hover:glass-panel hover:text-text"
+              title={t("profile.edit")}
+              aria-label={`${t("profile.edit")}: ${cv.name}`}
+            >
+              <Pencil size={13} />
+            </Link>
             {!cv.is_default && (
               <button
                 onClick={() => void api.setDefaultCv(cv.id).then(reload)}

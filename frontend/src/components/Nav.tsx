@@ -106,6 +106,9 @@ export function Nav() {
           {me?.authenticated && (
             <NavLink to="/dashboard" className={navCls}>{t("nav.dashboard")}</NavLink>
           )}
+          {me?.authenticated && (
+            <NavLink to="/profile" className={navCls}>{t("nav.profile")}</NavLink>
+          )}
           {me?.authenticated && me.pipeline_enabled && (
             <NavLink to="/pipeline" className={navCls}>{t("nav.pipeline")}</NavLink>
           )}

@@ -1,4 +1,7 @@
-"""Master CV management: paste text, upload PDF (parsed by the AI), edit data."""
+"""Master CV management: paste text, upload PDF (parsed by the AI), edit data.
+
+The master CV is what the app knows about the candidate: every tailored CV is
+generated from its data, and the profile page edits that data in place."""
 import uuid
 from typing import Annotated
 
@@ -23,6 +26,36 @@ _MAX_NAME = 120  # MasterCV.name is String(120); Postgres raises on overflow, SQ
 
 def _clamp_name(name: str | None) -> str:
     return (name or "").strip()[:_MAX_NAME] or "My CV"
+
+
+def _has_text(value) -> bool:
+    if isinstance(value, str):
+        return bool(value)
+    if isinstance(value, dict):
+        return any(_has_text(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_has_text(v) for v in value)
+    return False
+
+
+def _clean(value):
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        return {k: _clean(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [c for c in (_clean(v) for v in value) if _has_text(c)]
+    return value
+
+
+def clean_cv(cv: CVData) -> CVData:
+    """Master CV hygiene on every save: trim each string and drop list entries
+    left with no text (blank bullets, details, skill items and interests, and
+    experience/education/project rows added but never filled). The editors keep
+    a trailing empty line while you type; the stored source of truth every
+    tailored CV is built from does not. Records like contacts are never
+    dropped, only trimmed."""
+    return CVData.model_validate(_clean(cv.model_dump()))
 
 
 def _cv_payload(cv: MasterCV) -> dict:
@@ -64,7 +97,7 @@ async def create_cv(
         raise HTTPException(status_code=422, detail="Provide raw_text or structured data.")
     count = len((await db.execute(select(MasterCV.id).where(MasterCV.user_id == user.id))).all())
     cv = MasterCV(
-        user_id=user.id, name=_clamp_name(body.name), data=data.model_dump(),
+        user_id=user.id, name=_clamp_name(body.name), data=clean_cv(data).model_dump(),
         raw_text=body.raw_text, is_default=count == 0,
     )
     db.add(cv)
@@ -98,7 +131,10 @@ async def upload_cv(
     except AIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     count = len((await db.execute(select(MasterCV.id).where(MasterCV.user_id == user.id))).all())
-    cv = MasterCV(user_id=user.id, name=_clamp_name(name), data=data.model_dump(), is_default=count == 0)
+    cv = MasterCV(
+        user_id=user.id, name=_clamp_name(name), data=clean_cv(data).model_dump(),
+        is_default=count == 0,
+    )
     db.add(cv)
     await db.commit()
     await db.refresh(cv)
@@ -115,10 +151,12 @@ async def update_cv(
     cv = await db.get(MasterCV, cv_id)
     if cv is None or cv.user_id != user.id:
         raise HTTPException(status_code=404, detail="CV not found.")
-    if body.name:
-        cv.name = body.name
+    # Only fields the client actually sent change. MasterCVIn defaults name to
+    # "My CV", so testing the value renamed a CV on every data-only save.
+    if "name" in body.model_fields_set:
+        cv.name = _clamp_name(body.name)
     if body.data is not None:
-        cv.data = CVData.model_validate(body.data.model_dump()).model_dump()
+        cv.data = clean_cv(body.data).model_dump()
     if body.raw_text is not None:
         cv.raw_text = body.raw_text
     await db.commit()

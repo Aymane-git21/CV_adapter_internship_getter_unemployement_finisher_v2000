@@ -1,8 +1,9 @@
 /* Read-only viewer for the data stored on a saved master CV. Opens under the
    chip row in NewJobPanel so the user can check what a CV holds before
    tailoring with it. */
-import { X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import type { MasterCVMeta } from "../../api";
 import { useI18n } from "../../i18n";
 
@@ -29,13 +30,21 @@ export function CvInspector({ cv, onClose }: { cv: MasterCVMeta; onClose: () => 
           {t("studio.cv.data.title")}
           <span className="ml-2 normal-case tracking-normal text-text/50">{cv.name}</span>
         </p>
-        <button
-          onClick={onClose}
-          className="rounded p-1 text-text/50 hover:bg-ink-700 hover:text-text"
-          aria-label={t("studio.close")}
-        >
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          <Link
+            to={`/profile?cv=${cv.id}`}
+            className="flex items-center gap-1 rounded px-1.5 py-1 text-[12px] font-medium text-primary/80 hover:bg-ink-700 hover:text-flame-400"
+          >
+            <Pencil size={12} aria-hidden="true" /> {t("profile.edit")}
+          </Link>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-text/50 hover:bg-ink-700 hover:text-text"
+            aria-label={t("studio.close")}
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
       {!d ? (

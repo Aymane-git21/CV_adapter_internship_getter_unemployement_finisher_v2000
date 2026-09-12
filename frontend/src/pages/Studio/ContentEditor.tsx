@@ -9,6 +9,10 @@ const inputCls =
   "w-full rounded-md border border-black/10 glass-panel px-2.5 py-2 text-[13px] placeholder:text-text/50 focus:border-flame-500";
 const areaCls = `${inputCls} resize-y leading-relaxed`;
 
+/* One entry per line. A trailing empty line survives while typing (so Enter
+   starts a new entry); blank lines elsewhere are dropped. */
+const lines = (value: string) => value.split("\n").filter((l) => l.trim() !== "" || value.endsWith("\n"));
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
@@ -53,10 +57,11 @@ function EntryCard({ onRemove, children }: { onRemove: () => void; children: Rea
 
 /* ── CV form ─────────────────────────────────────────────────────────────── */
 
-function CVForm({ ctl }: { ctl: DocController }) {
+/* The structured CV editor, shared by the studio (a tailored document, saved
+   on a debounce) and the profile page (the master CV, saved explicitly). */
+export function CVForm({ data, onChange }: { data: CVData; onChange: (data: CVData) => void }) {
   const { t } = useI18n();
-  const data = ctl.doc?.data as CVData;
-  const set = (patch: Partial<CVData>) => ctl.updateData({ ...data, ...patch });
+  const set = (patch: Partial<CVData>) => onChange({ ...data, ...patch });
 
   const upd = <K extends keyof CVData>(key: K, idx: number, patch: object) => {
     const arr = [...(data[key] as object[])];
@@ -116,7 +121,7 @@ function CVForm({ ctl }: { ctl: DocController }) {
                 rows={3}
                 className={areaCls}
                 value={job.bullets.join("\n")}
-                onChange={(e) => upd("experience", i, { bullets: e.target.value.split("\n").filter((b) => b.trim() !== "" || e.target.value.endsWith("\n")) })}
+                onChange={(e) => upd("experience", i, { bullets: lines(e.target.value) })}
               />
             </Field>
           </EntryCard>
@@ -139,6 +144,14 @@ function CVForm({ ctl }: { ctl: DocController }) {
               <input className={inputCls} placeholder="End" value={ed.end} onChange={(e) => upd("education", i, { end: e.target.value })} />
               <input className={inputCls} placeholder="Location" value={ed.location} onChange={(e) => upd("education", i, { location: e.target.value })} />
             </div>
+            <Field label={t("ed.details")}>
+              <textarea
+                rows={2}
+                className={areaCls}
+                value={ed.details.join("\n")}
+                onChange={(e) => upd("education", i, { details: lines(e.target.value) })}
+              />
+            </Field>
           </EntryCard>
         ))}
       </Section>
@@ -175,6 +188,22 @@ function CVForm({ ctl }: { ctl: DocController }) {
               <input className={inputCls} placeholder="Tech" value={p.tech} onChange={(e) => upd("projects", i, { tech: e.target.value })} />
             </div>
             <input className={inputCls} placeholder="Description" value={p.description} onChange={(e) => upd("projects", i, { description: e.target.value })} />
+          </EntryCard>
+        ))}
+      </Section>
+
+      <Section
+        title={t("ed.certifications")}
+        addLabel={t("ed.addEntry")}
+        onAdd={() => add("certifications", { name: "", issuer: "", year: "" })}
+      >
+        {data.certifications.map((c, i) => (
+          <EntryCard key={i} onRemove={() => rm("certifications", i)}>
+            <div className="grid grid-cols-[2fr_2fr_1fr] gap-2.5 pr-6">
+              <input className={inputCls} placeholder="Name" value={c.name} onChange={(e) => upd("certifications", i, { name: e.target.value })} />
+              <input className={inputCls} placeholder="Issuer" value={c.issuer} onChange={(e) => upd("certifications", i, { issuer: e.target.value })} />
+              <input className={inputCls} placeholder="Year" value={c.year} onChange={(e) => upd("certifications", i, { year: e.target.value })} />
+            </div>
           </EntryCard>
         ))}
       </Section>
@@ -297,7 +326,7 @@ export function ContentEditor({ ctl }: { ctl: DocController }) {
   if (!doc) return null;
   return (
     <div className="h-full overflow-y-auto pb-10">
-      {doc.kind === "cv" && doc.data && <CVForm ctl={ctl} />}
+      {doc.kind === "cv" && doc.data && <CVForm data={doc.data as CVData} onChange={ctl.updateData} />}
       {doc.kind === "letter" && doc.data && <LetterForm ctl={ctl} />}
       {doc.kind === "message" && <MessageForm ctl={ctl} />}
       {doc.kind === "answers" && doc.data && <AnswersView items={(doc.data as { items: AnswerItem[] }).items} />}

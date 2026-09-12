@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Landing from "./pages/Landing";
 import Pipeline from "./pages/Pipeline";
 import Pricing from "./pages/Pricing";
+import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Studio from "./pages/Studio";
 
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Landing />} />
         </Routes>
